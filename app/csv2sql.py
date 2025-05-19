@@ -15,6 +15,17 @@ def import_employees():
     df1 = pd.read_csv('static/files/vchs_sspps_employee.csv')
     df2 = pd.read_csv('static/files/vchs_sspps_job_location.csv')
 
+    # , usecols=['EmployeeID', 'ad_username', 'Name']
+
+    # 'ad_username','building','department','email','employee_id','employee_first_name','employee_last_name',
+    # 'employee_name','employee_status','employee_type','job_code','job_code_description','job_code_start_date',
+    # 'mail_code','position_class','reports_to_ID','reports_to_employee','room'
+
+
+    # 'employee_id',	'job_action_end_effective_date'	'job_code'	'job_expected_end_date'	'job_location'	'position_class'	
+    # 'position_number'	'position'
+
+
     # Step 2: Perform a left join on a common key (e.g., employee_id)
     # merged_df = pd.merge(df1, df2, on='employee_id', how='left')  # or 'left', 'right', 'outer'
 
@@ -22,6 +33,9 @@ def import_employees():
     # # This filters out both empty strings and NaNs
     # merged_df = merged_df[merged_df['ad_username'].notna() & (merged_df['ad_username'].str.strip() != '')]
     # print(merged_df)
+
+    # Rename column in DataFrame
+    merged_df = merged_df.rename(columns={'ad_username': 'username'})
 
     # Import to 'Employee' table
     # merged_df.to_sql('NEW_EMPLOYEES', con=engine, if_exists='append', index=False)
