@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container my-2">
+    <h2>{{ 'Edit' if form.username.data else 'New' }} User</h2>
+    <!-- Feedback message area -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="container mt-3">
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('admin.edit_user', user_id=user.id) if user.id else url_for('admin.edit_user') }}">
+
+        {{ form.hidden_tag() }}
+        <div class="mb-3">
+            {% if form.username.data %}
+                {{ form.username.label(class="form-label") }}
+                {{ form.username(class="form-control", readonly=true) }}
+            {% else %}
+                {{ form.employee_id.label(class="form-label") }}
+                {{ form.employee_id(class="form-select " + ("is-invalid" if form.employee_id.errors else ""), autofocus=True) }}
+                {% for error in form.employee_id.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            {% endif %}
+        </div>
+        <div class="mb-3">
+            {{ form.role_id.label(class="form-label") }}
+            {{ form.role_id(class="form-select", id="role_id",
+            data_role_permissions_url=url_for('admin.get_role_permissions')) }}
+        </div>
+
+        <h4>Permissions</h4>
+        <table class="table table-bordered table-striped">
+            <thead>
+                <tr>
+                    <th>Resource</th>
+                    <th>Manage ( View | Add | Edit | Delete )</th>
+                    {% for action in ['view', 'add', 'edit', 'delete'] %}
+                    <th>{{ action | upper }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody id="permissions-table-body">
+                {% for resource, perms in grouped_permissions.items() %}
+                <tr data-resource="{{ resource }}">
+                    <td>{{ resource }}</td>
+                    <td><input type="checkbox" class="manage-row"></td>
+                    {% for action in ['view', 'add', 'edit', 'delete'] %}
+                    <td>
+                        {% set matched = perms | selectattr("action", "equalto", action) | list %}
+                        {% if matched %}
+                        {% set perm = matched[0] %}
+                        <input type="checkbox" name="permissions" value="{{ perm.id }}"
+                            data-permission-id="{{ perm.id }}"
+                            {% if perm.id in form.permissions.data %}checked{% endif %}
+                            {% if perm.id in role_permission_ids and perm.id not in user_permission_ids %}disabled{% endif %}>
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {{ form.submit(class="btn btn-primary") }}
+    </form>
+</div>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script>
+    function updatePermissionCheckboxes(rolePermissions) {
+        const checkboxes = document.querySelectorAll('input[name="permissions"]');
+        console.log("test")
+        checkboxes.forEach(cb => {
+            cb.checked = false;      // Uncheck first
+            cb.disabled = false;     // Enable all checkboxes initially
+        });
+
+        // Then apply the new role permissions
+        checkboxes.forEach(cb => {
+            const permId = parseInt(cb.dataset.permissionId);
+            if (rolePermissions.includes(permId)) {
+                cb.checked = true;
+                cb.disabled = true;
+            }
+        });
+    }
+
+    document.getElementById('role_id').addEventListener('change', function () {
+        const roleId = this.value;
+        const url = this.dataset.rolePermissionsUrl;
+
+        fetch(`${url}?role_id=${roleId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data && Array.isArray(data.permission_ids)) {
+                    console.log("Loaded permission IDs:", data.permission_ids);  // ? Add this
+                    updatePermissionCheckboxes(data.permission_ids);
+                }
+            })
+            .catch(err => console.error('Failed to load permissions for role:', err));
+    });
+
+    document.querySelectorAll('tr').forEach(row => {
+        const manageCheckbox = row.querySelector('.manage-row');
+        if (manageCheckbox) {
+            const checkboxes = row.querySelectorAll('input[type="checkbox"][name="permissions"]');
+            const hasEnabled = Array.from(checkboxes).some(cb => !cb.disabled);
+            if (!hasEnabled) {
+                manageCheckbox.disabled = true;
+            }
+
+            if (!manageCheckbox.disabled) {
+                manageCheckbox.addEventListener('change', function () {
+                    checkboxes.forEach(cb => {
+                        if (!cb.disabled) {
+                            cb.checked = this.checked;
+                        }
+                    });
+                });
+            }
+        }
+    });
+</script>
+{% endblock %}

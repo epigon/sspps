@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% from 'bootstrap5/form.html' import render_form, render_field %}
+{% from 'bootstrap5/utils.html' import render_messages %}
+
+{% block title%}
+Committee
+{% endblock %}
+
+{% block styles %}
+{{super()}}
+{% endblock %}
+
+{% block content %}
+<div class="container mt-3">
+    <div class="col-md-6">
+        {{ render_messages() }}
+        <h2 class="form-signin-heading">{{ 'Edit' if form.name.data else 'New' }} Committee</h2>
+        
+        <form method="POST">
+            {{ form.hidden_tag() }}
+            {{ render_field(form.name, class="form-control mb-2") }}
+            {{ render_field(form.short_name, class="form-control mb-2") }}
+            {{ render_field(form.description, rows="2", cols="80") }}
+            {{ render_field(form.committee_type_id, class="form-control mb-2") }}   
+            {{ render_field(form.reporting_start, class="form-control mb-2") }}
+            {{ render_field(form.frequency_type_id, class="form-control mb-2") }}                     
+            {{ render_field(form.mission, rows="5", cols="80") }}
+            <button class="btn btn-primary my-2" type="submit">Save</button>
+        </form>        
+    </div>
+</div>
+{% endblock %}

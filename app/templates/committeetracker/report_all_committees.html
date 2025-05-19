@@ -1,0 +1,407 @@
+{% extends "base.html" %}
+{% from 'bootstrap4/utils.html' import render_messages %}
+
+{% block title%}
+Dashboard
+{% endblock %}
+
+{% block head %}
+{{super()}}
+{% block styles %}
+{{super()}}
+
+{% endblock %}
+<!-- Datatables -->
+<link
+    href="https://cdn.datatables.net/v/dt/jszip-3.10.1/dt-2.2.2/af-2.7.0/b-3.2.2/b-colvis-3.2.2/b-html5-3.2.2/b-print-3.2.2/cr-2.0.4/date-1.5.5/fc-5.0.4/fh-4.0.1/kt-2.12.1/r-3.0.4/rg-1.5.1/rr-1.5.0/sc-2.4.3/sb-1.8.2/sp-2.3.3/sl-3.0.0/sr-1.4.1/datatables.min.css"
+    rel="stylesheet" integrity="sha384-Ds1Vklai96R25BXbTa08O+OjpAevmakmGFQNAQECNryYdQ0qbN4CJSMwUSFT+NYe"
+    crossorigin="anonymous">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"
+    integrity="sha384-VFQrHzqBh5qiJIU0uGU5CIW3+OWpdGGJM9LBnGbuIH2mkICcFZ7lPd/AAtI7SNf7"
+    crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"
+    integrity="sha384-/RlQG9uf0M2vcTw3CX7fbqgbj/h8wKxw7C3zu9/GxcBPRKOEcESxaxufwRXqzq6n"
+    crossorigin="anonymous"></script>
+<script
+    src="https://cdn.datatables.net/v/dt/jszip-3.10.1/dt-2.2.2/af-2.7.0/b-3.2.2/b-colvis-3.2.2/b-html5-3.2.2/b-print-3.2.2/cr-2.0.4/date-1.5.5/fc-5.0.4/fh-4.0.1/kt-2.12.1/r-3.0.4/rg-1.5.1/rr-1.5.0/sc-2.4.3/sb-1.8.2/sp-2.3.3/sl-3.0.0/sr-1.4.1/datatables.min.js"
+    integrity="sha384-lGlyEraPH4ouPKo2ethY8Xic4JlIXN/CUbMNpOce3EjRhLuGH732aMGDH7Cv8+VY"
+    crossorigin="anonymous"></script>
+{% endblock %}
+
+{% block content %}
+<!-- Main content -->
+<div class="container-fluid">
+
+    <div class="row">
+        <div class="col pt-4">
+            {{ render_messages() }}
+            <div class="card p-3 collapse" id="filterCard">
+                <form method="POST" id="reportForm" class="form-inline">
+                    {{ form.hidden_tag() }}
+                    <h2>Filters:</h2>
+                    <div class="row">
+                        <div class="col-7">
+                            <div class="mb-3 row">
+                                <label class="form-label col-3">{{ form.academic_year.label }}</label>
+                                <div class="col-auto">
+                                    {{ form.academic_year(class="form-select") }}
+                                </div>
+                            </div>
+                            <div class="mb-3 row">
+                                <label class="form-label col-3">{{ form.committee.label }}</label>
+                                <div class="col-auto">
+                                    {{ form.committee(class="form-select") }}
+                                </div>
+                            </div>
+                            <div class="mb-3 row">
+                                <label class="form-label col-3">{{ form.users.label }}</label>
+                                <div class="col-auto">
+                                    {{ form.users(class="form-select") }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-5">
+                            <div class="mb-3 form-check">
+                                {{ form.show_mission(class="form-check-input") }}
+                                <label class="form-check-label">{{ form.show_mission.label }}</label>
+                            </div>
+                            <div class="mb-3 form-check">
+                                {{ form.show_members(class="form-check-input") }}
+                                <label class="form-check-label">{{ form.show_members.label }}</label>
+                            </div>
+                            <div class="mb-3 form-check">
+                                {{ form.sort_by_role(class="form-check-input") }}
+                                <label class="form-check-label">{{ form.sort_by_role.label }}</label>
+                            </div>
+                            <div class="mb-3 form-check">
+                                {{ form.show_meetings(class="form-check-input") }}
+                                <label class="form-check-label">{{ form.show_meetings.label }}</label>
+                            </div>
+                            <div class="mb-3 form-check">
+                                {{ form.show_documents(class="form-check-input") }}
+                                <label class="form-check-label">{{ form.show_documents.label }}</label>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary float-right">Apply</button>
+                </form>
+            </div>
+            <div id="tablesContainer" class="mt-3">
+                <!-- Dynamically generated tables will go here -->
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+<!-- End Main content -->
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    $(document).ready(function () {
+
+        function formatPDF(committees) {
+            const dept = "SSPPS"
+            let formatHtml = `<!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8"><style>
+                        h1 {font-size:28px; color: #182B49;}
+                        h2 {font-size:20px; color: #00629B;}
+                        h3 {font-size:16px; color: #00629B; padding-bottom: 0; margin-bottom: 0;}
+                        body {
+                            font-family: Roboto, sans-serif, Arial;
+                            font-size: 12px;
+                        }
+                        /* Define header */
+                        #header {
+                            text-align: center;
+                            font-size: 16px;
+                            font-weight: bold;
+                            border-bottom: 2px solid black;
+                            padding-bottom: 5px;
+                            font-family: Roboto, sans-serif, Arial;
+                        }            
+                        .content {
+                            margin-top: 50px; /* Prevent overlap */
+                        }
+                        /* Footer styling */
+                        #footer {
+                            text-align: center;
+                            font-size: 10px;
+                            position: fixed;
+                            bottom: 10px;
+                            width: 100%;
+                        }
+
+                        /* Page number */
+                        #page-number {
+                            text-align: center;
+                            font-size: 10px;
+                        }
+                    </style></head>                 
+                    <body><div id="header" pdf:staticframe="true">UC San Diego<br/>
+                        Skaggs School of Pharmacy and Pharmaceutical Sciences<br/>
+                        Committees and Faculty Members</div>
+                    <div class="content">
+                        <p>
+                        Committee information is updated as needed and distributed annually over the summer.  
+                        It is also available upon request.  Updates should be forwarded to <a href="mailto:pcamacho@health.ucsd.edu">pcamacho@health.ucsd.edu</a>.
+</p><p>
+Each Summer, SSPPS Committee Chairs will be contacted to reconfirm faculty committee membership and will be responsible for creating or updating a committee mission statement and reviewing their committee policies.  Any revisions to faculty committee membership should be made in consultation between the SSPPS Committee Chair and the Division Heads.
+</p>
+                    <h1>${dept} Committees</h1>`;
+            committees[0].forEach(function (committee) {
+                formatHtml += `<h2>${committee.name} ${committee.academic_year}</h2>`;
+                if (showMission == 1 && committee.mission) {
+                    formatHtml += `<h3>Mission Statement</h3>
+                    <p>${committee.mission ? committee.mission : ''}</p>`;
+                }
+                if (showMembers == 1 && committee.members && committee.members.length) {
+                    formatHtml += `<h3>Members:</h3>
+                    <p>${committee.members ? committee.members.join('<br/> ') : ''}</p>`;
+                }
+                if (showMeetings == 1 && committee.meetings && committee.meetings.length) {
+                    formatHtml += `<h3>Meetings:</h3>
+                    <p>${committee.meetings ? committee.meetings.join('<br/> ') : ''}</p>`;
+                }
+                if (showDocuments == 1 && committee.documents && committee.documents.length) {
+                    formatHtml += `<h3>Documents:</h3>
+                    <p>${committee.documents ? committee.documents.join('<br/> ') : ''}</p>`;
+                }
+            });
+            formatHtml += `</div>
+    </body>
+</html>`;
+// <!-- Footer with page numbers -->
+    // <div id="footer" pdf:footer="true">
+    //     <div id="page-number">
+    //         Page {PAGE_NUM} of {PAGE_COUNT}
+    //     </div>
+    // </div>
+            return formatHtml;
+        }
+
+        // Function to generate committee table
+        function createCommitteeTable(committees) {
+            let showMission = $("#show_mission").prop("checked");
+            let showMembers = $("#show_members").prop("checked");
+            let showMeetings = $("#show_meetings").prop("checked");
+            let showDocuments = $("#show_documents").prop("checked");
+            let academicYearFilter = $("#academic_year").val() != "0" ? 'in ' + $("#academic_year option:selected").text() : '';
+            let committeeFilter = $("#committee").val() != "0" ? $("#committee option:selected").text() : 'All Committees';
+            let usersFilter = $("#users").val() != "0" ? 'for ' + $("#users option:selected").text() : '';
+            const dept = "SSPPS"
+            const tableId = 'committee-table'
+            let tableHtml = `<h3>${committeeFilter} ${usersFilter} ${academicYearFilter}</h3>
+                        <table id="${tableId}" class="display table table-bordered academic-year-table">
+                            <thead>
+                                <tr>
+                                    <th>Academic Year</th>
+                                    <th>Committee Name</th>`;
+            if (showMission == 1) {
+                tableHtml += `<th>Mission Statement</th>`;
+            }
+            if (showMembers == 1) {
+                tableHtml += `<th>Members</th>`;
+            }
+            if (showMeetings == 1) {
+                tableHtml += `<th>Meetings</th>`;
+            }
+            if (showDocuments == 1) {
+                tableHtml += `<th>Documents</th>`;
+            }
+            tableHtml += `</tr>
+                        </thead>
+                        <tbody>`;
+            // Add committees data to the table
+            committees[0].forEach(function (committee) {
+                tableHtml += `<tr>
+                                <td class="ay">${committee.academic_year}</td>
+                                <td class="committee">${committee.name}</td>`;
+                if (showMission == 1) {
+                    tableHtml += `<td class="mission">${committee.mission ? committee.mission : ''}</td>`;
+                }
+                if (showMembers == 1) {
+                    tableHtml += `<td class="members">${committee.members ? committee.members.join('<br/> ') : ''}</td>`;
+                }
+                if (showMeetings == 1) {
+                    tableHtml += `<td class="meetings">${committee.meetings ? committee.meetings.join('<br/> ') : ''}</td>`;
+                }
+                if (showDocuments == 1) {
+                    tableHtml += `<td class="documents">${committee.documents ? committee.documents.join('<br/> ') : ''}</td>`;
+                }
+                tableHtml += `</tr>`;
+            });
+
+            tableHtml += `</tbody></table>`;
+
+            // Append the table HTML to the tables container
+            $('#tablesContainer').append(tableHtml);
+            // Initialize DataTable for this specific table
+            let table = $(`#${tableId}`).DataTable(
+                {
+                    pageLength: 10,
+                    caption: `${dept} Committees`,
+                    layout: {
+                        topStart: {
+                            buttons: [
+                                'pageLength',
+                                'colvis',
+                                {
+                                    extend: 'copy',
+                                    exportOptions: {
+                                        columns: ':visible',
+                                        format: {
+                                            body: function (data, column, row) {
+                                                return data ? data.replace(/<br\s*\/?>/ig, "\r\n") : data;  //change <br/> to \r\n line feed
+                                            }
+                                        }
+                                    },
+                                    title: `${dept} Committees`
+                                },
+                                {
+                                    extend: 'csv',
+                                    exportOptions: {
+                                        columns: ':visible',
+                                        format: {
+                                            body: function (data, column, row) {
+                                                return data ? data.replace(/<br\s*\/?>/ig, "\r\n") : data; //change <br/> to \r\n line feed
+                                            }
+                                        }
+                                    },
+                                    title: `${dept} Committees`
+                                },
+                                {
+                                    extend: 'excel',
+                                    exportOptions: {
+                                        columns: ':visible',
+                                        format: {
+                                            body: function (data, column, row) {
+                                                return data ? data.replace(/<br\s*\/?>/ig, "\r\n") : data; //change <br/> to \r\n line feed
+                                            }
+                                        }
+                                    },
+                                    title: `${dept} Committees`
+                                },
+                                {
+                                    extend: 'pdfHtml5',
+                                    exportOptions: {
+                                        columns: ':visible',
+                                        format: {
+                                            body: function (data, column, row) {
+                                                return data ? data.replace(/<br\s*\/?>/ig, "\r\n") : data; //change <br/> to \r\n line feed
+                                            }
+                                        }
+                                    },
+                                    orientation: 'landscape',
+                                    pageSize: 'LEGAL',
+                                    title:
+                                        `${dept} Committees`
+                                },
+                                {
+                                    text: 'Formatted PDF',
+                                    action: function (e, dt, node, config) {
+                                        var htmlContent = formatPDF(committees);
+
+                                        $.post('/committeetracker/generate_pdf', { html_data: htmlContent, filename: "SSPPS-Committees" }, function (response) {
+                                            var blob = new Blob([response], { type: "application/pdf" });
+                                            var link = document.createElement("a");
+                                            link.href = window.URL.createObjectURL(blob);
+                                            link.download = "SSPPS-Committees.pdf";
+                                            link.click();
+                                        });
+                                    }
+                                },
+                                {
+                                    extend: 'print',
+                                    exportOptions: {
+                                        columns: ':visible',
+                                        format: {
+                                            body: function (data, column, row) {
+                                                return data ? data.replace(/<br\s*\/?>/ig, "\r\n") : data; //change <br/> to \r\n line feed
+                                            }
+                                        }
+                                    },
+                                    orientation: 'landscape',
+                                    pageSize: 'LEGAL',
+                                    title:
+                                        `${dept} Committees`
+                                },
+                                {
+                                    text: 'Filter Options',
+                                    action: function (e, dt, node, config) {
+                                        $("#filterCard").collapse('toggle');
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            );
+            $(".dt-button").removeClass("dt-button").addClass("btn btn-outline-primary");
+        }
+
+        let academicYear = $("#academic_year").val();
+        let committee = $("#committee").val();
+        let users = $("#users").val();
+        let showMission = $("#show_mission").prop("checked");
+        let showMembers = $("#show_members").prop("checked");
+        let showMeetings = $("#show_meetings").prop("checked");
+        let showDocuments = $("#show_documents").prop("checked");
+        let sortRole = $("#sort_by_role").prop("checked");
+
+        // Fetch filtered data
+        $.ajax({
+            url: `/committeetracker/get_all_committees?years=${academicYear}&committees=${committee}&users=${users}&sortRole=${sortRole ? 1 : 0}&mission=${showMission ? 1 : 0}&members=${showMembers ? 1 : 0}&meetings=${showMeetings ? 1 : 0}&documents=${showDocuments ? 1 : 0}`,
+            method: 'GET',
+            success: function (data) {
+                // Clear any previous tables
+                $('#tablesContainer').empty();
+                createCommitteeTable(data);
+            }
+        });
+
+        $(document).on("click", "#show_members", function () {
+            if ($("#show_members").is(":checked")) {
+                $("#sort_by_role").removeAttr("disabled");
+            }
+            else {
+                $('#sort_by_role').prop('checked', false);
+                $("#sort_by_role").prop("disabled", "disabled");
+            }
+        });
+
+
+        $("#reportForm").submit(function (event) {
+            event.preventDefault();
+
+            let academicYear = $("#academic_year").val();
+            let committee = $("#committee").val();
+            let users = $("#users").val();
+
+            let showMission = $("#show_mission").prop("checked");
+            let showMembers = $("#show_members").prop("checked");
+            let sortRole = $("#sort_by_role").prop("checked");
+            let showMeetings = $("#show_meetings").prop("checked");
+            let showDocuments = $("#show_documents").prop("checked");
+
+            // Fetch filtered data
+            $.ajax({
+                url: `/committeetracker/get_all_committees?years=${academicYear}&committees=${committee}&users=${users}&sortRole=${sortRole ? 1 : 0}&mission=${showMission ? 1 : 0}&members=${showMembers ? 1 : 0}&meetings=${showMeetings ? 1 : 0}&documents=${showDocuments ? 1 : 0}`,
+                method: 'GET',
+                success: function (data) {
+                    // Clear any previous tables
+                    $('#tablesContainer').empty();
+                    createCommitteeTable(data);
+                    // Create tables for each academic year
+                    // data.forEach(function (yearData) {
+                    //     createTableForYear(yearData);
+                    // });
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

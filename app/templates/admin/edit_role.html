@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container my-2">
+    <h2>{{ 'Edit' if form.name.data else 'New' }} Role</h2>
+    <!-- Feedback message area -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="container mt-3">
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <form method="POST">
+        {{ form.hidden_tag() }}
+        <div class="mb-3">
+            {{ form.name.label(class="form-label") }}
+            {{ form.name(class="form-control " + ("is-invalid" if form.name.errors else ""), autofocus=True) }}
+            {% for error in form.name.errors %}
+              <div class="invalid-feedback">
+                {{ error }}
+              </div>
+            {% endfor %}
+        </div>
+
+        <h4>Permissions</h4>
+        <table class="table table-bordered table-striped">
+            <thead>
+                <tr>
+                    <th>Resource</th>
+                    <th>Manage ( View | Add | Edit | Delete )</th>
+                    {% for action in ['view', 'add', 'edit', 'delete'] %}
+                    <th>{{ action | upper }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for resource, perms in grouped_permissions.items() %}
+                <tr>
+                    <td>{{ resource }}</td>
+                    <td>
+                        <input type="checkbox" class="manage-row">
+                    </td>
+                    {% for action in ['view', 'add', 'edit', 'delete'] %}
+                    <td>
+                        {% set perm = perms | selectattr('action', 'equalto', action) | first %}
+                        {% if perm %}
+                        <input type="checkbox" name="{{ form.permissions.name }}" value="{{ perm.id }}"
+                               {% if perm.id in form.permissions.data %}checked{% endif %}>
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div>{{ form.submit(class="btn btn-primary") }}</div>
+    </form>
+</div>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+    <script>
+        document.querySelectorAll('.manage-row').forEach(rowCheckbox => {
+            rowCheckbox.addEventListener('change', function () {
+                const row = this.closest('tr');
+                const checkboxes = row.querySelectorAll('input[type="checkbox"][name="{{ form.permissions.name }}"]');
+                checkboxes.forEach(cb => cb.checked = this.checked);
+            });
+        });
+    </script>
+{% endblock %}

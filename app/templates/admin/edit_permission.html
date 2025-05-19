@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container my-2">
+    <h2>{{ 'Edit' if form.resource.data else 'New' }} Permission</h2>
+    <!-- Feedback message area -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="container mt-3">
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <form method="POST">
+        {{ form.hidden_tag() }}
+        <div class="mb-3">
+            <!-- {{ form.resource.label }} {{ form.resource(class="form-control") }} -->
+            {{ form.resource(class="form-control " + ("is-invalid" if form.resource.errors else ""), autofocus=True) }}
+            {% for error in form.resource.errors %}
+              <div class="invalid-feedback">
+                {{ error }}
+              </div>
+            {% endfor %}
+
+        </div>
+        <div class="mb-3">
+            <!-- {{ form.action.label }} {{ form.action(class="form-control") }} -->
+            {{ form.action(class="form-control " + ("is-invalid" if form.action.errors else "")) }}
+            {% for error in form.action.errors %}
+              <div class="invalid-feedback">
+                {{ error }}
+              </div>
+            {% endfor %}
+        </div>
+        {{ form.submit(class="btn btn-success") }}
+    </form>
+</div>
+{% endblock %}

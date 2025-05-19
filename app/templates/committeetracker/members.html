@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+{% from 'bootstrap5/form.html' import render_form, render_field %}
+{% from 'bootstrap5/utils.html' import render_messages %}
+
+{% block title%}
+Dashboard
+{% endblock %}
+
+{% block head %}
+{{super()}}
+{% block styles %}
+{{super()}}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/committee-files.css') }}">
+{% endblock %}
+<!-- Datatables -->
+<link
+    href="https://cdn.datatables.net/v/dt/jszip-3.10.1/dt-2.2.2/af-2.7.0/b-3.2.2/b-colvis-3.2.2/b-html5-3.2.2/b-print-3.2.2/cr-2.0.4/date-1.5.5/fc-5.0.4/fh-4.0.1/kt-2.12.1/r-3.0.4/rg-1.5.1/rr-1.5.0/sc-2.4.3/sb-1.8.2/sp-2.3.3/sl-3.0.0/sr-1.4.1/datatables.min.css"
+    rel="stylesheet" integrity="sha384-Ds1Vklai96R25BXbTa08O+OjpAevmakmGFQNAQECNryYdQ0qbN4CJSMwUSFT+NYe"
+    crossorigin="anonymous">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"
+    integrity="sha384-VFQrHzqBh5qiJIU0uGU5CIW3+OWpdGGJM9LBnGbuIH2mkICcFZ7lPd/AAtI7SNf7"
+    crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"
+    integrity="sha384-/RlQG9uf0M2vcTw3CX7fbqgbj/h8wKxw7C3zu9/GxcBPRKOEcESxaxufwRXqzq6n"
+    crossorigin="anonymous"></script>
+<script
+    src="https://cdn.datatables.net/v/dt/jszip-3.10.1/dt-2.2.2/af-2.7.0/b-3.2.2/b-colvis-3.2.2/b-html5-3.2.2/b-print-3.2.2/cr-2.0.4/date-1.5.5/fc-5.0.4/fh-4.0.1/kt-2.12.1/r-3.0.4/rg-1.5.1/rr-1.5.0/sc-2.4.3/sb-1.8.2/sp-2.3.3/sl-3.0.0/sr-1.4.1/datatables.min.js"
+    integrity="sha384-lGlyEraPH4ouPKo2ethY8Xic4JlIXN/CUbMNpOce3EjRhLuGH732aMGDH7Cv8+VY"
+    crossorigin="anonymous"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-3">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category }}">{{ message }}</div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+    {% for com in aycommittee %}
+    <h1>{{ com.committee.name }} ({{ com.committee.short_name }}) {{com.academic_year.year}}</h1>
+    <h2><strong>Mission Statement</strong></h2>
+    <p>{{ com.committee.mission }}</p>
+    <!-- <a href="{{url_for('committee.edit_committee', committee_id= com.committee_id)}}" class="btn btn-primary">Edit Committee</a> -->
+
+    <nav class="mt-3">
+        <div class="nav nav-tabs" id="nav-tab" role="tablist">
+            <button class="nav-link active" id="nav-members-tab" data-bs-toggle="tab" data-bs-target="#nav-members"
+                type="button" role="tab" aria-controls="nav-members" aria-selected="true">Members</button>
+            <button class="nav-link" id="nav-meetings-tab" data-bs-toggle="tab" data-bs-target="#nav-meetings"
+                type="button" role="tab" aria-controls="nav-meetings" aria-selected="false">Meetings</button>
+            <button class="nav-link" id="nav-files-tab" data-bs-toggle="tab" data-bs-target="#nav-files" type="button"
+                role="tab" aria-controls="nav-files" aria-selected="false">Documents</button>
+        </div>
+    </nav>
+    <div class="tab-content pt-3" id="nav-tabContent">
+        <div class="tab-pane fade show active" id="nav-members" role="tabpanel" aria-labelledby="nav-members-tab">
+            <!-- Members -->
+            <h3>Members</h3>
+            <div id="member-status" class="mt-3" role="alert"></div>
+            <label class="text-muted fst-italic">
+                <input type="checkbox" id="toggleActive"> Show "Deleted" Members
+            </label>
+            <table class="table table-striped" id="memberTable" data-order='[[ 4, "asc" ],[ 0, "asc" ]]'>
+                <thead>
+                    <tr>
+                        <th>Members</th>
+                        <th>Role</th>
+                        <th>Start Date</th>
+                        <th>End Date</th>
+                        <th>Voting</th>
+                        <th>Actions</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody id="members-list">
+                    {% for member in com.members %}
+                    <tr data-id="{{ member.id }}">
+                        <td class="employee-id {% if member.deleted %}text-muted fst-italic{% endif %}"
+                            data-employee-id="{{ member.employee_id }}">{{ member.user.employee_name }}</td>
+                        <td class="member-role {% if member.deleted %}text-muted fst-italic{% endif %}"
+                            data-member-role-id="{{ member.member_role_id }}">{{ member.member_role.role }}
+                        </td>
+                        <td class="start-date {% if member.deleted %}text-muted fst-italic{% endif %}">{{
+                            member.start_date.strftime('%Y-%m-%d') if member.start_date else '' }}</td>
+                        <td class="end-date {% if member.deleted %}text-muted fst-italic{% endif %}">{{
+                            member.end_date.strftime('%Y-%m-%d') if member.end_date else '' }}</td>
+                        <td class="voting {% if member.deleted %}text-muted fst-italic{% endif %}">
+                            {% if member.voting %}Yes{% else %}No{% endif %}
+                        </td>
+                        <td class="actions {% if member.deleted %}text-muted fst-italic{% endif %}">
+                            {% if not member.deleted %}
+                            <button class="btn btn-warning btn-sm edit-btn" data-bs-toggle="modal"
+                                data-bs-target="#memberModal" data-id="{{ member.id }}">Edit</button>
+                            <button class="btn btn-danger btn-sm delete-btn" data-bs-toggle="modal"
+                                data-bs-target="#deleteMemberModal" data-id="{{ member.id }}">Delete</button>
+                            {% endif %}
+                        </td>
+                        <td class="notes {% if member.deleted %}text-muted fst-italic{% endif %}">
+                            {% if member.deleted %}
+                            Deleted: {{ member.delete_date.strftime('%Y-%m-%d') }} ({{ member.notes }})
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#memberModal"
+                id="addMemberButton">
+                Add Member
+            </button>
+
+            <!-- Add/Edit Member Modal -->
+            <div class="modal fade" id="memberModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="memberModalTitle">Add Member</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <!-- Feedback message area -->
+                            <div id="addformResponseMessage" class="mt-3" role="alert"></div>
+                            <form id="memberForm">
+                                {{ memberForm.hidden_tag() }}
+                                <input type="hidden" id="member-id" name="member_id">
+
+                                <!-- Hidden field to determine Add/Edit -->
+                                {{ render_field(memberForm.employee_id, class="form-control mb-2") }}
+                                {{ render_field(memberForm.member_role_id, class="form-control mb-2") }}
+                                {{ render_field(memberForm.start_date, class="form-control mb-2") }}
+                                {{ render_field(memberForm.end_date, class="form-control mb-2") }}
+                                <label for="voting">{{ render_field(memberForm.voting) }}</label>
+                                {{ render_field(memberForm.notes, class="form-control mb-2") }}
+
+                                <button type="submit" class="btn btn-primary" id="memberFormSubmitBtn">Add
+                                    Member</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Delete Member Modal -->
+            <div class="modal fade" id="deleteMemberModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Delete Member <span id="deleteMember"></span></h5>
+                        </div>
+                        <div class="modal-body">
+                            <!-- Feedback message area -->
+                            <div id="deleteFormResponseMessage" class="mt-3" role="alert"></div>
+                            <form id="deleteMemberForm">
+                                <input type="hidden" id="delete-member-id">
+                                {{ memberForm.hidden_tag() }}
+                                {{ render_field(memberForm.notes, class="form-control mb-2", required="required") }}
+                                <button type="submit" class="btn btn-danger">Yes, delete!</button>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No,
+                                    cancel</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="nav-meetings" role="tabpanel" aria-labelledby="nav-meetings-tab">
+            <!-- Meetings -->
+            <h3>Meetings</h3>
+            <div id="meeting-status" class="mt-3" role="alert"></div>
+            <table class="table table-striped" id="meetingTable">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Date/Time</th>
+                        <th>Location</th>
+                        <th>Notes</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="meetings-list">
+                    {% for meeting in com.meetings %}
+                    <tr data-id="{{ meeting.id }}">
+                        <td>{{ meeting.title }}</td>
+                        <td>{{ meeting.date.strftime('%Y-%m-%d') }} {{ meeting.start_time.strftime('%H:%M') }} - {{
+                            meeting.end_time.strftime('%H:%M') }}</td>
+                        <td>{{ meeting.location }}</td>
+                        <td>{{ meeting.notes }}</td>
+                        <td>
+                            <button class="btn btn-warning btn-sm edit-meeting-btn" data-id="{{ meeting.id }}"
+                                data-title="{{ meeting.title }}" data-date="{{ meeting.date.strftime('%Y-%m-%d') }}"
+                                data-start-time="{{ meeting.start_time.strftime('%H:%M') }}"
+                                data-end-time="{{ meeting.end_time.strftime('%H:%M') }}"
+                                data-location="{{ meeting.location }}" data-notes="{{ meeting.notes }}">Edit</button>
+                            <button class="btn btn-danger btn-sm delete-meeting-btn"
+                                data-id="{{ meeting.id }}">Delete</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#meetingModal"
+                id="addMeetingButton">
+                Add Meeting
+            </button>
+
+            <!-- Add/Edit Meeting Modal -->
+            <div class="modal fade" id="meetingModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="meetingModalTitle">Add Meeting</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="meetingForm">
+                                {{ meetingForm.hidden_tag() }}
+                                <input type="hidden" id="meeting-id" name="meeting_id">
+
+
+                                <!-- Meeting Title -->
+                                {{ render_field(meetingForm.title, class="form-control mb-2") }}
+
+                                <!-- Meeting Date -->
+                                {{ render_field(meetingForm.date, class="form-control mb-2") }}
+
+                                <!-- Start Time -->
+                                {{ render_field(meetingForm.start_time, class="form-control mb-2") }}
+
+                                <!-- End Time -->
+                                {{ render_field(meetingForm.end_time, class="form-control mb-2") }}
+
+                                <!-- Location -->
+                                {{ render_field(meetingForm.location, class="form-control mb-2") }}
+
+                                <!-- Notes -->
+                                {{ render_field(meetingForm.notes, class="form-control mb-2") }}
+
+                                <!-- Submit Button -->
+                                <button type="submit" class="btn btn-primary" id="meetingFormSubmitBtn">Save
+                                    Meeting</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="nav-files" role="tabpanel" aria-labelledby="nav-files-tab">
+            <!-- Documents -->
+            <h3>Documents</h3>
+            <div id="upload-status" class="mt-3" role="alert"></div>
+            <!-- <p id="upload-status"></p> -->
+            <table id="files-table" class="display">
+                <thead>
+                    <tr>
+                        <th>Filename</th>
+                        <th>Size</th>
+                        <th>Preview</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Filled dynamically -->
+                </tbody>
+            </table>
+
+            <h3>Upload Documents</h3>
+            <form id="upload-form" enctype="multipart/form-data">
+                {{ uploadForm.hidden_tag() }}
+                <div id="drop-area">Drop files here</div>
+
+                <input type="file" id="file-input"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.pages,.numbers,.key,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.bmp,.svg,.webp"
+                    multiple>
+
+                <button type="button" id="browse-btn" class="btn btn-secondary">Browse</button>
+
+                <button type="submit" id="save-btn" class="btn btn-primary" disabled>Save Files</button>
+            </form>
+
+            <div id="file-list"></div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+<!-- End Main content -->
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='scripts/committee-members.js') }}" type="text/javascript"></script>
+<script src="{{ url_for('static', filename='scripts/committee-files.js') }}" type="text/javascript"></script>
+<script src="{{ url_for('static', filename='scripts/committee-meetings.js') }}" type="text/javascript"></script>
+<script>
+
+</script>
+{% endblock %}

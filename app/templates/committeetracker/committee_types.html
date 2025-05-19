@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% from 'bootstrap4/form.html' import render_form, render_field %}
+{% from 'bootstrap4/utils.html' import render_messages %}
+
+{% block title%}
+Committee Types
+{% endblock %}
+
+{% block styles %}
+{{super()}}
+<style>
+    label {
+        display: None;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-3">
+    <h1>Committee Types</h1>
+    <div class="card p-3 bg-light">
+        <h2>Add New</h2>
+        <form id="ctypeForm" class="form-inline" method="POST" action="/committee_type">
+            {{ form.hidden_tag() }}
+            <div class="row g-3 align-items-center">
+                <div class="col-auto">
+                    {{ render_field(form.type, class="form-control ml-2") }}
+                </div>
+                <div class="col-auto">
+                    <button class="btn btn-primary mb-2" type="submit">Save</button>
+                </div>
+            </div>
+        </form>
+    </div>
+    <!-- Feedback message area -->
+    <div id="formResponseMessage" class="mt-3"></div>
+    <div class="table-responsive">
+        <table class="table table-striped" id="ctypeTable">
+            <thead>
+                <tr>
+                    <th>Committee Type</th>
+                    <th>Manage</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ctype in ctypes %}
+                <tr id="ctype-{{ ctype.id }}">
+                    <td class="col-auto">
+                        <span class="ctype-text" id="ctype-type-{{ ctype.id }}">{{ ctype.type }}</span>
+                        {{ render_field(form.type, class="form-control ctype-input", id="ctype-edit-type-" ~ ctype.id,
+                        value=ctype.type, style="display:none;", label=False) }}
+                    </td>
+                    <td class="col-2">
+                        <button class="btn btn-primary edit-ctype" data-ctype-id="{{ ctype.id }}">Edit</button>
+                        <button class="btn btn-success save-ctype" data-ctype-id="{{ ctype.id }}"
+                            style="display:none;">Save</button>
+                        <button class="btn btn-danger delete-ctype ml-2" data-ctype-id="{{ ctype.id }}">Delete</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    $(document).ready(function () {
+
+        // Edit Committee Type: When user clicks 'Edit' button
+        $(document).on('click', '.edit-ctype', function () {
+            // $('.edit-ctype').on('click', function () {
+            var ctypeId = $(this).data('ctype-id');
+            // Show input fields, hide the ctype text
+            $('#ctype-type-' + ctypeId).hide();
+            $('#ctype-edit-type-' + ctypeId).show();
+
+            // Show Save button, hide Edit button
+            $(this).hide();
+            $('#ctype-' + ctypeId + ' .save-ctype').show();
+        });
+
+        // Save edited ctype: When user clicks 'Save' button
+        $(document).on('click', '.save-ctype', function () {
+            var ctypeId = $(this).data('ctype-id');
+            var updatedTypeName = $('#ctype-edit-type-' + ctypeId).val();
+            // Get CSRF token from the form or hidden field
+            var csrfToken = $('input[name="csrf_token"]').val();  // Adjust the selector based on where the CSRF token is located
+
+            // Send updated data to server via AJAX
+            $.ajax({
+                type: 'POST',
+                url: '/committeetracker/committee_type/' + ctypeId,
+                data: {
+                    type: updatedTypeName,
+                    csrf_token: csrfToken // CSRF protection
+                },
+                success: function (response) {
+                    if (response.success) {
+                        $('#formResponseMessage').html('<div class="alert alert-success">Committee Type saved successfully!</div>');
+                        // Update the table row with the new values
+                        $('#ctype-type-' + ctypeId).text(updatedTypeName).show();
+                        $('#ctype-edit-type-' + ctypeId).hide();
+
+                        // Hide Save button and show Edit button again
+                        $('#ctype-' + ctypeId + ' .save-ctype').hide();
+                        $('#ctype-' + ctypeId + ' .edit-ctype').show();
+                    } else {
+                        alert('Error: ' + response.message);
+                    }
+                },
+                error: function () {
+                    alert('Error saving committee type. Please try again.');
+                }
+            });
+        });
+
+        // Submit the form using AJAX
+        $('#ctypeForm').on('submit', function (e) {
+            e.preventDefault();  // Prevent the default form submission
+
+            // Disable the submit button to avoid multiple submissions
+            $('button[type="submit"]').prop('disabled', true);
+
+            // Send the form data via AJAX
+            $.ajax({
+                type: 'POST',
+                url: '/committeetracker/committee_type',
+                data: $(this).serialize(),  // Serialize form data
+                success: function (response) {
+                    // Handle the response from the server
+                    if (response.success) {
+                        $('#formResponseMessage').html('<div class="alert alert-success">Committee Type added successfully!</div>');
+                        addNewType(response.ctype);
+                        //clear fields
+                        $("#ctypeForm")[0].reset();
+                    } else {
+                        $('#formResponseMessage').html('<div class="alert alert-danger">Error: ' + response.message + '</div>');
+                    }
+
+                    // Enable the submit button again
+                    $('button[type="submit"]').prop('disabled', false);
+                },
+                error: function () {
+                    $('#formResponseMessage').html('<div class="alert alert-danger">An error occurred. Please try again.</div>');
+                    $('button[type="submit"]').prop('disabled', false);
+                }
+            });
+        });
+
+        // Add New Committee Type to Table with Highlight
+        function addNewType(ctype) {
+            var newRow = `
+            <tr id="ctype-${ctype.id}" class="highlight">
+                <td>
+                    <span class="ctype-text" id="ctype-type-${ctype.id}">${ctype.type}</span>
+                    <input type="text" id="ctype-edit-type-${ctype.id}" value="${ctype.type}" class="form-control ctype-input" style="display:none;">
+                </td>
+                <td>
+                    <button class="btn btn-primary edit-ctype" data-ctype-id="${ctype.id}">Edit</button>
+                    <button class="btn btn-success save-ctype" data-ctype-id="${ctype.id}" style="display:none;">Save</button>
+                    <button class="btn btn-danger delete-ctype ml-2" data-ctype-id="${ctype.id}">Delete</button>
+                </td>
+            </tr>
+        `;
+
+            $('#ctypeTable tbody').append(newRow);
+
+            // Add temporary highlight effect
+            $('#ctype-' + ctype.id).addClass('table-success');
+            setTimeout(function () {
+                $('#ctype-' + ctype.id).removeClass('table-success');
+            }, 2000);
+        }
+     
+        $(document).on('click', '.delete-ctype', function () {
+            let ctypeId = $(this).data('ctype-id');
+            let confirmed = confirm("Are you sure you want to delete this committee type?");
+
+            if (!confirmed) return;
+
+            $.ajax({
+                type: 'DELETE',
+                url: '/committeetracker/committee_type/' + ctypeId,
+                success: function (response) {
+                    if (response.success) {
+                        $('#formResponseMessage').html('<div class="alert alert-success">Committee Type deleted successfully!</div>');
+                        $('#ctype-' + ctypeId).fadeOut(500, function () { $(this).remove(); }); // Remove row with fade effect
+                    } else {
+                        alert('Error: ' + response.message);
+                    }
+                },
+                error: function () {
+                    alert("Error deleting committee type. Please try again.");
+                }
+            });
+        });
+
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% import "bootstrap/form.html" as wtf %}
+{% from 'bootstrap4/form.html' import render_form, render_field %}
+{% from 'bootstrap4/utils.html' import render_messages %}
+
+{% block title%}
+Committee Members
+{% endblock %}
+
+{% block styles %}
+{{super()}}
+{% endblock %}
+
+{% block content %}
+<div class="container mt-3">
+    <div class="col-md-6">
+        <form class="form-signin" method="POST" action="{{ form.committeeID }}/member">
+            <h2 class="form-signin-heading">Add Member</h2>
+            {{ form.hidden_tag() }}
+            
+            {{ render_field(form.member) }}
+            {{ render_field(form.memberTypeID) }}
+            {{ render_field(form.memberRoleID) }}
+            {{ render_field(form.startDate) }}
+            {{ render_field(form.endDate) }}
+            <button class="btn btn-primary" type="submit">Save</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,12 @@
+// Override Bootstrap variables BEFORE importing Bootstrap
+$primary: #00629B; // Change primary color
+$secondary: #747678; // Change secondary color
+$info: #182B49; // Change info color
+$warning: #FFCD00; // Change warning color
+// $font-size-base: 1.1rem; // Increase base font size
+
+// Import Bootstrap (Make sure Bootstrap is installed)
+// @import "node_modules/bootstrap/scss/bootstrap";
+@import "bootstrap/bootstrap";
+
+

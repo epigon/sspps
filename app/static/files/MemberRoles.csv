@@ -1,0 +1,11 @@
+role,description,voting
+Chairperson,"The Chairperson leads the board, making sure meetings run smoothly and the board stays on track. They work closely with the executive team to shape the organization’s direction and often serve as the face of the nonprofit, representing its mission and goals. Their leadership helps keep everything moving forward efficiently.",True
+Vice Chairperson,The Vice Chair supports the Chairperson and steps in when needed. They play a key role in maintaining board engagement and often lead special projects or committees.,True
+Member,,True
+Secretary,"Responsible for maintaining accurate records, the Secretary ensures that meeting minutes, board documents, and legal filings are properly managed. Their organizational skills help keep the board’s work transparent and efficient.",True
+Treasurer,"The Treasurer oversees the organization’s finances, ensuring transparency and fiscal responsibility. They provide regular financial reports and assist in budgeting, safeguarding the nonprofit’s financial health.",True
+Ex Officio,,False
+Resource,,False
+Secretariat,,True
+Staff,,False
+Other,,False

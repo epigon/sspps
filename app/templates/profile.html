@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container my-2">
+    <h2>Hello, {{user.employee_first_name.value}}</h2>
+
+    {% for key, item in user.items() %}
+    <div class="row py-1">
+        {% if key == "reports_to_id" %}
+        {% if supervisor %}
+        <div class="col-2"><strong>{{ item.label }}:</strong></div>
+        <div class="col">{{ supervisor.employee_name }}</div>
+        {% endif %}
+        {% else %}
+        <div class="col-2"><strong>{{ item.label }}:</strong></div>
+        <div class="col">{{ item.value }}</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    {% block head %}
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <!-- Load jQuery first -->
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+
+    {% block styles %}
+    <!-- Bootstrap CSS -->
+    {{ bootstrap.load_css() }}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+    {% endblock %}
+
+    <title>{% block title %}{{title|default}}{% endblock title %}</title>
+    {% endblock %}
+</head>
+
+<body>
+    {%- block header %}
+    <header class="layout-header">
+        <!-- <a class="sr-only" href="#main-content">Skip to main content</a> -->
+        <div id="uc-emergency"></div>
+        <section class="layout-login">
+            <div class="layout-container"></div>
+        </section>
+
+        <section class="layout-title">
+            <div class="layout-container container">
+                <!-- <a href="{{ url_for('main.home') }}" class="title-header title-header-large">SSPPS</a>
+        <a href="{{ url_for('main.home') }}" class="title-header title-header-short">SSPPS</a> -->
+                <a href="{{ url_for('main.home') }}" class="title-logo">UC San Diego</a>
+            </div>
+        </section>
+    </header>
+    {%- endblock header %}
+
+    {%- block navbar %}
+    <nav class="navbar navbar-expand-lg navbar-dark mb-3" style="background-color: #00629B;">
+        <div class="container">
+            <!-- <a class="navbar-brand" href="#">Navbar</a> -->
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false"
+                aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <!-- 
+                    <li class="nav-item active">
+                        <a class="nav-link" href="#">Panopto Scheduler</a>
+                    </li>
+                    <li class="nav-item active">
+                        <a class="nav-link" href="#">Screening Core</a>
+                    </li>
+                    -->
+                    {% if has_permission('committee+view') %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown"
+                            aria-expanded="false">
+                            Committee Tracker
+                        </a>
+                        <ul class="dropdown-menu">
+                            {% if has_permission('committee+view') %}
+                            <li><a class="dropdown-item" href="{{ url_for('committee.base_committees') }}">Base
+                                    Committees</a></li>
+                            {% endif %}
+                            {% if has_permission('ay_committee+view') %}
+                            <li><a class="dropdown-item" href="{{ url_for('committee.ay_committees') }}">Committees</a>
+                            </li>
+                            {% endif %}
+                            {% if has_permission('academic_year+view') %}
+                            <li><a class="dropdown-item" href="{{ url_for('committee.academic_years') }}">Academic
+                                    Years</a></li>
+                            {% endif %}
+                            {% if has_permission('committee_type+view') %}
+                            <li><a class="dropdown-item" href="{{ url_for('committee.committee_types') }}">Committee
+                                    Types</a></li>
+                            {% endif %}
+                            {% if has_permission('frequency_type+view') %}
+                            <li><a class="dropdown-item" href="{{ url_for('committee.frequency_types') }}">Frequency
+                                    Types</a></li>
+                            {% endif %}
+                            {% if has_permission('member_role+view') %}
+                            <li><a class="dropdown-item" href="{{ url_for('committee.member_roles') }}">Member Roles</a>
+                            </li>
+                            {% endif %}
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
+                            {% if has_permission('committee_report+view') %}
+                            <li><a class="dropdown-item" href="{{ url_for('committee.report_all_committees') }}">View
+                                    All Committees</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('committee.member_report') }}">View by
+                                    Member</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('committee.committee_report') }}">View by
+                                    Committee Assignments</a></li>
+                            {% endif %}
+                        </ul>
+                    </li>
+                    {% endif %}
+                    {% if is_admin() %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown"
+                            aria-expanded="false">
+                            Admin
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{{ url_for('admin.users') }}">Users</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin.roles') }}">Roles</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin.permissions') }}">Permissions</a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
+                    {% if current_user.is_authenticated %}
+                    <li class="nav-item active">
+                        <a class="nav-link" href="{{ url_for('main.profile') }}">Profile</a>
+                    </li>
+                    <li class="nav-item active">
+                        <a class="nav-link" href="{{ url_for('main.logout') }}">Logout</a>
+                    </li>
+                    {% else %}
+                    <li class="nav-item active">
+                        <a class="nav-link" href="{{ url_for('main.secure') }}">Login</a>
+                    </li>
+                    {% endif %}
+
+                    <!-- <li class="nav-item">
+            <a class="nav-link" href="#">Link</a>
+          </li> -->
+
+                    <!-- <li class="nav-item">
+            <a class="nav-link disabled" href="#">Disabled</a>
+          </li> -->
+                </ul>
+                <!-- <form class="d-flex">
+          <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search">
+          <button class="btn btn-warning" type="submit">Search</button>
+        </form> -->
+            </div>
+        </div>
+    </nav>
+    <!-- end navbar -->
+    {%- endblock navbar %}
+    <!-- Your page content -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+
+    {% block footer -%}
+    <footer class="footer mt-4">
+        <div class="container">
+            <div class="row">
+                <div class="col-sm-8">
+                    <p>
+                        <span>UC San Diego 9500 Gilman Dr. La Jolla, CA 92093 (858) 534-2230</span>
+                        <br />
+                        <span>
+                            Copyright © <span class="footer-copyright-year"></span> Regents of the University of
+                            California.
+                            All rights reserved.
+                        </span>
+                    </p>
+                    <ul class="footer-links">
+                        <li><a href="https://www.ucsd.edu/_about/legal/index.html">Terms &amp; Conditions</a></li>
+                        <li><a href="mailto:youremail@xucsd.edu">Feedback</a></li>
+                    </ul>
+                </div>
+                <div class="col-sm-4">
+                    <img src="http://cdn.ucsd.edu/developer/decorator/5.0.2/img/ucsd-footer-logo-white.png" alt=""
+                        class="img-responsive footer-logo" />
+                </div>
+            </div>
+        </div>
+    </footer>
+    {%- endblock footer %}
+
+    {% block scripts %}
+    <!-- Optional JavaScript -->
+    {{ bootstrap.load_js() }}
+    {% endblock %}
+
+    <img src="https://a5.ucsd.edu/tritON/imagebug">
+</body>
+
+</html>
