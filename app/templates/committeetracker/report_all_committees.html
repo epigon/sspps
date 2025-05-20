@@ -33,34 +33,45 @@ Dashboard
 <div class="container-fluid">
 
     <div class="row">
-        <div class="col pt-4">
+        <div class="col">
             {{ render_messages() }}
             <div class="card p-3 collapse" id="filterCard">
                 <form method="POST" id="reportForm" class="form-inline">
                     {{ form.hidden_tag() }}
-                    <h2>Filters:</h2>
-                    <div class="row">
-                        <div class="col-7">
-                            <div class="mb-3 row">
-                                <label class="form-label col-3">{{ form.academic_year.label }}</label>
-                                <div class="col-auto">
-                                    {{ form.academic_year(class="form-select") }}
-                                </div>
-                            </div>
-                            <div class="mb-3 row">
-                                <label class="form-label col-3">{{ form.committee.label }}</label>
-                                <div class="col-auto">
-                                    {{ form.committee(class="form-select") }}
-                                </div>
-                            </div>
-                            <div class="mb-3 row">
-                                <label class="form-label col-3">{{ form.users.label }}</label>
-                                <div class="col-auto">
-                                    {{ form.users(class="form-select") }}
-                                </div>
+                    <div class="row mb-2">
+                        <div class="col">
+                            <h5 class="mb-0">Filters:</h5>
+                        </div>
+                    </div>
+                    <div class="row d-flex align-items-center g-2 flex-wrap">
+                        <div class="col-auto d-flex align-items-center">
+                            <label class="form-label me-2 mb-0 text-end col-form-label-sm"
+                                style="min-width: 100px; white-space: nowrap;">{{ form.academic_year.label }}</label>
+                            <div class="col-auto">
+                                {{ form.academic_year(class="form-select form-select-sm") }}
                             </div>
                         </div>
-                        <div class="col-5">
+                        <div class="col-auto d-flex align-items-center">
+                            <label class="form-label me-2 mb-0 text-end col-form-label-sm"
+                                style="min-width: 100px; white-space: nowrap;">{{ form.committee.label }}</label>
+                            <div class="col-auto">
+                                {{ form.committee(class="form-select form-select-sm") }}
+                            </div>
+                        </div>
+                        <div class="col-auto d-flex align-items-center">
+                            <label class="form-label me-2 mb-0 text-end col-form-label-sm"
+                                style="min-width: 100px; white-space: nowrap;">{{
+                                form.committee_type.label }}</label>
+                            {{ form.committee_type(class="form-select form-select-sm") }}
+                        </div>
+                        <div class="col-auto d-flex align-items-center">
+                            <label class="form-label me-2 mb-0 text-end col-form-label-sm"
+                                style="min-width: 100px; white-space: nowrap;">{{ form.users.label }}</label>
+                            <div class="col-auto">
+                                {{ form.users(class="form-select form-select-sm") }}
+                            </div>
+                        </div>
+                        <!-- <div class="col-5">
                             <div class="mb-3 form-check">
                                 {{ form.show_mission(class="form-check-input") }}
                                 <label class="form-check-label">{{ form.show_mission.label }}</label>
@@ -81,9 +92,11 @@ Dashboard
                                 {{ form.show_documents(class="form-check-input") }}
                                 <label class="form-check-label">{{ form.show_documents.label }}</label>
                             </div>
+                        </div> -->
+                        <div class="col-auto">
+                            <button type="submit" class="btn btn-primary btn-sm">Apply</button>
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-primary float-right">Apply</button>
                 </form>
             </div>
             <div id="tablesContainer" class="mt-3">
@@ -174,12 +187,12 @@ Each Summer, SSPPS Committee Chairs will be contacted to reconfirm faculty commi
             formatHtml += `</div>
     </body>
 </html>`;
-// <!-- Footer with page numbers -->
-    // <div id="footer" pdf:footer="true">
-    //     <div id="page-number">
-    //         Page {PAGE_NUM} of {PAGE_COUNT}
-    //     </div>
-    // </div>
+            // <!-- Footer with page numbers -->
+            // <div id="footer" pdf:footer="true">
+            //     <div id="page-number">
+            //         Page {PAGE_NUM} of {PAGE_COUNT}
+            //     </div>
+            // </div>
             return formatHtml;
         }
 
@@ -200,38 +213,38 @@ Each Summer, SSPPS Committee Chairs will be contacted to reconfirm faculty commi
                                 <tr>
                                     <th>Academic Year</th>
                                     <th>Committee Name</th>`;
-            if (showMission == 1) {
+            // if (showMission == 1) {
                 tableHtml += `<th>Mission Statement</th>`;
-            }
-            if (showMembers == 1) {
+            // }
+            // if (showMembers == 1) {
                 tableHtml += `<th>Members</th>`;
-            }
-            if (showMeetings == 1) {
+            // }
+            // if (showMeetings == 1) {
                 tableHtml += `<th>Meetings</th>`;
-            }
-            if (showDocuments == 1) {
+            // }
+            // if (showDocuments == 1) {
                 tableHtml += `<th>Documents</th>`;
-            }
+            // }
             tableHtml += `</tr>
                         </thead>
                         <tbody>`;
             // Add committees data to the table
-            committees[0].forEach(function (committee) {
+            committees.forEach(function (committee) {
                 tableHtml += `<tr>
                                 <td class="ay">${committee.academic_year}</td>
                                 <td class="committee">${committee.name}</td>`;
-                if (showMission == 1) {
+                // if (showMission == 1) {
                     tableHtml += `<td class="mission">${committee.mission ? committee.mission : ''}</td>`;
-                }
-                if (showMembers == 1) {
+                // }
+                // if (showMembers == 1) {
                     tableHtml += `<td class="members">${committee.members ? committee.members.join('<br/> ') : ''}</td>`;
-                }
-                if (showMeetings == 1) {
+                // }
+                // if (showMeetings == 1) {
                     tableHtml += `<td class="meetings">${committee.meetings ? committee.meetings.join('<br/> ') : ''}</td>`;
-                }
-                if (showDocuments == 1) {
+                // }
+                // if (showDocuments == 1) {
                     tableHtml += `<td class="documents">${committee.documents ? committee.documents.join('<br/> ') : ''}</td>`;
-                }
+                // }
                 tableHtml += `</tr>`;
             });
 
@@ -346,6 +359,8 @@ Each Summer, SSPPS Committee Chairs will be contacted to reconfirm faculty commi
         let academicYear = $("#academic_year").val();
         let committee = $("#committee").val();
         let users = $("#users").val();
+        let committeeTypes = $("#committee_type").val();
+        
         let showMission = $("#show_mission").prop("checked");
         let showMembers = $("#show_members").prop("checked");
         let showMeetings = $("#show_meetings").prop("checked");
@@ -354,7 +369,7 @@ Each Summer, SSPPS Committee Chairs will be contacted to reconfirm faculty commi
 
         // Fetch filtered data
         $.ajax({
-            url: `/committeetracker/get_all_committees?years=${academicYear}&committees=${committee}&users=${users}&sortRole=${sortRole ? 1 : 0}&mission=${showMission ? 1 : 0}&members=${showMembers ? 1 : 0}&meetings=${showMeetings ? 1 : 0}&documents=${showDocuments ? 1 : 0}`,
+            url: `/committeetracker/get_all_committees?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}&sortRole=${sortRole ? 1 : 0}&mission=${showMission ? 1 : 0}&members=${showMembers ? 1 : 0}&meetings=${showMeetings ? 1 : 0}&documents=${showDocuments ? 1 : 0}`,
             method: 'GET',
             success: function (data) {
                 // Clear any previous tables
@@ -363,15 +378,15 @@ Each Summer, SSPPS Committee Chairs will be contacted to reconfirm faculty commi
             }
         });
 
-        $(document).on("click", "#show_members", function () {
-            if ($("#show_members").is(":checked")) {
-                $("#sort_by_role").removeAttr("disabled");
-            }
-            else {
-                $('#sort_by_role').prop('checked', false);
-                $("#sort_by_role").prop("disabled", "disabled");
-            }
-        });
+        // $(document).on("click", "#show_members", function () {
+        //     if ($("#show_members").is(":checked")) {
+        //         $("#sort_by_role").removeAttr("disabled");
+        //     }
+        //     else {
+        //         $('#sort_by_role').prop('checked', false);
+        //         $("#sort_by_role").prop("disabled", "disabled");
+        //     }
+        // });
 
 
         $("#reportForm").submit(function (event) {
@@ -380,6 +395,7 @@ Each Summer, SSPPS Committee Chairs will be contacted to reconfirm faculty commi
             let academicYear = $("#academic_year").val();
             let committee = $("#committee").val();
             let users = $("#users").val();
+            let committeeTypes = $("#committee_type").val();
 
             let showMission = $("#show_mission").prop("checked");
             let showMembers = $("#show_members").prop("checked");
@@ -389,7 +405,7 @@ Each Summer, SSPPS Committee Chairs will be contacted to reconfirm faculty commi
 
             // Fetch filtered data
             $.ajax({
-                url: `/committeetracker/get_all_committees?years=${academicYear}&committees=${committee}&users=${users}&sortRole=${sortRole ? 1 : 0}&mission=${showMission ? 1 : 0}&members=${showMembers ? 1 : 0}&meetings=${showMeetings ? 1 : 0}&documents=${showDocuments ? 1 : 0}`,
+                url: `/committeetracker/get_all_committees?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}&sortRole=${sortRole ? 1 : 0}&mission=${showMission ? 1 : 0}&members=${showMembers ? 1 : 0}&meetings=${showMeetings ? 1 : 0}&documents=${showDocuments ? 1 : 0}`,
                 method: 'GET',
                 success: function (data) {
                     // Clear any previous tables

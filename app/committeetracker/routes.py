@@ -6,8 +6,6 @@ from collections import defaultdict
 from datetime import datetime
 from flask import render_template, redirect, url_for, request, flash, jsonify, Blueprint, send_file, abort, make_response
 from flask_login import login_required
-from io import BytesIO, StringIO
-from playwright.sync_api import sync_playwright
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload, selectinload, with_loader_criteria
 from sqlalchemy.sql import func
@@ -827,16 +825,16 @@ def get_member_roles():
 @permission_required("committee_report+view")
 def get_all_committees():
 
-    show_mission = request.args.get("mission", type=int)
-    show_members = request.args.get("members", type=int)    
-    show_meetings = request.args.get("meetings", type=int)
-    show_documents = request.args.get("documents", type=int)
+    # show_mission = request.args.get("mission", type=int)
+    # show_members = request.args.get("members", type=int)    
+    # show_meetings = request.args.get("meetings", type=int)
+    # show_documents = request.args.get("documents", type=int)
 
-    sort_by_role = request.args.get("sortRole", type=int)
+    # sort_by_role = request.args.get("sortRole", type=int)
 
     query = AYCommittee.query.options(
         selectinload(AYCommittee.academic_year),
-        selectinload(AYCommittee.committee),
+        selectinload(AYCommittee.committee).joinedload(Committee.committee_type),
         selectinload(AYCommittee.members).joinedload(Member.employee),
         selectinload(AYCommittee.members).joinedload(Member.member_role),
         selectinload(AYCommittee.meetings),
@@ -845,11 +843,13 @@ def get_all_committees():
         with_loader_criteria(Meeting, lambda m: m.deleted == False),
         with_loader_criteria(FileUpload, lambda f: f.deleted == False),
         with_loader_criteria(AcademicYear, lambda ay: ay.deleted == False),
+        with_loader_criteria(CommitteeType, lambda ct: ct.deleted == False),
     ).filter(AYCommittee.deleted == False)
 
     # Explicitly join and filter academic_year and committee to ensure it's not None
     query = query.join(AYCommittee.academic_year).filter(AcademicYear.deleted == False)
     query = query.join(AYCommittee.committee).filter(Committee.deleted == False)
+    query = query.join(Committee.committee_type).filter(CommitteeType.deleted == False)
 
     # Apply filters only if the lists are not empty
     filter_user = request.args.get("users", "")
@@ -866,15 +866,46 @@ def get_all_committees():
         committee_ids = [int(c) for c in filter_committees.split(",")]
         query = query.filter(AYCommittee.committee_id.in_(committee_ids))
 
+    filter_types = request.args.get("types")
+    if filter_types and filter_types != "0":
+        type_ids = [int(t) for t in filter_types.split(",")]
+        query = query.join(AYCommittee.committee).filter(Committee.committee_type_id.in_(type_ids))
+
     # Fetch results    
     aycommittees = query.all()
 
-    if sort_by_role: # Sort members by role default_order
-        for committee in aycommittees:
+    # Sort members by role default_order
+    for committee in aycommittees:
             committee.members.sort(key=lambda m: m.member_role.default_order if m.member_role else "")
-    else: # Sort members by name
-        for committee in aycommittees:
-            committee.members.sort(key=lambda m: m.employee.employee_name)
+
+    # if sort_by_role: # Sort members by role default_order
+    #     for committee in aycommittees:
+    #         committee.members.sort(key=lambda m: m.member_role.default_order if m.member_role else "")
+    # else: # Sort members by name
+    #     for committee in aycommittees:
+    #         committee.members.sort(key=lambda m: m.employee.employee_name)
+
+    # Build results
+    committees = []
+    for com in aycommittees:
+        committee_data = {
+            "academic_year": com.academic_year.year,
+            "id": com.id,
+            "name": com.committee.name + (f" ({com.committee.short_name})" if com.committee.short_name else ""),
+            "mission": com.committee.mission,
+            "members": [
+                f"{member.employee.employee_name} ({member.member_role.role}) ({member.employee.job_code_description})"
+                for member in com.members
+            ],
+            "meetings": [
+                f"{meeting.title} ({meeting.date.strftime('%Y-%m-%d')})"
+                for meeting in com.meetings
+            ],
+            "documents": [doc.filename for doc in com.fileuploads],
+        }
+        committees.append(committee_data)
+
+    return jsonify(committees)
 
     results = []
     committees = []
@@ -884,14 +915,18 @@ def get_all_committees():
             "id": com.id,
             "name": com.committee.name + ( " (" + com.committee.short_name + ") " if com.committee.short_name else "" )
         }
-        if show_mission:
-            committee_data["mission"] = com.committee.mission
-        if show_members:
-            committee_data["members"] = [member.employee.employee_name+"("+member.member_role.role+")"+"("+member.employee.job_code_description+")" for member in com.members]
-        if show_meetings:
-            committee_data["meetings"] = [meeting.title+" ("+meeting.date.strftime('%Y-%m-%d')+")" for meeting in com.meetings]
-        if show_documents:
-            committee_data["documents"] = [doc.filename for doc in com.fileuploads]
+        committee_data["mission"] = com.committee.mission
+        committee_data["members"] = [member.employee.employee_name+"("+member.member_role.role+")"+"("+member.employee.job_code_description+")" for member in com.members]
+        committee_data["meetings"] = [meeting.title+" ("+meeting.date.strftime('%Y-%m-%d')+")" for meeting in com.meetings]
+        committee_data["documents"] = [doc.filename for doc in com.fileuploads]
+        # if show_mission:
+        #     committee_data["mission"] = com.committee.mission
+        # if show_members:
+        #     committee_data["members"] = [member.employee.employee_name+"("+member.member_role.role+")"+"("+member.employee.job_code_description+")" for member in com.members]
+        # if show_meetings:
+        #     committee_data["meetings"] = [meeting.title+" ("+meeting.date.strftime('%Y-%m-%d')+")" for meeting in com.meetings]
+        # if show_documents:
+        #     committee_data["documents"] = [doc.filename for doc in com.fileuploads]
             
         committees.append(committee_data)
     results.append(committees)
@@ -902,15 +937,17 @@ def get_all_committees():
 @permission_required("committee_report+view")
 def get_committees_by_member():
 
-    query = Member.query.join(Member.ay_committee) \
-        .join(AYCommittee.academic_year) \
-        .join(AYCommittee.committee) \
-        .filter(
-            Member.deleted == False,
-            AYCommittee.deleted == False,
-            AcademicYear.deleted == False,
-            Committee.deleted == False
-        )
+    query = Member.query.join(Member.ay_committee)\
+                .join(AYCommittee.committee)\
+                .join(AYCommittee.academic_year)\
+                .join(Committee.committee_type)
+    query = query.filter(
+        Member.deleted == False,
+        AYCommittee.deleted == False,
+        Committee.deleted == False,
+        CommitteeType.deleted == False,
+        AcademicYear.deleted == False
+    )
 
     # Filter by employee_id if provided
     filter_user = request.args.get("users", "")
@@ -928,6 +965,12 @@ def get_committees_by_member():
     if filter_committee_ids and filter_committee_ids != "0":
         committee_ids = [int(c) for c in filter_committee_ids.split(",")]
         query = query.filter(AYCommittee.committee_id.in_(committee_ids))
+
+    # Filter by committee_type_ids if provided
+    filter_committee_type = request.args.get("types", "")
+    if filter_committee_type != "0":
+        query = query.filter(Committee.committee_type_id == int(filter_committee_type))
+
     # Fetch results
     members = query.all()
 
@@ -974,17 +1017,24 @@ def get_committees_by_member():
             "committees": list(member["committees"].values())
         })
     
+    # Sort by last_name (case-insensitive)
+    results.sort(key=lambda x: x["last_name"].lower())
+
     return results
 
-@committee_bp.route("/get_committees_by_committee", methods=["GET"])
+@committee_bp.route("/get_committees_by_assignment", methods=["GET"])
 @permission_required("committee_report+view")
-def get_committees_by_committee():
+def get_committees_by_assignment():
 
-    query = Member.query.join(Member.ay_committee).join(AYCommittee.committee).join(AYCommittee.academic_year)
+    query = Member.query.join(Member.ay_committee)\
+                .join(AYCommittee.committee)\
+                .join(AYCommittee.academic_year)\
+                .join(Committee.committee_type)
     query = query.filter(
         Member.deleted == False,
         AYCommittee.deleted == False,
         Committee.deleted == False,
+        CommitteeType.deleted == False,
         AcademicYear.deleted == False
     )
 
@@ -1002,6 +1052,10 @@ def get_committees_by_committee():
     if filter_committees != "0":
         committee_ids = [int(c) for c in filter_committees.split(",")]
         query = query.filter(AYCommittee.committee_id.in_(committee_ids))
+
+    filter_committee_type = request.args.get("types", "")
+    if filter_committee_type != "0":
+        query = query.filter(Committee.committee_type_id == int(filter_committee_type))
 
     # Fetch results
     members = query.all()
@@ -1059,6 +1113,9 @@ def get_committees_by_committee():
             "members": list(committee["members"].values())
         })
     
+    # Sort by name (case-insensitive)
+    results.sort(key=lambda x: x["name"].lower())
+    
     return results
 
 @committee_bp.route('/generate_pdf', methods=['POST'])
@@ -1109,6 +1166,10 @@ def report_all_committees():
     for row in get_committees():
         form.committee.choices.append([row.id, row.name]) 
     
+    form.committee_type.choices = [[0, "All"]]
+    for row in get_committee_types():
+        form.committee_type.choices.append([row.id, row.type]) 
+    
     form.users.choices = [[0, "All"]]
     for row in get_employees():
         form.users.choices.append([row.employee_id, row.employee_last_name+', '+row.employee_first_name])
@@ -1128,27 +1189,19 @@ def member_report():
     for row in get_committees():
         form.committee.choices.append([row.id, row.name]) 
     
+    form.committee_type.choices = [[0, "All"]]
+    for row in get_committee_types():
+        form.committee_type.choices.append([row.id, row.type]) 
+        
     form.users.choices = [[0, "All"]]
     for row in get_employees():
         form.users.choices.append([row.employee_id, row.employee_last_name+', '+row.employee_first_name])
 
-    academic_year_filter = request.args.get("years", type=int)
-    committee_filter = request.args.get("committees", type=int)
-    user_filter = request.args.get("users", type=int)
-
-    # Set default values from filters
-    if academic_year_filter is not None:
-        form.academic_year.data = academic_year_filter
-    if committee_filter is not None:
-        form.committee.data = committee_filter
-    if user_filter is not None:
-        form.users.data = user_filter
-
     return render_template('committeetracker/report_by_member.html', form=form)
 
-@committee_bp.route('/committee_report/')
+@committee_bp.route('/assignment_report/')
 @permission_required("committee_report+view")
-def committee_report():
+def assignment_report():
     form=CommitteeReportForm()
 
     form.academic_year.choices = [[0, "All"]]
@@ -1158,201 +1211,13 @@ def committee_report():
     form.committee.choices = [[0, "All"]]
     for row in get_committees():
         form.committee.choices.append([row.id, row.name]) 
+
+    form.committee_type.choices = [[0, "All"]]
+    for row in get_committee_types():
+        form.committee_type.choices.append([row.id, row.type]) 
     
     form.users.choices = [[0, "All"]]
     for row in get_employees():
         form.users.choices.append([row.employee_id, row.employee_last_name+', '+row.employee_first_name])
 
-    academic_year_filter = request.args.get("years", type=int)
-    committee_filter = request.args.get("committees", type=int)
-    user_filter = request.args.get("users", type=int)
-    
-    # Set default values from filters
-    if academic_year_filter is not None:
-        form.academic_year.data = academic_year_filter
-    if committee_filter is not None:
-        form.committee.data = committee_filter
-    if user_filter is not None:
-        form.users.data = user_filter
-
-    return render_template('committeetracker/report_by_committee.html', form=form)
-
-# @committee_bp.route("/export_tables")
-# # @permission_required("committee_report+view")
-# def export_tables():
-
-
-#     # 1. Get internal path (e.g., page-with-tables)
-#     internal_path = request.args.get("path")
-#     if not internal_path:
-#         abort(400, description="Missing path")
-
-#     # 2. Allow only whitelisted paths (optional)
-#     # Parse path for whitelist check
-#     parsed_url = urlparse(internal_path)
-#     base_path = parsed_url.path
-#     filters = {k: v[0] for k, v in parse_qs(parsed_url.query).items()}  # Flatten values
-
-#     allowed_paths = ["/committeetracker/committee_report", "/committeetracker/member_report"]
-#     if parsed_url.path not in allowed_paths:
-#         abort(403)
-
-#     # 3. Build full URL safely
-#     target_url = urljoin(request.host_url, internal_path.lstrip("/"))
-#     print("target_url",target_url)
-
-#     original_stderr = sys.stderr
-#     sys.stderr = io.StringIO()
-
-#     try:
-#         # 4. Use Playwright to load the page and get HTML
-#         with sync_playwright() as p:
-#             browser = p.chromium.launch(headless=True)
-#             page = browser.new_page()
-#             flask_cookie = request.cookies.get("session")  # or whatever your session cookie is named
-#             if flask_cookie:
-#                 page.context.add_cookies([{
-#                     "name": "session",
-#                     "value": flask_cookie,
-#                     "domain": request.host.split(":")[0],
-#                     "path": "/"
-#                 }])
-        
-#             response = page.goto(target_url, wait_until="networkidle")
-#             if not response or response.status != 200:
-#                 raise Exception(f"Failed to load page: HTTP {response.status if response else 'Unknown'}")
-
-#             html = page.content()
-#             browser.close()
-#     except Exception as e:
-#         error_trace = traceback.format_exc()  # full traceback string
-#         return jsonify({
-#             "error": "Playwright failed",
-#             "details": str(e),
-#             "traceback": error_trace
-#         }), 500
-    
-#     finally:
-#         sys.stderr = original_stderr
-
-#     # 5. Parse tables with BeautifulSoup
-#     try:
-#         soup = BeautifulSoup(html, "html.parser")
-#     except Exception as e:
-#         return make_response(jsonify({
-#             "error": "HTML parsing failed",
-#             "details": str(e),
-#             "html_snippet": html[:500]  # optional: give context
-#         }), 500)
-
-#     tables = soup.find_all("table")
-
-#     if not tables:
-#         return "No tables found", 404
-
-#     # 6. Generate Excel file
-#     BOOTSTRAP_ROW_CLASSES = {
-#         "table-success": "#d4edda",
-#         "table-danger": "#f8d7da",
-#         "table-warning": "#fff3cd",
-#         "table-info": "#d1ecf1",
-#         "table-primary": "#cce5ff",
-#         "table-secondary": "#e2e3e5",
-#         "table-light": "#fefefe",
-#         "table-dark": "#d6d8d9",
-#     }
-
-#     output = BytesIO()
-#     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-#         for i, table in enumerate(tables, 1):
-#             df = pd.read_html(StringIO(str(table)))[0]
-#             df = df.replace([float("inf"), float("-inf")], "").fillna("")
-
-#             # Header fallback logic
-#             header = (
-#                 table.find_previous("h2") or
-#                 table.find("caption") or
-#                 f"Sheet{i}"
-#             )
-#             sheet_name = sanitize_sheet_name(header.get_text(strip=True) if hasattr(header, "get_text") else str(header))
-
-#             # Write to Excel
-#             df.to_excel(writer, sheet_name=sheet_name, index=False, startrow=1, header=False)
-
-#             # Apply formatting using xlsxwriter
-#             workbook = writer.book
-#             worksheet = writer.sheets[sheet_name]
-
-#             # Define formats
-#             header_format = workbook.add_format({
-#                 'bold': True,
-#                 'bg_color': '#DDEBF7',
-#                 'border': 1
-#             })
-
-#             # Write headers manually
-#             for col_num, value in enumerate(df.columns.values):
-#                 worksheet.write(0, col_num, value, header_format)
-
-#             # Apply Bootstrap row styles if present
-#             soup_rows = table.find_all("tr")
-#             for row_num, soup_row in enumerate(soup_rows[1:], start=1):  # skip header
-#                 row_classes = soup_row.get("class", [])
-#                 row_style = None
-
-#                 # Check row class first
-#                 for cls in row_classes:
-#                     if cls in BOOTSTRAP_ROW_CLASSES:
-#                         row_style = workbook.add_format({"bg_color": BOOTSTRAP_ROW_CLASSES[cls]})
-#                         break
-
-#                 soup_cells = soup_row.find_all(["td", "th"])
-#                 for col_idx, cell in enumerate(soup_cells):
-#                     cell_value = df.iloc[row_num - 1, col_idx]
-
-#                     # If row has a style, apply it
-#                     cell_format = row_style
-
-#                     # Otherwise, check cell-specific class
-#                     cell_classes = cell.get("class", [])
-#                     for cls in cell_classes:
-#                         if cls in BOOTSTRAP_ROW_CLASSES:
-#                             cell_format = workbook.add_format({"bg_color": BOOTSTRAP_ROW_CLASSES[cls]})
-#                             break
-
-#                     worksheet.write(row_num, col_idx, cell_value, cell_format)
-                    
-#             # Optional: Autofit column widths
-#             for i, col in enumerate(df.columns):
-#                 column_width = max(df[col].astype(str).map(len).max(), len(str(col))) + 2
-#                 worksheet.set_column(i, i, column_width)
-
-#     output.seek(0)
-
-#         # Use send_file and wrap it in make_response
-#     response = send_file(
-#         output,
-#         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-#         as_attachment=True,
-#         download_name="SSPPS_Committees.xlsx"
-#     )
-
-#     # Add CORS headers
-#     response.headers.add("Access-Control-Allow-Origin", "*")
-#     response.headers.add("Access-Control-Allow-Headers", "Content-Type,Authorization")
-#     response.headers.add("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
-
-#     print(response.headers)
-
-#     return response
-
-#     # # 7. Send file to browser
-#     # return send_file(output,
-#     #                  mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-#     #                  as_attachment=True,
-#     #                  download_name="tables.xlsx")
-
-# def sanitize_sheet_name(name):
-#     # Remove invalid characters
-#     name = re.sub(r'[:\\/?*\[\]]', '', name)
-#     return name[:31].strip("'") or "Sheet1"
+    return render_template('committeetracker/report_by_assignment.html', form=form)
