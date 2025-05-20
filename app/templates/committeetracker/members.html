@@ -31,13 +31,7 @@ Dashboard
 
 {% block content %}
 <div class="container mt-3">
-    {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-    {% for category, message in messages %}
-    <div class="alert alert-{{ category }}">{{ message }}</div>
-    {% endfor %}
-    {% endif %}
-    {% endwith %}
+
     {% for com in aycommittee %}
     <h1>{{ com.committee.name }} ({{ com.committee.short_name }}) {{com.academic_year.year}}</h1>
     <h2><strong>Mission Statement</strong></h2>

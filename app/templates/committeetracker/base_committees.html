@@ -16,17 +16,6 @@ Committees
 
 {% block content %}
 <div class="container mt-3">
-    <!-- Feedback message area -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-    {% for category, message in messages %}
-    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-        {{ message }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-    {% endfor %}
-    {% endif %}
-    {% endwith %}
 
     <div class="table-responsive">
         <h2 class="mt-4">Committees</h2>
