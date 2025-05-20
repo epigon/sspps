@@ -19,7 +19,7 @@ Academic Years
     <h1>Academic Years</h1>
     <div class="card p-3 bg-light">
         <h2>Add New</h2>
-        <form id="ayForm" class="form-inline" method="POST" action="/committeetracker/academic_year">
+        <form id="ayForm" class="form-inline" method="POST"">
             {{ form.hidden_tag() }}
             <div class="row g-3 align-items-center">
                 <div class="col-auto">
@@ -149,11 +149,11 @@ Academic Years
                         $('#ay-' + ayId + ' .save-ay').hide();
                         $('#ay-' + ayId + ' .edit-ay').show();
                     } else {
-                        alert('Error: ' + response.message);
+                        $("#formResponseMessage").html('<div class="alert alert-danger">' + response.message + '</div>');
                     }
                 },
-                error: function () {
-                    alert('Error saving academic year. Please try again.');
+                error: function (response) {
+                    $("#formResponseMessage").html('<div class="alert alert-danger">' + response.responseJSON.message + '</div>');
                 }
             });
         });
@@ -168,7 +168,7 @@ Academic Years
             // Send the form data via AJAX
             $.ajax({
                 type: 'POST',
-                url: '/committeetracker/academic_year',
+                url: '/committeetracker/academic_year/new',
                 data: $(this).serialize(),  // Serialize form data
                 success: function (response) {
                     // Handle the response from the server
@@ -184,8 +184,8 @@ Academic Years
                     // Enable the submit button again
                     $('button[type="submit"]').prop('disabled', false);
                 },
-                error: function () {
-                    $('#formResponseMessage').html('<div class="alert alert-danger">An error occurred. Please try again.</div>');
+                error: function (response) {
+                    $("#formResponseMessage").html('<div class="alert alert-danger">' + response.responseJSON.message + '</div>');
                     $('button[type="submit"]').prop('disabled', false);
                 }
             });
@@ -235,11 +235,11 @@ Academic Years
                         $('#formResponseMessage').html('<div class="alert alert-success">Academic Year deleted successfully!</div>');
                         $('#ay-' + ayId).fadeOut(500, function () { $(this).remove(); }); // Remove row with fade effect
                     } else {
-                        alert('Error: ' + response.message);
+                        $("#formResponseMessage").html('<div class="alert alert-danger">' + response.message + '</div>');
                     }
                 },
-                error: function () {
-                    alert("Error deleting academic year. Please try again.");
+                error: function (response) {
+                    $("#formResponseMessage").html('<div class="alert alert-danger">' + response.responseJSON.message + '</div>');
                 }
             });
         });

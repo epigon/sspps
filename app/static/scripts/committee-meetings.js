@@ -87,9 +87,8 @@ $(document).ready(function () {
         if (confirm("Are you sure you want to delete this meeting?")) {
             $.ajax({
                 type: "POST",
-                url: "/committeetracker/delete_meeting",
+                url: `/committeetracker/delete_meeting/${meetingId}`,
                 contentType: "application/json",
-                data: JSON.stringify({ meeting_id: meetingId }),
                 success: function (response) {
                     meetingsTable
                         .row(deleteRow)

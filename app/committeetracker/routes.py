@@ -36,6 +36,7 @@ UPLOAD_FOLDER = 'app/static/uploads/'
 def before_request():
     pass
 
+# List Committees
 @committee_bp.route('/dashboard')
 @committee_bp.route('/base_committees')
 @permission_required('committee+view, committee+add, committee+edit, committee+delete')
@@ -49,7 +50,6 @@ def base_committees():
 @committee_bp.route('/base_committee/new', methods=['GET', 'POST'])
 @committee_bp.route('/base_committee/<int:committee_id>/edit', methods=['GET', 'POST'])
 @permission_required('committee+add, committee+edit')
-# @committee_bp.route('/base_committee/', methods=['GET','POST'])
 def edit_committee(committee_id:int=None):
     committee = Committee.query.filter_by(id=committee_id, deleted=False).first() if committee_id else Committee()
     form = CommitteeForm(original_name=committee.name if committee.id else None, obj=committee)
@@ -88,25 +88,27 @@ def edit_committee(committee_id:int=None):
 @committee_bp.route('/base_committee/<int:committee_id>/delete')
 @permission_required('committee+delete')
 def delete_base(committee_id):
-    committee = Committee.query.filter_by(id=committee_id, deleted=False).first_or_404()
-    # # Check if any AYCommittee are assigned to this role
-    # assigned_ay = AYCommittee.query.filter_by(committee_id=committee.id, deleted=False).count()
- 
-    # if assigned_ay > 0:
-    #     flash("Cannot delete this committee because it is currently assigned to one or more academic years.", "danger")
-    #     return redirect(url_for('committee.base_committees'))
-
     try:
+        committee = Committee.query.filter_by(id=committee_id, deleted=False).first_or_404()
+        # Check if any AYCommittee are assigned to this base committee
+        assigned_ay = AYCommittee.query.filter_by(committee_id=committee.id, deleted=False).count()
+    
+        if assigned_ay > 0:
+            flash("Cannot delete this committee because it is currently assigned to one or more academic years.", "danger")
+            return redirect(url_for('committee.base_committees'))
+
         committee.deleted = True
         committee.delete_date = datetime.now()
         # db.session.delete(committee)
         db.session.commit()
         flash("Committee deleted.", "success")
-    except IntegrityError:
+        return redirect(url_for('committee.base_committees'))
+    except Exception as e:
         db.session.rollback()
-        flash("Cannot delete this committee because it is currently assigned to one or more years.", "danger")
-    return redirect(url_for('committee.base_committees'))
-
+        # return jsonify({"success": False, "message": str(e)})
+        flash(str(e), "danger")
+        return redirect(url_for('committee.base_committees'))
+    
 @committee_bp.route('/ay_committees/')
 @committee_bp.route('<int:academic_year_id>/ay_committees/')
 @permission_required('ay_committee+view, ay_committee+add, ay_committee+edit, ay_committee+delete')
@@ -165,6 +167,22 @@ def ay_committee():
     
     return render_template('committeetracker/edit_ay_committee.html', form=form)
 
+@committee_bp.route('/delete_ay_committee/<int:ay_committee_id>')
+@permission_required('ay_committee+delete')
+def delete_ay_committee(ay_committee_id):
+    try:
+        ay_committee = AYCommittee.query.filter_by(id=ay_committee_id, deleted=False).first_or_404()        
+        ay_committee.deleted = True
+        ay_committee.delete_date = datetime.now()
+        db.session.commit()
+        flash("Committee deleted.", "success")
+        return redirect(url_for('committee.ay_committees'))
+    except Exception as e:
+        db.session.rollback()
+        # return jsonify({"success": False, "message": str(e)})
+        flash(str(e), "danger")
+        return redirect(url_for('committee.ay_committees'))
+    
 # List Academic Year
 @committee_bp.route('/academic_years', methods=['GET'])
 @permission_required('academic_year+view, academic_year+add, academic_year+edit, academic_year+delete')
@@ -174,63 +192,47 @@ def academic_years():
     ayears_data = [{"id": ay.id, "year": ay.year, "is_current": ay.is_current} for ay in ayears]
     return render_template('committeetracker/academic_years.html', form=form, ayears = ayears_data)
 
-# Add Academic Year
-@committee_bp.route('/academic_year', methods=['POST'])
-@permission_required('academic_year+add, academic_year+edit')
-def add_academic_year():
-    form = AcademicYearForm()
-
-    if form.validate_on_submit():
-        new_ay = AcademicYear(
-            year=form.year.data,
-            is_current=False  # or form.is_current.data if you have the field
-        )
-        db.session.add(new_ay)
-        db.session.commit()
-
-        return jsonify(success=True, academic_year={
-            "id": new_ay.id,
-            "year": new_ay.year,
-            "is_current": new_ay.is_current
-        })
-    else:
-        return jsonify(success=False, message="Form validation failed")
-
 # Edit Academic Year
+@committee_bp.route("/academic_year/new/", methods=["POST", "GET"])
 @committee_bp.route("/academic_year/<int:academic_year_id>/", methods=["POST", "GET"])
 @permission_required('academic_year+add, academic_year+edit')
-def edit_academic_year(academic_year_id:int):
+def edit_academic_year(academic_year_id:int=None):
     ayears = get_academic_years()
-    # academic_year = db.session.query(AcademicYear).get(academic_year_id)
-    academic_year = AcademicYear.query.filter_by(id=academic_year_id, deleted=False).first()
+    academic_year = AcademicYear.query.filter_by(id=academic_year_id, deleted=False).first() if academic_year_id else AcademicYear()
     form = AcademicYearForm()
     if request.method == "POST":
         academic_year.year = request.form['year']
         try:
+            db.session.add(academic_year)
             db.session.commit()
-            return jsonify({"success":True})
+            return jsonify(success=True, academic_year={
+                "id": academic_year.id,
+                "year": academic_year.year,
+                "is_current": academic_year.is_current 
+            })
         except IntegrityError as err:
             db.session.rollback()
             err_msg = err.args[0]
-            if "UNIQUE constraint failed" in err_msg:
-                return jsonify(message="Academic Year already exists (%s)" % form.year.data)
+            if "UNIQUE KEY constraint" in err_msg:
+                return jsonify(success=False, message="Academic Year already exists (%s)" % form.year.data)
             else:
-                return jsonify(message="unknown error adding academic year.")
-    return render_template('committeetracker/academic_years.html', form=form, academic_year=academic_year, ayears = ayears)
+                return jsonify(success=False, message="unknown error adding academic year.")
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({"success": False, "message": str(e)})
+    return render_template('committeetracker/academic_years.html', form=form, ayears = ayears)
 
 # Delete Academic Year
 @committee_bp.route('/academic_year/<int:academic_year_id>', methods=['DELETE'])
 @permission_required('academic_year+delete')
 def delete_academic_year(academic_year_id):
     try:
-        # academic_year = db.session.query(AcademicYear).get(academic_year_id)
         academic_year = AcademicYear.query.filter_by(id=academic_year_id, deleted=False).first()
         # Check if any committees are assigned to this ay
         assigned_committees = AYCommittee.query.filter_by(academic_year_id=academic_year.id, deleted=False).count()
         
         if assigned_committees > 0:
-            flash("Cannot delete this academic year because it is currently assigned to one or more committees.", "danger")
-            return redirect(url_for('admin.roles'))
+            return jsonify({"success": False, "message": "Cannot delete this academic year because it is currently assigned to one or more committees."})
         
         if not academic_year:
             return jsonify({"success": False, "message": "Academic Year not found"})
@@ -264,69 +266,59 @@ def set_current_academic_year(ay_id):
         db.session.rollback()
         return jsonify(success=False, message=str(e))
     
-# Add/List Frequency Type
-@committee_bp.route('/frequency_types', methods=['GET','POST'])
-@permission_required("frequency_type+add")
+# List Frequency Type
+@committee_bp.route('/frequency_types')
+@permission_required("frequency_type+view,frequency_type+add,frequency_type+edit,frequency_type+delete")
 def frequency_types():
     form = FrequencyTypeForm()
-    
-    if form.validate_on_submit():
-        new_ftype = FrequencyType(type=form.type.data)
+    ftypes = get_frequency_types()
+    return render_template('committeetracker/frequency_types.html', form=form, ftypes = ftypes)
+
+# Add/Edit Frequency Type
+@committee_bp.route("/frequency_type/new/", methods=["POST", "GET"])
+@committee_bp.route("/frequency_type/<int:frequency_type_id>/", methods=["POST", "GET"])
+@permission_required("frequency_type+add, frequency_type+edit")
+def edit_frequency_type(frequency_type_id:int=None):
+    ftypes = get_frequency_types()
+    ftype = FrequencyType.query.filter_by(id=frequency_type_id, deleted=False).first() if frequency_type_id else FrequencyType()
+    form = FrequencyTypeForm()
+    if request.method == "POST":
+        ftype.type = request.form['type']
         try:
-            db.session.add(new_ftype)
-            db.session.commit()   
+            db.session.add(ftype)
+            db.session.commit()
             return jsonify({
                 'success': True,
                 'ftype': {
-                    'id': new_ftype.id,
-                    'type': new_ftype.type
+                    'id': ftype.id,
+                    'type': ftype.type
                 }
             })
         except IntegrityError as err:
             db.session.rollback()
             err_msg = err.args[0]
-            if "UNIQUE constraint failed" in err_msg:
+            if "UNIQUE KEY constraint" in err_msg:
                 return jsonify({"success": False, "message":"Frequency Type already exists (%s)" % form.type.data})
             else:
                 return jsonify({"success": False, "message":"unknown error adding frequency type."})
-    ftypes = get_frequency_types()
-    return render_template('committeetracker/frequency_types.html', form=form, ftypes = ftypes)
-
-# Edit Frequency Type
-@committee_bp.route("/frequency_type/<int:frequency_type_id>/", methods=["POST", "GET"])
-@permission_required("frequency_type+edit")
-def edit_frequency_type(frequency_type_id:int):
-    ftypes = get_frequency_types()
-    # ftype = db.session.query(FrequencyType).get(frequency_type_id)
-    ftype = FrequencyType.query.filter_by(id=frequency_type_id, deleted=False).first()
-    form = FrequencyTypeForm()
-    if request.method == "POST":
-        ftype.type = request.form['type']
-        try:
-            db.session.commit()
-            return jsonify({"success":True})
-        except IntegrityError as err:
+        except Exception as e:
             db.session.rollback()
-            err_msg = err.args[0]
-            if "UNIQUE constraint failed" in err_msg:
-                return jsonify(message="Frequency Type already exists (%s)" % form.type.data)
-            else:
-                return jsonify(message="unknown error adding frequency type.")
-    return render_template('committeetracker/frequency_types.html', form=form, ftype=ftype, ftypes = ftypes)
+            print(str(e))
+            return jsonify({"success": False, "message": str(e)})
+    
+    return render_template('committeetracker/frequency_types.html', form=form, ftypes = ftypes)
 
 # Delete Frequency Type
 @committee_bp.route('/frequency_type/<int:frequency_type_id>', methods=['DELETE'])
 @permission_required("frequency_type+delete")
 def delete_frequency_type(frequency_type_id):
     try:
-        # ftype = db.session.query(FrequencyType).get(frequency_type_id)
         ftype = FrequencyType.query.filter_by(id=frequency_type_id, deleted=False).first()
-            # Check if any Committee are assigned to this frequency_type
+        # Check if any frequency_type is assigned to committees 
         assigned_com = Committee.query.filter_by(frequency_type_id=ftype.id, deleted=False).count()
     
         if assigned_com > 0:
-            flash("Cannot delete this committee because it is currently assigned to one or more academic years.", "danger")
-            return redirect(url_for('committee.base_committees'))
+            return jsonify({"success": False, "message": "Cannot delete this frequency type because it is currently assigned to one or more committees."})
         
         if not ftype:
             return jsonify({"success": False, "message": "Frequency Type not found"})
@@ -334,71 +326,66 @@ def delete_frequency_type(frequency_type_id):
         ftype.delete_date = datetime.now()
         # db.session.delete(ftype)
         db.session.commit()
-
         return jsonify({"success": True, "deleted_frequency_type_id": frequency_type_id})
     except Exception as e:
         db.session.rollback()
         return jsonify({"success": False, "message": str(e)})
 
 # Add/List Committee Type
-@committee_bp.route('/committee_types', methods=['GET','POST'])
-@permission_required("committee_type+add")
+@committee_bp.route('/committee_types')
+@permission_required("committee_type+view,committee_type+add,committee_type+edit,committee_type+delete")
 def committee_types():
     form = CommitteeTypeForm()
-    
-    if form.validate_on_submit():
-        new_ctype = CommitteeType(type=form.type.data)
+    ctypes = get_committee_types()
+    return render_template('committeetracker/committee_types.html', form=form, ctypes = ctypes)
+
+# Add/Edit Committee Type
+@committee_bp.route("/committee_type/new/", methods=["POST", "GET"])    
+@committee_bp.route("/committee_type/<int:committee_type_id>/", methods=["POST", "GET"])
+@permission_required("committee_type+add,committee_type+edit")
+def edit_committee_type(committee_type_id:int=None):
+    ctypes = get_committee_types()
+    ctype = CommitteeType.query.filter_by(id=committee_type_id, deleted=False).first() if committee_type_id else CommitteeType()
+    form = CommitteeTypeForm()
+    if request.method == "POST":
+        ctype.type = request.form['type']
         try:
-            db.session.add(new_ctype)
-            db.session.commit()   
+            db.session.add(ctype)
+            db.session.commit()
             return jsonify({
                 'success': True,
                 'ctype': {
-                    'id': new_ctype.id,
-                    'type': new_ctype.type
+                    'id': ctype.id,
+                    'type': ctype.type
                 }
             })
         except IntegrityError as err:
             db.session.rollback()
             err_msg = err.args[0]
-            if "UNIQUE constraint failed" in err_msg:
-                return jsonify({"success": False, "message":"Committee Type already exists (%s)" % form.type.data})
+            if "UNIQUE KEY constraint" in err_msg:
+                return jsonify(success=False,message="Committee Type already exists (%s)" % form.type.data)
             else:
-                return jsonify({"success": False, "message":"unknown error adding committee type."})
-    ctypes = get_committee_types()
-    return render_template('committeetracker/committee_types.html', form=form, ctypes = ctypes)
-
-# Edit Committee Type
-@committee_bp.route("/committee_type/<int:committee_type_id>/", methods=["POST", "GET"])
-@permission_required("committee_type+edit")
-def edit_committee_type(committee_type_id:int):
-    ctypes = get_committee_types()
-    # ctype = db.session.query(CommitteeType).get(committee_type_id)
-    ctype = CommitteeType.query.filter_by(id=committee_type_id, deleted=False).first()
-    form = CommitteeTypeForm()
-    if request.method == "POST":
-        ctype.type = request.form['type']
-        try:
-            db.session.commit()
-            return jsonify({"success":True})
-        except IntegrityError as err:
+                print(err_msg)
+                return jsonify(success=False,message="unknown error adding committee type.")
+        except Exception as e:
             db.session.rollback()
-            err_msg = err.args[0]
-            if "UNIQUE constraint failed" in err_msg:
-                return jsonify(message="Committee Type already exists (%s)" % form.type.data)
-            else:
-                return jsonify(message="unknown error adding committee type.")
-    return render_template('committeetracker/committee_types.html', form=form, ctype=ctype, ctypes = ctypes)
+            return jsonify({"success": False, "message": str(e)})
+    return render_template('committeetracker/committee_types.html', form=form, ctypes = ctypes)
 
 # Delete Committee Type
 @committee_bp.route('/committee_type/<int:committee_type_id>', methods=['DELETE'])
 @permission_required("committee_type+delete")
 def delete_committee_type(committee_type_id):
     try:
-        # ctype = db.session.query(CommitteeType).get(committee_type_id)
         ctype = CommitteeType.query.filter_by(id=committee_type_id, deleted=False).first()
         if not ctype:
             return jsonify({"success": False, "message": "Committee Type not found"})
+        
+        # Check if any committee_type is assigned to committees 
+        assigned_com = Committee.query.filter_by(committee_type_id=ctype.id, deleted=False).count()
+    
+        if assigned_com > 0:
+            return jsonify({"success": False, "message": "Cannot delete this committee type because it is currently assigned to one or more committees."})
         
         ctype.deleted = True
         ctype.delete_date = datetime.now()
@@ -410,70 +397,66 @@ def delete_committee_type(committee_type_id):
         db.session.rollback()
         return jsonify({"success": False, "message": str(e)})
 
-# Add/List Member Role
-@committee_bp.route('/member_roles', methods=['GET','POST'])
-@permission_required("member_role+add")
+# List Member Role
+@committee_bp.route('/member_roles')
+@permission_required("member_role+view,member_role+add,member_role+edit,member_role+delete")
 def member_roles():
     form = MemberRoleForm()
-    
-    if form.validate_on_submit():
-        # functions=form.functions.data, 
-        new_role = MemberRole(role=form.role.data, description=form.description.data)
-        try:
-            db.session.add(new_role)
-            db.session.commit()  
-            return jsonify({
-                'success': True,
-                'role': {
-                    'id': new_role.id,
-                    'role': new_role.role,
-                    'description': new_role.description
-                }
-            })
-        except IntegrityError as err:
-            db.session.rollback()
-            err_msg = err.args[0]
-            if "UNIQUE constraint failed" in err_msg:
-                return jsonify({"success": False, "message":"Member Role already exists (%s)" % form.role.data})
-            else:
-                return jsonify({"success": False, "message":"unknown error adding member role."})
-    # roles = db.session.query(MemberRole).all()
     roles = MemberRole.query.filter_by(deleted=False).all()
     return render_template('committeetracker/member_roles.html', form=form, roles = roles)
 
 # Edit Member Role
+@committee_bp.route("/member_role/new/", methods=["POST", "GET"])
 @committee_bp.route("/member_role/<int:role_id>/", methods=["POST", "GET"])
-@permission_required("member_role+edit")
-def edit_role(role_id:int):
+@permission_required("member_role+add, member_role+edit")
+def edit_role(role_id:int=None):
     mroles = get_member_roles()
-    # mrole = db.session.query(MemberRole).get(role_id)
-    mrole = MemberRole.query.filter_by(id=role_id, deleted=False).first()
+    mrole = MemberRole.query.filter_by(id=role_id, deleted=False).first() if role_id else MemberRole()
     form = MemberRoleForm()
     if request.method == "POST":
         mrole.role = request.form['role']
         mrole.description = request.form['description']
         try:
+            db.session.add(mrole)
             db.session.commit()
-            return jsonify({"success":True})
+            return jsonify({
+                'success': True,
+                'role': {
+                    'id': mrole.id,
+                    'role': mrole.role,
+                    'description': mrole.description
+                }
+            })
         except IntegrityError as err:
             db.session.rollback()
             err_msg = err.args[0]
-            if "UNIQUE constraint failed" in err_msg:
-                return jsonify(message="Member Role already exists (%s)" % form.role.data)
+            if "UNIQUE KEY constraint" in err_msg:
+                return jsonify({"success": False, "message": "Member Role already exists (%s)" % form.role.data})
             else:
-                return jsonify(message="unknown error adding member role.")
-
-    return render_template('committeetracker/member_roles.html', form=form, role=mrole, roles = mroles)
+                return jsonify({"success": False, "message": err_msg})
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({"success": False, "message": str(e)})
+    return render_template('committeetracker/member_roles.html', form=form, roles = mroles)
 
 # Delete Member Role
 @committee_bp.route('/member_role/<int:role_id>', methods=['DELETE'])
 @permission_required("member_role+delete")
 def delete_role(role_id):
     try:
-        # role = db.session.query(MemberRole).get(role_id)
         role = MemberRole.query.filter_by(id=role_id, deleted=False).first()
         if not role:
             return jsonify({"success": False, "message": "Role not found"})
+        
+        # Check if any members is assigned to member role 
+        assigned_members = Member.query.filter_by(member_role_id=role.id, deleted=False).count()
+    
+        if assigned_members > 0:
+            # flash("Cannot delete this member role because it is currently assigned to one or more members.", "danger")
+            # return redirect(url_for('committee.member_roles'))
+            return jsonify({"success": False, "message": "Cannot delete this member role because it is currently assigned to one or more members."})
+            return render_template('committeetracker/member_roles.html', form=form, roles = mroles)
+        
         role.deleted = True
         role.delete_date = datetime.now()
         # db.session.delete(role)
@@ -651,27 +634,31 @@ def edit_member(member_id:int):
 @committee_bp.route('/delete_member/<int:member_id>', methods=['POST'])
 @permission_required("member+delete")
 def delete_member(member_id:int):
-    # member = db.session.query(Member).get(member_id)
-    member = Member.query.filter_by(id=member_id, deleted=False).first()
-    # user = db.session.query(Employee).filter_by(employee_id=member.employee_id).first()
-    user = Employee.query.filter_by(employee_id=member.employee_id).first()
-    form = MemberForm()
-    if member:
-        # db.session.delete(member)
-        member.notes = form.notes.data
-        member.deleted = True
-        member.delete_date = datetime.now()
         
-        db.session.commit()
-        return jsonify({'success': True, 
-                        'message':'Member '+user.employee_name+' deleted successfully!',
-                        'member': {
-                            "notes": member.notes,
-                            "deleted": member.deleted,
-                            "delete_date": member.delete_date.strftime('%Y-%m-%d')
-                        }
-                    })
-    return jsonify({'success': False, 'message':'Member not found'}), 404
+    try:
+        member = Member.query.filter_by(id=member_id, deleted=False).first()
+        user = Employee.query.filter_by(employee_id=member.employee_id).first()
+        form = MemberForm()
+        if member:
+            # db.session.delete(member)
+            member.notes = form.notes.data
+            member.deleted = True
+            member.delete_date = datetime.now()
+            
+            db.session.commit()
+            return jsonify({'success': True, 
+                            'message':'Member '+user.employee_name+' deleted successfully!',
+                            'member': {
+                                "notes": member.notes,
+                                "deleted": member.deleted,
+                                "delete_date": member.delete_date.strftime('%Y-%m-%d')
+                            }
+                        })
+        return jsonify({'success': False, 'message':'Member not found'}), 404
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)})
 
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
@@ -782,23 +769,24 @@ def save_meeting():
         print("error")
         return jsonify({"error": "Invalid data"}), 400
 
-@committee_bp.route("/delete_meeting", methods=["POST"])
+@committee_bp.route("/delete_meeting/<int:meeting_id>", methods=["POST"])
 @permission_required("meeting+delete")
-def delete_meeting():
-    data = request.json
-    meeting_id = data.get("meeting_id")
-    # meeting = db.session.query(Meeting).get(meeting_id)
-    meeting = Meeting.query.filter_by(id=meeting_id, deleted=False).first()
+def delete_meeting(meeting_id:int):
+    try:
+        meeting = Meeting.query.filter_by(id=meeting_id, deleted=False).first()
 
-    if not meeting:
-        return jsonify({"error": "Meeting not found"}), 404
+        if not meeting:
+            return jsonify({"error": "Meeting not found"}), 404
 
-    meeting.delete_date = datetime.now()
-    meeting.deleted = True
-    # db.session.delete(meeting)
-    db.session.commit()
+        meeting.delete_date = datetime.now()
+        meeting.deleted = True
+        # db.session.delete(meeting)
+        db.session.commit()
 
-    return jsonify({"success": True})
+        return jsonify({"success": True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)})
 
 @permission_required("academic_year+view, academic_year+add, academic_year+edit, academic_year+delete")
 def get_academic_years():

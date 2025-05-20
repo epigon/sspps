@@ -1,5 +1,5 @@
 from flask_login import current_user
-from flask import abort
+from flask import abort, jsonify
 from functools import wraps
 
 # def role_or_permission_required(roles, permissions):
@@ -25,7 +25,8 @@ def permission_required(permissions):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             if not current_user.is_authenticated:
-                abort(403)
+                # abort(403)
+                return jsonify({'success':False, 'message': 'Authentication required'}), 403
 
             # Normalize permission input
             if isinstance(permissions, str):
@@ -41,7 +42,8 @@ def permission_required(permissions):
                 except ValueError:
                     continue  # Skip malformed permissions
 
-            abort(403)  # None matched
+            # abort(403)  # None matched            
+            return jsonify({'success':False, 'message': 'You do not have permission to perform this action.'}), 403
         return decorated_function
     return decorator
 

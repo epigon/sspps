@@ -141,7 +141,7 @@ class MemberTypeForm(FlaskForm):
 
 class MemberRoleForm(FlaskForm):
     role = StringField('Role', validators=[InputRequired(), Length(max=50)], render_kw={'autofocus': True})
-    description = StringField('Description', validators=[Length(max=50)])
+    description = StringField('Description', validators=[Length(max=500)])
     functions = StringField('Functions', validators=[Length(max=255)])
 
 class MemberTaskForm(FlaskForm):
@@ -149,13 +149,13 @@ class MemberTaskForm(FlaskForm):
     description = StringField('Description', validators=[Length(max=50)])
 
 class CommitteeForm(FlaskForm):
-    name = StringField('Name', validators=[InputRequired(), Length(max=50)], render_kw={'autofocus': True})
+    name = StringField('Name', validators=[InputRequired(), Length(max=100)], render_kw={'autofocus': True})
     short_name = StringField('Short Name', validators=[Length(max=50)])
     description = TextAreaField('Description', validators=[Length(max=255)])
     reporting_start = SelectField('Reporting Start', choices=MONTHS, validators=[DataRequired()])
     mission = TextAreaField('Mission Statement', validators=[Length(max=4000)])
-    frequency_type_id = SelectField('Reporting Frequency', choices=[])
-    committee_type_id = SelectField('Committee Type', choices=[])
+    frequency_type_id = SelectField('Reporting Frequency', choices=[], validators=[DataRequired()])
+    committee_type_id = SelectField('Committee Type', choices=[], validators=[DataRequired()])
 
     def __init__(self, original_name=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -188,6 +188,11 @@ class CommitteeReportForm(FlaskForm):
                             choices=[]
                             )  
     users = SelectField('Employee', 
+                            validators=[DataRequired()], 
+                            coerce=int, 
+                            choices=[]
+                            ) 
+    committee_type = SelectField('Committee Type', 
                             validators=[DataRequired()], 
                             coerce=int, 
                             choices=[]

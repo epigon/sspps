@@ -10,7 +10,7 @@ Member Roles
 {% block styles %}
 {{super()}}
 <style>
-    label {
+    #roleTable label {
         display: None;
     }
 </style>
@@ -19,16 +19,25 @@ Member Roles
 {% block content %}
 <div class="container mt-3">
     <h1>Member Roles</h1>
+    {% if has_permission('member_role+add') %}
     <div class="card p-3 bg-light">
-        <h2>Add Role</h2>
-        <form id="roleForm" class="form-inline" method="POST" action="/member_role">
+        <h2>Add New</h2>
+        <form method="POST" id="roleForm" class="form-inline">
             {{ form.hidden_tag() }}
-            <div class="row g-3 align-items-center">
-                <div class="col-auto">
-                    {{ render_field(form.role, class="form-control ml-2") }}
+            <div class="row d-flex align-items-center g-2 flex-wrap">
+                <div class="col-auto d-flex align-items-center">
+                    <label class="form-label me-2 mb-0 text-end col-form-label-sm"
+                        style="min-width: 100px; white-space: nowrap;" for="role">{{ form.role.label }}</label>
+                    <div class="col-auto">
+                        {{ form.role(class="form-control form-control-sm ml-2") }}
+                    </div>
                 </div>
-                <div class="col-auto">
-                    {{ render_field(form.description, class="form-control ml-2") }}
+                <div class="col-auto d-flex align-items-center">
+                    <label class="form-label me-2 mb-0 text-end col-form-label-sm"
+                        style="min-width: 100px; white-space: nowrap;">{{ form.description.label }}</label>
+                    <div class="col-auto">
+                        {{ form.description(class="form-control form-control-sm ml-2") }}
+                    </div>
                 </div>
                 <div class="col-auto">
                     <button class="btn btn-primary mb-2" type="submit">Save</button>
@@ -36,6 +45,7 @@ Member Roles
             </div>
         </form>
     </div>
+    {% endif %}
     <!-- Feedback message area -->
     <div id="formResponseMessage" class="mt-3"></div>
     <div class="table-responsive">
@@ -44,7 +54,9 @@ Member Roles
                 <tr>
                     <th>Role</th>
                     <th>Description</th>
+                    {% if has_permission('member_role+edit,member_role+delete') %}
                     <th>Manage</th>
+                    {% endif %}
                 </tr>
             </thead>
             <tbody>
@@ -60,12 +72,18 @@ Member Roles
                         {{ render_field(form.description, class="form-control role-input", id="role-edit-description-" ~
                         role.id, value=role.description, style="display:none;", label=False) }}
                     </td>
+                    {% if has_permission('member_role+edit,member_role+delete') %}
                     <td class="col-2">
+                        {% if has_permission('member_role+edit,member_role+delete') %}
                         <button class="btn btn-primary edit-role" data-role-id="{{ role.id }}">Edit</button>
                         <button class="btn btn-success save-role" data-role-id="{{ role.id }}"
                             style="display:none;">Save</button>
+                        {% endif %}
+                        {% if has_permission('member_role+delete') %}
                         <button class="btn btn-danger delete-role ml-2" data-role-id="{{ role.id }}">Delete</button>
+                        {% endif %}
                     </td>
+                    {% endif %}
                 </tr>
                 {% endfor %}
             </tbody>
@@ -132,11 +150,11 @@ Member Roles
                         $('#role-' + roleId + ' .save-role').hide();
                         $('#role-' + roleId + ' .edit-role').show();
                     } else {
-                        alert('Error: ' + response.message);
+                        $('#formResponseMessage').html('<div class="alert alert-danger">Error: ' + response.message + '</div>');
                     }
                 },
-                error: function () {
-                    alert('Error saving role. Please try again.');
+                error: function (response) {
+                    $("#formResponseMessage").html('<div class="alert alert-danger">' + response.responseJSON.message + '</div>');
                 }
             });
         });
@@ -151,7 +169,7 @@ Member Roles
             // Send the form data via AJAX
             $.ajax({
                 type: 'POST',
-                url: '/committeetracker/member_role',
+                url: '/committeetracker/member_role/new',
                 data: $(this).serialize(),  // Serialize form data
                 success: function (response) {
                     // Handle the response from the server
@@ -163,12 +181,11 @@ Member Roles
                     } else {
                         $('#formResponseMessage').html('<div class="alert alert-danger">Error: ' + response.message + '</div>');
                     }
-
                     // Enable the submit button again
                     $('button[type="submit"]').prop('disabled', false);
                 },
-                error: function () {
-                    $('#formResponseMessage').html('<div class="alert alert-danger">An error occurred. Please try again.</div>');
+                error: function (response) {
+                    $("#formResponseMessage").html('<div class="alert alert-danger">' + response.responseJSON.message + '</div>');
                     $('button[type="submit"]').prop('disabled', false);
                 }
             });
@@ -217,11 +234,11 @@ Member Roles
                         $('#formResponseMessage').html('<div class="alert alert-success">Role deleted successfully!</div>');
                         $('#role-' + roleId).fadeOut(500, function () { $(this).remove(); }); // Remove row with fade effect
                     } else {
-                        alert('Error: ' + response.message);
+                        $('#formResponseMessage').html('<div class="alert alert-danger">Error: ' + response.message + '</div>');
                     }
                 },
-                error: function () {
-                    alert("Error deleting role. Please try again.");
+                error: function (response) {
+                    $("#formResponseMessage").html('<div class="alert alert-danger">' + response.responseJSON.message + '</div>');
                 }
             });
         });

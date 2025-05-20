@@ -64,14 +64,17 @@
                             aria-expanded="false">
                             Committee Tracker
                         </a>
-                        <ul class="dropdown-menu">
-                            {% if has_permission('committee+view') %}
-                            <li><a class="dropdown-item" href="{{ url_for('committee.base_committees') }}">Base
-                                    Committees</a></li>
-                            {% endif %}
+                        <ul class="dropdown-menu">                            
                             {% if has_permission('ay_committee+view') %}
                             <li><a class="dropdown-item" href="{{ url_for('committee.ay_committees') }}">Committees</a>
                             </li>
+                            {% endif %}
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
+                            {% if has_permission('committee+view') %}
+                            <li><a class="dropdown-item" href="{{ url_for('committee.base_committees') }}">Base
+                                    Committees</a></li>
                             {% endif %}
                             {% if has_permission('academic_year+view') %}
                             <li><a class="dropdown-item" href="{{ url_for('committee.academic_years') }}">Academic
@@ -97,8 +100,8 @@
                                     All Committees</a></li>
                             <li><a class="dropdown-item" href="{{ url_for('committee.member_report') }}">View by
                                     Member</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('committee.committee_report') }}">View by
-                                    Committee Assignments</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('committee.assignment_report') }}">View by
+                                    Assignments</a></li>
                             {% endif %}
                         </ul>
                     </li>
@@ -147,16 +150,18 @@
     <!-- end navbar -->
     {%- endblock navbar %}
     <!-- Your page content -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-    {% for category, message in messages %}
-    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-        {{ message }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
     </div>
-    {% endfor %}
-    {% endif %}
-    {% endwith %}
     {% block content %}{% endblock %}
 
     {% block footer -%}

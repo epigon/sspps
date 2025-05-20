@@ -56,14 +56,15 @@ Dashboard
                     <thead>
                         <tr>
                             <th>Committees</th>
+                            <th>Manage</th>
                         </tr>
                     </thead>
 
                     {% for com in ay_committees %}
                     <tr>
-                        <td><a href="/committeetracker/{{com.id}}/members">{{ com.committee.name }} ({{ com.committee.short_name }})</a>
-                        </td>
-
+                        <td><a href="{{url_for('committee.members', ay_committee_id = com.id)}}">{{ com.committee.name }} ({{ com.committee.short_name }})</a></td>
+                        <td><a href="{{url_for('committee.members', ay_committee_id = com.id)}}">Edit</a> | 
+                            <a href="{{url_for('committee.delete_ay_committee', ay_committee_id = com.id)}}">Delete</a></td>
                     </tr>
                     {% else %}
                     <tr>

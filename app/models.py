@@ -90,7 +90,7 @@ class AcademicYear(db.Model):
 class CommitteeType(db.Model):
     __tablename__ = 'COMMITTEE_TYPES'
     id = Column(Integer, primary_key=True)
-    type = Column(String(50), unique=True)
+    type = Column(String(50), nullable=False)
     committees = relationship('Committee', backref='committee_type', lazy=True)
     create_date = Column(DateTime, default=datetime.now)
     deleted = Column(Boolean, default=False)
@@ -100,7 +100,7 @@ class CommitteeType(db.Model):
 class FrequencyType(db.Model):
     __tablename__ = 'FREQUENCY_TYPES'
     id = Column(Integer, primary_key=True)
-    type = Column(String(50), unique=True)  
+    type = Column(String(50), nullable=False)  
     committees = relationship('Committee', backref='frequency_type', lazy=True)
     create_date = Column(DateTime, default=datetime.now)
     deleted = Column(Boolean, default=False)
@@ -110,7 +110,7 @@ class FrequencyType(db.Model):
 class Committee(db.Model):
     __tablename__ = 'BASE_COMMITTEES'
     id = Column(Integer, primary_key=True)
-    name = Column(String(255), nullable=False)
+    name = Column(String(100), nullable=False)
     short_name = Column(String(50))
     description = Column(String(255))
     reporting_start = Column(Integer)
@@ -294,12 +294,12 @@ class MemberTask(db.Model):
 class MemberRole(db.Model):
     __tablename__ = 'MEMBER_ROLES'
     id = Column(Integer, primary_key=True)
-    role = Column(String(50), unique=True, nullable=False)
-    description = Column(String(255))
+    role = Column(String(50), nullable=False)
+    description = Column(String(500))
     default_order = Column(Integer)
     create_date = Column(DateTime, default=datetime.now)
     deleted = Column(Boolean, default=False)
     delete_date = Column(DateTime)
 
-    def __str__(self):
-        return f'Role: {self.role}\nDescription: {self.description}\nVoting: {self.voting}'
+    # def __str__(self):
+    #     return f'Role: {self.role}\nDescription: {self.description}\nVoting: {self.voting}'
