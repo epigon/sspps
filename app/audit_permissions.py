@@ -36,16 +36,18 @@ def check_file(filepath):
     return checker.routes_without_permission
 
 if __name__ == "__main__":
-    path = "routes.py"  # Replace with your path
-    # path = "admin/routes.py"  # Replace with your path
-    # path = "committeetracker/routes.py"  # Replace with your path
-    if os.path.exists(path):
-        missing = check_file(path)
-        if missing:
-            print("❌ Route functions missing @permission_required:")
-            for fn in missing:
-                print(f" - {fn}")
+
+    for path in ['routes.py', 'committeetracker/routes.py']:
+        # path = "routes.py"  # Replace with your path
+        # path = "admin/routes.py"  # Replace with your path
+        # path = "committeetracker/routes.py"  # Replace with your path
+        if os.path.exists(path):
+            missing = check_file(path)
+            if missing:
+                print("❌ Route functions missing @permission_required:")
+                for fn in missing:
+                    print(f" - {fn}")
+            else:
+                print("✅ All route functions have @permission_required.")
         else:
-            print("✅ All route functions have @permission_required.")
-    else:
-        print(f"File not found: {path}")
+            print(f"File not found: {path}")
