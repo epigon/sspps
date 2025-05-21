@@ -4,7 +4,7 @@ from app.models import User, Role, Permission, db, Employee
 from collections import defaultdict
 from datetime import datetime
 from flask import Blueprint, render_template, redirect, url_for, request, jsonify, flash
-from flask_login import login_required
+
 from sqlalchemy.exc import IntegrityError
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
@@ -13,10 +13,6 @@ admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 @admin_required
 def before_request():
     pass
-
-# @admin_bp.route('/index/')
-# def index():
-#     return render_template('admin/dashboard.html')
 
 # Users
 @admin_bp.route('/users/')
@@ -101,7 +97,7 @@ def edit_user(user_id=None):
 # @permission_required('user+delete')
 def delete_user(user_id):
     user = User.query.filter_by(id=user_id, deleted=False).first_or_404()
-    user. deleted = True  # Set the  deleted flag
+    user.deleted = True  # Set the  deleted flag
     user.delete_date = datetime.now()
     db.session.commit()
     flash("User deleted.", "success")
@@ -109,7 +105,7 @@ def delete_user(user_id):
 
 # Roles
 @admin_bp.route('/roles')
-@permission_required('role+view')
+# @permission_required('role+view')
 def roles():
     all_roles = Role.query.filter_by(deleted=False).all()
     # Fetch all permissions
@@ -157,7 +153,7 @@ def delete_role(role_id):
         flash("Cannot delete this role because it is currently assigned to one or more users.", "danger")
         return redirect(url_for('admin.roles'))
 
-    role. deleted = True  # Set the  deleted flag
+    role.deleted = True  # Set the  deleted flag
     role.delete_date = datetime.now()
 
     try:
@@ -195,14 +191,10 @@ def edit_permission(perm_id=None):
 # @permission_required('permission+delete')
 def delete_permission(perm_id):
     perm = Permission.query.filter_by(id=perm_id, deleted=False).first_or_404()
-    # try:
-    perm. deleted = True  # Set the  deleted flag
+    perm.deleted = True  # Set the  deleted flag
     perm.delete_date = datetime.now()
     db.session.commit()
     flash("Permission deleted.", "success")
-    # except IntegrityError:
-    #     db.session.rollback()
-    #     flash("Cannot delete this permission because it is currently assigned to one or more roles/users.", "danger")
     return redirect(url_for('admin.permissions'))
 
 @admin_bp.route('/get_role_permissions')
