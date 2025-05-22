@@ -1,4 +1,4 @@
-from app.utils import admin_required, permission_required
+from app.utils import admin_required, permission_required, has_permission
 from app.models import db, AcademicYear, AYCommittee, Committee, Member, MemberRole, FrequencyType, CommitteeType, Employee, Meeting, FileUpload, MemberTask, MemberType
 from app.forms import AcademicYearForm, AYCommitteeForm, CommitteeForm, CommitteeReportForm, MemberForm, MemberRoleForm, MemberTaskForm, MemberTypeForm, MeetingForm, FileUploadForm, FrequencyTypeForm, CommitteeTypeForm
 from bs4 import BeautifulSoup
@@ -129,19 +129,22 @@ def ay_committees(academic_year_id:int=None):
     return render_template('committeetracker/ay_committees.html', ay_committees=current_ay_committees, current_year = current_year, academic_years = academic_years)
 
 # Add a Committee    
-@committee_bp.route('/ay_committee/new', methods=['GET','POST'])
+@committee_bp.route('/ay_committee/new', methods=['GET', 'POST'])
 @permission_required('ay_committee+add, ay_committee+edit')
 def ay_committee():
+    academic_year_id = request.args.get('academic_year_id', type=int)
     form = AYCommitteeForm()
     form.academic_year_id.choices = [(0, 'Select Academic Year')]
     for row in get_academic_years():
         form.academic_year_id.choices.append([row.id, row.year])
-
+    
     form.committee_id.choices = [(0, 'Select Committee')]
     for row in get_committees():
         short_name = " ("+row.short_name+")" if row.short_name else ""
         form.committee_id.choices.append([row.id, row.name + short_name])
-
+    
+    # print(form.academic_year_id.data)
+    # print(form.committee_id.data)
     if form.validate_on_submit():
         new_committee = AYCommittee(
                                 academic_year_id=form.academic_year_id.data,
@@ -165,6 +168,9 @@ def ay_committee():
                 flash("ERROR: (%s)" % err_msg, 'danger')
                 return render_template('committeetracker/edit_ay_committee.html', form=form)
     
+    form.academic_year_id.default = academic_year_id if academic_year_id else 0
+    form.process()
+
     return render_template('committeetracker/edit_ay_committee.html', form=form)
 
 @committee_bp.route('/delete_ay_committee/<int:ay_committee_id>')
@@ -480,13 +486,6 @@ def members(ay_committee_id:int):
     for row in get_member_roles():
         memberForm.member_role_id.choices.append([row.id, row.role])
     
-    # aycommittee = (
-    #     db.session.query(AYCommittee).filter_by(id=ay_committee_id)
-    #     .options(joinedload(AYCommittee.members))
-    #     .options(joinedload(AYCommittee.fileuploads))
-    #     .options(joinedload(AYCommittee.meetings))
-    #     .all()
-    # )
     aycommittee = (
         AYCommittee.query
         .filter_by(id=ay_committee_id, deleted=False)
@@ -494,7 +493,7 @@ def members(ay_committee_id:int):
             joinedload(AYCommittee.members),
             joinedload(AYCommittee.fileuploads),
             joinedload(AYCommittee.meetings),
-            with_loader_criteria(Member, lambda m: m.deleted == False),
+            # with_loader_criteria(Member, lambda m: m.deleted == False),
             with_loader_criteria(FileUpload, lambda f: f.deleted == False),
             with_loader_criteria(Meeting, lambda m: m.deleted == False),
         )
@@ -709,7 +708,7 @@ def uploaded_files(ay_committee_id:int):
     allfiles = FileUpload.query.filter_by(ay_committee_id=ay_committee_id, deleted=False).all()
     files = [{"ay_committee_id": f.ay_committee_id, "name": f.filename, "size": os.path.getsize(os.path.join(UPLOAD_FOLDER, f.filename)), "id": f.id} for f in allfiles]
     # print(files)
-    return jsonify({"files": files})
+    return jsonify({"files": files, "allow_delete": has_permission('document+delete')})
 
 # Delete File
 @committee_bp.route('/delete_file/<int:file_id>', methods=['POST'])

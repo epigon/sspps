@@ -144,7 +144,6 @@ class AYCommittee(db.Model):
     deleted = Column(Boolean, default=False)
     delete_date = Column(DateTime)
 
-
     def __str__(self):
         return f'Committee: {self.committee.name}\nAY: {self.academic_year.year}'
 

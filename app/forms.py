@@ -171,17 +171,13 @@ class CommitteeForm(FlaskForm):
 class AYCommitteeForm(FlaskForm):
     committee_id = SelectField('Committee', validators=[InputRequired()], choices=[])
     academic_year_id = SelectField('Academic Year', validators=[InputRequired()], choices=[])
-    
-    # logo = FileField('Logo', render_kw={'accept': "image/*"})
 
 class CommitteeReportForm(FlaskForm):
-    # academic_year = SelectField('Academic Year', validators=[DataRequired()], coerce=int, render_kw={'multiple': True})
     academic_year = SelectField('Academic Year', 
                             validators=[DataRequired()], 
                             coerce=int, 
                             choices=[], 
-                            # render_kw={'multiple': True}
-                            )  # Allow multiple selections
+                            )  
     committee = SelectField('Committee', 
                             validators=[DataRequired()], 
                             coerce=int, 
@@ -203,10 +199,6 @@ class CommitteeReportForm(FlaskForm):
     show_documents = BooleanField('Show Documents', default=True)
     show_meetings = BooleanField('Show Meetings', default=True)
     submit = SubmitField('Apply Filters')
-
-    # def __init__(self, *args, **kwargs):
-    #     super().__init__(*args, **kwargs)
-    #     self.academic_year.choices = [(ay.id, ay.name) for ay in AcademicYear.query.order_by(AcademicYear.name.desc()).all()]
 
 class MemberForm(FlaskForm):
     ay_committee_id = HiddenField('AYCommittee', validators=[DataRequired()])

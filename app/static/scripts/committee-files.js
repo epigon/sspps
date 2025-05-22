@@ -20,6 +20,7 @@ $(document).ready(function () {
             type: "GET",
             success: function (response) {
                 filesTable.clear();
+                let allow_delete = response.allow_delete;
                 $.each(response.files, function (index, file) {
                     let fileName = file.name.toLowerCase();
                     let fileUrl = `/static/uploads/${file.name}`;
@@ -29,11 +30,15 @@ $(document).ready(function () {
                         ? `<img src="${fileUrl}" width="50" height="50"><br/><a href="${fileUrl}" target="_blank">Preview</a>`
                         : `<a href="${fileUrl}" target="_blank">Preview</a>`;
 
+                    let deletebtn = ``
+                    if (allow_delete){
+                        deletebtn = `<button class="delete-file-btn btn btn-danger btn-sm" data-file-id="${file.id}" data-file-name="${file.name}">Delete</button>`
+                    } 
                     filesTable.row.add([
                         file.name,
                         (file.size / 1024).toFixed(2) + " KB",
                         preview,
-                        `<button class="delete-file-btn btn btn-danger btn-sm" data-file-id="${file.id}" data-file-name="${file.name}">Delete</button>`
+                        deletebtn
                     ]).draw(false);
                 });
             }

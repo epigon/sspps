@@ -24,23 +24,26 @@ Committees
                 <tr>
                     <th>Committees</th>
                     <th>Academic Years</th>
+                    {% if has_permission('committee+edit,committee+delete') %}
                     <th>Manage</th>
+                    {% endif %}
                 </tr>
             </thead>
 
             {% for com in committees %}
             <tr>
-                <td>{{ com.name }} ({{ com.short_name }})<br />
+                <td>{{ com.name }} {% if com.description %}({{ com.short_name }}){% endif %}<br />
                     {% if com.description %}
-                        {{ com.description }}<br />
+                    {{ com.description }}<br />
                     {% endif %}
                     {% if com.mission %}
-                        {{ com.mission }}<br />
+                    {{ com.mission }}<br />
                     {% endif %}
-                    </td>
+                </td>
                 <td class="col-2">
                     <div class="dropdown">
-                        <button class="btn btn-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <button class="btn btn-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown"
+                            aria-expanded="false">
                             Select Year
                         </button>
                         <ul class="dropdown-menu">
@@ -60,8 +63,7 @@ Committees
                     <a href="/committeetracker/base_committee/{{com.id}}/edit">Edit</a>
                     {% endif %}
                     {% if has_permission('committee+delete') %}
-                    | <a
-                        href="/committeetracker/base_committee/{{com.id}}/delete">Delete</a>
+                    | <a href="/committeetracker/base_committee/{{com.id}}/delete">Delete</a>
                     {% endif %}
                 </td>
                 {% endif %}
@@ -72,7 +74,9 @@ Committees
             </tr>
             {% endfor %}
         </table>
+        {% if has_permission('committee+add,committee+edit') %}
         <a href="/committeetracker/base_committee/new" class="btn btn-primary">Add New</a>
+        {% endif %}
     </div>
 
 </div>
