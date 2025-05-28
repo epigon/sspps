@@ -1,5 +1,5 @@
 from app.utils import admin_required, permission_required, has_permission
-from app.models import db, AcademicYear, AYCommittee, Committee, Member, MemberRole, FrequencyType, CommitteeType, Employee, Meeting, FileUpload, MemberTask, MemberType
+from app.models import db, AcademicYear, AYCommittee, Committee, Member, MemberRole, FrequencyType, CommitteeType, Employee, Meeting, FileUpload, MemberTask, MemberType, User, Role, Permission
 from app.forms import AcademicYearForm, AYCommitteeForm, CommitteeForm, CommitteeReportForm, MemberForm, MemberRoleForm, MemberTaskForm, MemberTypeForm, MeetingForm, FileUploadForm, FrequencyTypeForm, CommitteeTypeForm
 from bs4 import BeautifulSoup
 from collections import defaultdict
@@ -29,6 +29,8 @@ ALLOWED_EXTENSIONS = {
 }
 
 UPLOAD_FOLDER = 'app/static/uploads/'
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
 
 # Routes to Webpages
 @committee_bp.before_request
@@ -593,10 +595,10 @@ def edit_member(member_id:int):
             member.end_date = form.end_date.data           
             member.voting=form.voting.data
             db.session.commit()
-            # member.user = db.session.query(Employee).filter_by(employee_id=member.employee_id).first()
-            # member.member_role = db.session.query(MemberRole).filter_by(id=member.member_role_id).first()
             member.user = Employee.query.filter_by(employee_id=member.employee_id).first()
             member.member_role = MemberRole.query.filter_by(id=member.member_role_id, deleted=False).first()
+            added_user = add_member_as_user(employee_id=member.employee_id)
+            print(added_user)
             return jsonify({
                 'success': True,
                 'message':'Member '+member.user.employee_name+' saved successfully!',
@@ -659,8 +661,32 @@ def delete_member(member_id:int):
         db.session.rollback()
         return jsonify({"success": False, "message": str(e)})
 
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+@permission_required("member+add, member+edit")
+def add_member_as_user(employee_id=None):
+    user = User.query.filter_by(employee_id=employee_id, deleted=False).first() or User()
+    role = Role.query.filter_by(name="Committee Viewer", deleted=False).first()
+    
+    if not user.id:
+        employee = Employee.query.filter_by(employee_id=employee_id).first()
+        user.role_id = role.id
+        user.username = employee.username
+        user.employee_id = employee.employee_id
+        db.session.add(user)
+        db.session.commit()
+        # return user
+        print("success")
+        flash("User saved successfully.", "success")
+    else:
+        committee_viewer_perm = Permission.query.filter_by(deleted=False).filter(Permission.resource=="committee", Permission.action=="view").first()
+        role_permission_ids = set(p.id for p in user.role.permissions) if user.role else set()
+        user_permission_ids = set(p.id for p in user.permissions)
+        combined_permission_ids = role_permission_ids.union(user_permission_ids)
+        if committee_viewer_perm.id not in combined_permission_ids:
+            user_permission_ids.add(committee_viewer_perm.id)
+            user.permissions = Permission.query.filter_by(deleted=False).filter(Permission.id.in_(user_permission_ids)).all()
+            db.session.add(user)
+            db.session.commit()
+    return user
 
 @permission_required("member+add, member+edit")
 def allowed_file(filename):
