@@ -1,6 +1,5 @@
 from app.cred import server, user, pwd, database, secret  # ensure `database` is defined in cred.py
 from flask import Flask
-# from flask_bootstrap import Bootstrap5 
 from flask_login import LoginManager
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
@@ -60,12 +59,19 @@ def create_app():
     from app.admin.routes import admin_bp
     app.register_blueprint(admin_bp)
 
+    from app.scheduler.routes import scheduler_bp
+    app.register_blueprint(scheduler_bp)
+
     # if not app.debug:
     #     # Log to stderr
     #     handler = logging.StreamHandler(sys.stderr)
     #     handler.setLevel(logging.ERROR)
     #     app.logger.addHandler(handler)
+
     if app.debug:
         app.logger.setLevel(logging.DEBUG)
-    
+
+    with app.app_context():
+        db.create_all()    
+
     return app

@@ -50,10 +50,8 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarSupportedContent">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+
                     <!-- 
-                    <li class="nav-item active">
-                        <a class="nav-link" href="#">Panopto Scheduler</a>
-                    </li>
                     <li class="nav-item active">
                         <a class="nav-link" href="#">Screening Core</a>
                     </li>
@@ -64,7 +62,7 @@
                             aria-expanded="false">
                             Committee Tracker
                         </a>
-                        <ul class="dropdown-menu">                            
+                        <ul class="dropdown-menu">
                             {% if has_permission('ay_committee+view') %}
                             <li><a class="dropdown-item" href="{{ url_for('committee.ay_committees') }}">Committees</a>
                             </li>
@@ -106,16 +104,37 @@
                         </ul>
                     </li>
                     {% endif %}
-                    {% if is_admin() %}
+                    {% if is_admin() or has_permission('panopto_scheduler+view') or
+                    has_permission('panopto_scheduler+add')
+                    or has_permission('panopto_scheduler+edit') or has_permission('calendar+view') or
+                    has_permission('calendar+add') %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown"
                             aria-expanded="false">
-                            Admin
+                            Admin Tools
                         </a>
                         <ul class="dropdown-menu">
+                            {% if is_admin() %}
                             <li><a class="dropdown-item" href="{{ url_for('admin.users') }}">Users</a></li>
                             <li><a class="dropdown-item" href="{{ url_for('admin.roles') }}">Roles</a></li>
                             <li><a class="dropdown-item" href="{{ url_for('admin.permissions') }}">Permissions</a></li>
+                            {% endif %}
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
+                            {% if has_permission('panopto_scheduler+view') or has_permission('panopto_scheduler+add')
+                            or has_permission('panopto_scheduler+edit') %}
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('scheduler.list_canvas_events') }}">Panopto
+                                    Scheduler</a>
+                            </li>
+                            {% endif %}
+                            {% if has_permission('calendar+view') or has_permission('calendar+add') or
+                            has_permission('calendar+edit') %}
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('scheduler.calendar_groups') }}">Curriculum Calendars</a>
+                            </li>
+                            {% endif %}
                         </ul>
                     </li>
                     {% endif %}

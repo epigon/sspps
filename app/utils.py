@@ -76,7 +76,6 @@ def has_permission(permissions):
 
     return False
 
-
 # def has_role(role_name):
 #     return current_user.is_authenticated and current_user.role.name.lower() == role_name.lower()
 

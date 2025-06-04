@@ -1,6 +1,6 @@
 from app.models import User, Employee
-from app.utils import permission_required
-from flask import session, Blueprint, render_template, request, redirect, url_for, flash
+# from app.utils import permission_required
+from flask import session, Blueprint, render_template, request, redirect, url_for, flash, send_from_directory
 from flask_login import login_user, logout_user, login_required, current_user
 
 main_bp = Blueprint('main', __name__, template_folder='templates')
@@ -37,8 +37,8 @@ def secure():
         host = request.headers['Host']
     
         if host == "127.0.0.1:5000":
-            user_ad = "e1flastname"
-            # user_ad = "epigon"
+            # user_ad = "e1flastname"
+            user_ad = "epigon"
         else:
             user_ad = request.environ.get("ADUSERNAME")
                     
@@ -82,3 +82,7 @@ def logout():
     else:
         redirect_url = "/Shibboleth.sso/Logout?return=https://a5.ucsd.edu/tritON/logout?target=https://"+host+url_for('main.home')
     return redirect(redirect_url)
+
+@main_bp.route('/calendars/<path:filename>')
+def serve_calendar_file(filename):
+    return send_from_directory('static/calendars', filename)

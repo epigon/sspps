@@ -1,0 +1,217 @@
+{% extends 'base.html' %}
+
+{% block head %}
+{{super()}}
+
+<!-- DataTables CSS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.5/css/jquery.dataTables.min.css">
+
+<!-- jQuery (required by DataTables) -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<!-- DataTables JS -->
+<script src="https://cdn.datatables.net/1.13.5/js/jquery.dataTables.min.js"></script>
+<style>
+    div.dataTables_filter {
+        display: flex;
+        align-items: center;
+    }
+
+    div.dataTables_filter label {
+        margin-right: 10px;
+    }
+
+    div.dataTables_filter select {
+        margin-left: 5px;
+    }
+</style>
+
+{% endblock %}
+
+{% block content %}
+
+<div class="container-fluid">
+    <h1 class="mb-4">Panopto Scheduler</h1>
+    <div id="formResponseMessage"></div>
+    <form method="post" action="{{ url_for('scheduler.toggle_recording') }}">
+        <table id="schedulerTable" class="table table-bordered align-middle table-striped border rounded table-sm">
+            <thead class="table-light">
+                <tr>
+                    <th>Course</th>
+                    <th>Event</th>
+                    <th>Start</th>
+                    <th>End</th>
+                    <th>Location</th>
+                    <th>Folder</th>
+                    <th>Recorder</th>
+                    <th>Broadcast?</th>
+                    <th>Scheduled?</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for event in events %}
+                {% if event.location_name != "" %}
+                <!-- <tr> -->
+                <tr data-event-id="{{ event.id }}">
+                    <td>{{ event.sis_course_id }}</td>
+                    <td>{{ event.title }}</td>
+                    <td>{{ event.local_start_at }}</td>
+                    <td>{{ event.local_end_at }}</td>
+                    <td>{{ event.location_name }}</td>
+                    <td>
+                        <select name="folder_id_{{ event.id }}" class="form-select form-select-sm" required>
+                            <option value="0">Select folder...</option>
+                            {% for folder in folders %}
+                            <option value="{{ folder['id'] }}" {% if event.id in scheduled_map and
+                                scheduled_map[event.id]['folder_id']==folder['id'] %} selected {% elif
+                                event.context_name.lower() in folder['name'].lower() %} {% if not (event.id in
+                                scheduled_map and scheduled_map[event.id]['folder_id']) %} selected {% endif %} {% endif
+                                %}>
+                                {{ folder['name'] }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td>
+                        <select name="recorder_id_{{ event.id }}" class="form-select form-select-sm" required>
+                            <option value="0">Select recorder...</option>
+                            {% for recorder in recorders %}
+                            <option value="{{ recorder['id'] }}" {% if event.id in scheduled_map and
+                                scheduled_map[event.id]['recorder_id']==recorder['id'] %} selected {% endif %}>
+                                {{ recorder['name'] }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td class="text-center">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="broadcast_{{ event.id }}"
+                                id="broadcast_{{ event.id }}" {% if event.id in scheduled_map and
+                                scheduled_map[event.id].get('broadcast') %}checked{% endif %}>
+                        </div>
+                    </td>
+                    <td class="text-center">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="toggle_event" value="{{ event.id }}"
+                                onchange="submitToggleForm(this)" {% if event.id in scheduled_map %}checked{% endif %}>
+                            <label class="form-check-label ms-2" id="label_{{ event.id }}">
+                                {% if event.id in scheduled_map %}On{% else %}Off{% endif %}
+                            </label>
+                        </div>
+                        <input type="hidden" name="event_id_{{ event.id }}" value="{{ event.id }}">
+                        <input type="hidden" name="title_{{ event.id }}" value="{{ event.session_title }}">
+                        <input type="hidden" name="start_time_{{ event.id }}" value="{{ event.start_at }}">
+                        <input type="hidden" name="end_time_{{ event.id }}" value="{{ event.end_at }}">
+                    </td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    $(document).ready(function () {
+        $('#schedulerTable').DataTable({
+            // Optional: set initial order by 3rd column (Start)
+            order: [[2, 'asc']],
+            // Optional: set page length
+            pageLength: 25,
+            // Enable column searching/filtering (see next step)
+            initComplete: function () {
+                var api = this.api();
+
+                // Get unique Course values (column 0)
+                var courseColumn = api.column(0);
+                var select = $('<select class="form-select form-select-sm my-2" aria-label="Course filter"><option value="">Filter by Course</option></select>')
+                    .appendTo($('#schedulerTable_filter'))  // Append inside search div
+                    .css({ 'margin-left': '10px', 'width': '200px', 'display': 'inline-block' })
+                    .on('change', function () {
+                        var val = $.fn.dataTable.util.escapeRegex($(this).val());
+                        courseColumn
+                            .search(val ? '^' + val + '$' : '', true, false)
+                            .draw();
+                    });
+
+                // Populate dropdown with unique sorted course values
+                courseColumn.data().unique().sort().each(function (d) {
+                    var text = $('<div>').html(d).text();  // strip html if any
+                    select.append('<option value="' + text + '">' + text + '</option>');
+                });
+            }
+        });
+    });
+
+    function submitToggleForm(checkbox) {
+        const form = checkbox.closest("form");
+        const eventId = checkbox.value;
+
+        // Clear any previously added hidden fields
+        form.querySelectorAll('.dynamic-hidden').forEach(el => el.remove());
+
+        const row = checkbox.closest("tr");
+
+        const formData = new FormData();
+
+        // Add fixed fields
+        ['event_id', 'title', 'start_time', 'end_time'].forEach(name => {
+            const source = row.querySelector(`[name="${name}_${eventId}"]`);
+            if (source) formData.append(name, source.value);
+        });
+
+        // Add dropdown selections
+        ['folder_id', 'recorder_id'].forEach(id => {
+            const select = row.querySelector(`select[name="${id}_${eventId}"]`);
+            if (select) formData.append(id, select.value);
+        });
+
+        // Add broadcast
+        const broadcastCheckbox = row.querySelector(`#broadcast_${eventId}`);
+        if (broadcastCheckbox) {
+            formData.append("broadcast", broadcastCheckbox.checked ? "true" : "false");
+        }
+
+        // Send the request via Fetch (POST)
+        // Send the request via Fetch (POST)
+        fetch(form.action, {
+            method: 'POST',
+            body: formData
+        })
+            .then(response => response.json())  // Parse the JSON body
+            .then(data => {
+                const label = row.querySelector(`#label_${eventId}`);
+                label.textContent = checkbox.checked ? "On" : "Off";
+
+                const messageBox = document.getElementById('formResponseMessage');
+                messageBox.textContent = data.message || "Toggle updated.";
+                messageBox.className = 'alert alert-success';
+
+                // Highlight updated row: green if broadcast, yellow otherwise
+                if (broadcastCheckbox && broadcastCheckbox.checked) {
+                    row.classList.remove("table-success");
+                    row.classList.add("table-warning");
+                } else {
+                    row.classList.remove("table-warning");
+                    row.classList.add("table-success");
+                }
+
+                // Remove highlight after a few seconds
+                setTimeout(() => {
+                    row.classList.remove("table-success", "table-warning");
+                    messageBox.className = '';
+                    messageBox.textContent = '';
+                }, 4000);
+            })
+            .catch(error => {
+                console.error("Error submitting toggle:", error);
+                const messageBox = document.getElementById('formResponseMessage');
+                messageBox.textContent = "An error occurred.";
+                messageBox.className = 'alert alert-danger';
+            });
+    }
+</script>
+{% endblock %}

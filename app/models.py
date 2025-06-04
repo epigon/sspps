@@ -71,7 +71,7 @@ class User(UserMixin, db.Model):
     #     return any(p.resource == resource and p.action == action for p in all_permissions)
     
     def __str__(self):
-        return f'ID: {self.id}\nID: {self.id}\nUsername: {self.username}\nRole: {self.role_id}\nActive: {self.is_active}'
+        return f'ID: {self.id}\nUsername: {self.username}\nRole: {self.role_id}\nActive: {self.is_active}'
     
 ## COMMITTEE TRACKER MODELS
 class AcademicYear(db.Model):
@@ -302,3 +302,31 @@ class MemberRole(db.Model):
 
     # def __str__(self):
     #     return f'Role: {self.role}\nDescription: {self.description}\nVoting: {self.voting}'
+
+# Scheduler Models
+class ScheduledRecording(db.Model):
+    __tablename__ = 'SCHEDULED_RECORDINGS'
+    id = db.Column(db.Integer, primary_key=True)
+    canvas_event_id = db.Column(db.Integer, nullable=False)
+    title = db.Column(db.String(255), nullable=False)
+    start_time = db.Column(db.DateTime, nullable=False)
+    end_time = db.Column(db.DateTime, nullable=False)
+    folder_id = db.Column(db.String(255))
+    recorder_id = db.Column(db.String(255))
+    panopto_session_id = db.Column(db.String(255))
+    broadcast = Column(Boolean, default=False)
+    create_date = db.Column(db.DateTime, default=datetime.now)
+
+class CalendarGroupSelection(db.Model):
+    __tablename__ = 'CALENDAR_GROUP_SELECTIONS'
+    id = db.Column(db.Integer, primary_key=True)
+    group_name = db.Column(db.String(50), nullable=False)
+    course_id = db.Column(db.String(50), nullable=False)
+    course_name = db.Column(db.String(255), nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.now)
+
+class CalendarGroup(db.Model):
+    __tablename__ = 'CALENDAR_GROUPS'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    ics_filename = db.Column(db.String(100), nullable=False)

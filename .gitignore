@@ -1,6 +1,7 @@
 app/cred.py
 *.bak
-**/uploads/
+**/static/uploads/
+**/static/calendars/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
