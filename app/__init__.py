@@ -1,10 +1,9 @@
 from app.cred import server, user, pwd, database, secret  # ensure `database` is defined in cred.py
+from app.logger import setup_logger
 from flask import Flask
 from flask_login import LoginManager
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
-import logging
-# import sys
 import urllib.parse
 
 # Initialize extensions
@@ -30,6 +29,10 @@ def create_app():
     
     app.config['SQLALCHEMY_DATABASE_URI'] = f"mssql+pyodbc:///?odbc_connect={params}"
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+    # Set up error logging
+    app.config.from_pyfile('config.py')
+    setup_logger(app)
 
     db.init_app(app)
     login_manager.init_app(app)
@@ -62,14 +65,14 @@ def create_app():
     from app.scheduler.routes import scheduler_bp
     app.register_blueprint(scheduler_bp)
 
-    # if not app.debug:
-    #     # Log to stderr
-    #     handler = logging.StreamHandler(sys.stderr)
-    #     handler.setLevel(logging.ERROR)
-    #     app.logger.addHandler(handler)
+    @app.route('/cause-error')
+    def error():
+        raise ValueError("This is a test error.")
 
-    if app.debug:
-        app.logger.setLevel(logging.DEBUG)
+    @app.errorhandler(Exception)
+    def handle_exception(e):
+        app.logger.error(f"Unhandled Exception: {e}", exc_info=True)  # ✅ Must include this line
+        return "An error occurred", 500
 
     with app.app_context():
         db.create_all()    
