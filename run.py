@@ -1,27 +1,30 @@
 from app import create_app
 from app.scheduler.routes import generate_scheduled_ics
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.cron import CronTrigger
-from flask_bootstrap import Bootstrap5 
+from flask_bootstrap import Bootstrap5
+from flask_apscheduler import APScheduler 
 
 app = create_app()
 bootstrap = Bootstrap5(app)
-scheduler = BackgroundScheduler()
+
+class Config:
+    JOBS = [
+        {
+            "id": "job1",
+            "func": "run:run_generate_scheduled_ics",          
+            "trigger": "interval",
+            "minutes": 2,
+        }
+    ]
+
+    SCHEDULER_API_ENABLED = True
 
 def run_generate_scheduled_ics():
     with app.app_context():
         generate_scheduled_ics()
 
-# Schedule the cron job to run every day at 9:30 AM
-scheduler.add_job(
-    func=run_generate_scheduled_ics,
-    # trigger=CronTrigger(second='*/10'), #every 10 seconds
-    # trigger=CronTrigger(minute='*/2'), #every 2 minutes
-    trigger=CronTrigger(hour='*'), #every hour
-)
-
-# Start the scheduler
-scheduler.start()
-
 if __name__ == '__main__':
+    app.config.from_object(Config())    
+    scheduler = APScheduler()   
+    scheduler.init_app(app)
+    scheduler.start()
     app.run(host="0.0.0.0",debug=True,threaded=True) 
