@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+
+{% block head %}
+{{super()}}
+
+<!-- DataTables CSS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.5/css/jquery.dataTables.min.css">
+
+<!-- jQuery (required by DataTables) -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<!-- DataTables JS -->
+<script src="https://cdn.datatables.net/1.13.5/js/jquery.dataTables.min.js"></script>
+<style>
+    div.dataTables_filter {
+        display: flex;
+        align-items: center;
+    }
+
+    div.dataTables_filter label {
+        margin-right: 10px;
+    }
+
+    div.dataTables_filter select {
+        margin-left: 5px;
+    }
+</style>
+
+{% endblock %}
+
+{% block content %}
+
+<div class="container">
+    <h1>Active Directory Search</h1>
+    <form method="POST" id="search-form">
+        <label>First Name (partial OK):
+            <input type="text" name="firstname" placeholder="e.g. John" class="form-control mb-2">
+        </label>
+        <label>Last Name (partial OK):
+            <input type="text" name="lastname" placeholder="e.g. Smith" class="form-control mb-2">
+        </label>
+        <label>AD Username (partial OK):
+            <input type="text" name="username" placeholder="e.g. jsmith" class="form-control mb-2">
+        </label>
+        <button id="search-btn" type="submit" class="btn btn-primary">Search</button>
+    </form>
+
+    {% if results %}
+    <h2 class="my-3">Active Directory (AD) Search Results</h2>
+    <table id="results" class="table table-sm table-striped  table-bordered">
+        <tr>
+            <th>Username</th>
+            <th>Name</th>
+            <th>Active</th>
+            <th>Exp</th>
+            <th>Emp ID</th>
+            <th>DN</th>
+            <th>HC OU</th>
+            <th>SOP OU</th>
+            <th>DUO</th>
+        </tr>
+        {% for user in results %}
+        <tr>
+            <td>{{ user['Username'] }}</td>
+            <td>{{ user['Name'] }}</td>
+            <td>{{ user['Active'] }}</td>
+            <td>{{ user['Exp'] }}</td>
+            <td>{{ user['Emp ID'] }}</td>
+            <td>{{ user['DN'] }}</td>
+            <td>{{ user['HC OU'] }}</td>
+            <td>{{ user['SOP OU'] }}</td>
+            <td>{{ user['DUO'] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    document.getElementById('search-form').addEventListener('submit', function () {
+        const btn = document.getElementById('search-btn');
+        btn.disabled = true;
+        btn.textContent = 'Searching...';
+    });
+</script>
+{% endblock %}

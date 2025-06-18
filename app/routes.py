@@ -1,5 +1,4 @@
 from app.models import User, Employee
-# from app.utils import permission_required
 from flask import session, Blueprint, render_template, request, redirect, url_for, flash, send_from_directory
 from flask_login import login_user, logout_user, login_required, current_user
 
@@ -86,3 +85,11 @@ def logout():
 @main_bp.route('/calendars/<path:filename>')
 def serve_calendar_file(filename):
     return send_from_directory('static/calendars', filename)
+
+@main_bp.route('/favicon.ico')
+def favicon():
+    return send_from_directory(
+        'static',
+        'favicon.ico',
+        mimetype='image/vnd.microsoft.icon'
+    )

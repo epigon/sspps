@@ -65,16 +65,20 @@ def create_app():
     from app.scheduler.routes import scheduler_bp
     app.register_blueprint(scheduler_bp)
 
-    @app.route('/cause-error')
-    def error():
-        raise ValueError("This is a test error.")
+    from app.adsearch.routes import adsearch_bp
+    app.register_blueprint(adsearch_bp)
 
-    @app.errorhandler(Exception)
-    def handle_exception(e):
-        app.logger.error(f"Unhandled Exception: {e}", exc_info=True)  # ✅ Must include this line
-        return "An error occurred", 500
+    # @app.route('/cause-error')
+    # def error():
+    #     raise ValueError("This is a test error.")
+
+    # @app.errorhandler(Exception)
+    # def handle_exception(e):
+    #     app.logger.error(f"Unhandled Exception: {e}", exc_info=True)  # ✅ Must include this line
+    #     return "An error occurred", 500
 
     with app.app_context():
         db.create_all()    
 
     return app
+    

@@ -100,6 +100,16 @@ document.getElementById("course-search").addEventListener("input", function () {
 });
 
 function saveSelection() {
+    const responseEl = document.getElementById("formResponseMessage");
+
+    // Disable only the clicked button
+    const buttons = document.querySelectorAll(".save-selection-btn");
+    buttons.forEach(btn => {
+        btn.disabled = true;
+        btn.dataset.originalText = btn.textContent;
+        btn.textContent = "Saving...";
+    });
+
     const data = {};
     document.querySelectorAll(".calendar-group").forEach(group => {
         const groupId = group.id;
@@ -131,6 +141,18 @@ function saveSelection() {
                 responseEl.classList.add("alert-success");
                 responseEl.textContent = msg.message;
             }
+        })
+    .catch(err => {
+        responseEl.classList.remove("d-none", "alert-success");
+        responseEl.classList.add("alert-danger");
+        responseEl.textContent = "An unexpected error occurred.";
+        console.error(err);
+    })
+    .finally(() => {
+        // Re-enable buttons and restore text
+        buttons.forEach(btn => {
+            btn.disabled = false;
+            btn.textContent = btn.dataset.originalText || "Save";
         });
-
+    });
 }

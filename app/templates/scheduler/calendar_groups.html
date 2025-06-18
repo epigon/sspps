@@ -18,6 +18,7 @@
         border: 2px dashed #ccc;
         margin-bottom: 15px;
     }
+
     .btn-delete-course {
         font-weight: bold;
         padding: 0 8px;
@@ -46,32 +47,36 @@
             </div>
         </div>
         <div class="col-md-4">
-            <h4>Calendar Groups</h4>
+            <button class="btn btn-primary btn-sm float-end save-selection-btn" onclick="saveSelection()">Save Selections</button>
+            <h4 class=" mb-2">Calendar Groups</h4>
             {% for group in groups %}
             <div class="calendar-group mb-3" id="calendar-group-{{ group.id }}">
                 <strong>{{ group.name }}</strong>
                 <!-- <small class="text-end text-secondary">*dbl+click course to remove</small> -->
                 {% for course in selections.get(group.name, []) %}
-                <div class="course d-flex align-items-center" draggable="true" data-id="{{ course.id }}" data-name="{{ course.name }}">
+                <div class="course d-flex align-items-center" draggable="true" data-id="{{ course.id }}"
+                    data-name="{{ course.name }}">
                     {{ course.name }}
                 </div>
                 {% endfor %}
             </div>
             {% endfor %}
-            <button class="btn btn-primary" onclick="saveSelection()">Save Selections</button>
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                <button class="btn btn-primary btn-sm save-selection-btn" onclick="saveSelection()">Save Selections</button>
+            </div>
         </div>
         <div class="col-md-4">
             <!-- <div class="mt-3"> -->
-                <h4>Calendar Files</h4>
-                <ul>
-                    {% for group in groups %}
-                    <li>
-                        <a href="/calendars/{{group.ics_filename}}" target="_blank">
-                            {{ group.name }}
-                        </a>
-                    </li>
-                    {% endfor %}
-                </ul>
+            <h4>Calendar Files</h4>
+            <ul>
+                {% for group in groups %}
+                <li>
+                    <a href="/calendars/{{group.ics_filename}}" target="_blank">
+                        {{ group.name }}
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
             <!-- </div> -->
         </div>
     </div>
