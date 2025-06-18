@@ -33,46 +33,59 @@
 <div class="container">
     <h1>Active Directory Search</h1>
     <form method="POST" id="search-form">
-        <label>First Name ("partial" OK):
+        <label>First Name (partial OK):
             <input type="text" name="firstname" placeholder="e.g. John" class="form-control mb-2">
         </label>
-        <label>Last Name ("partial" OK):
+        <label>Last Name (partial OK):
             <input type="text" name="lastname" placeholder="e.g. Smith" class="form-control mb-2">
         </label>
-        <label>AD Username ("starts with" OK):
+        <label>Partial AD Username (partial OK):
+            <input type="text" name="partialusername" placeholder="e.g. jsm" class="form-control mb-2">
+        </label>
+        <label>AD Username (exact only):
             <input type="text" name="username" placeholder="e.g. jsmith" class="form-control mb-2">
         </label>
         <button id="search-btn" type="submit" class="btn btn-primary">Search</button>
     </form>
 
-    {% if results %}
+    {% if searched %}
     <h2 class="my-3">Active Directory (AD) Search Results</h2>
-    <table id="results" class="table table-sm table-striped  table-bordered">
-        <tr>
-            <th>Username</th>
-            <th>Name</th>
-            <th>Active</th>
-            <th>Exp</th>
-            <th>Emp ID</th>
-            <th>DN</th>
-            <th>HC OU</th>
-            <th>SOP OU</th>
-            <th>DUO</th>
-        </tr>
-        {% for user in results %}
-        <tr>
-            <td>{{ user['Username'] }}</td>
-            <td>{{ user['Name'] }}</td>
-            <td>{{ user['Active'] }}</td>
-            <td>{{ user['Exp'] }}</td>
-            <td>{{ user['Emp ID'] }}</td>
-            <td>{{ user['DN'] }}</td>
-            <td>{{ user['HC OU'] }}</td>
-            <td>{{ user['SOP OU'] }}</td>
-            <td>{{ user['DUO'] }}</td>
-        </tr>
-        {% endfor %}
-    </table>
+        {% if results|length > 0 %}
+        <table id="results" class="table table-sm table-striped table-bordered">
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Name</th>
+                    <th>Active</th>
+                    <th>Exp</th>
+                    <th>Emp ID</th>
+                    <th>DN</th>
+                    <th>HC OU</th>
+                    <th>SOP OU</th>
+                    <th>HS DUO</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in results %}
+                <tr>
+                    <td>{{ user['Username'] }}</td>
+                    <td>{{ user['Name'] }}</td>
+                    <td>{{ user['Active'] }}</td>
+                    <td>{{ user['Exp'] }}</td>
+                    <td>{{ user['Emp ID'] }}</td>
+                    <td>{{ user['DN'] }}</td>
+                    <td>{{ user['HC OU'] }}</td>
+                    <td>{{ user['SOP OU'] }}</td>
+                    <td>{{ user['HS DUO'] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="alert alert-info mt-4">
+            No results found for your search.
+        </div>
+        {% endif %}
     {% endif %}
 </div>
 {% endblock %}
