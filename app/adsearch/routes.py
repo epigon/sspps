@@ -49,7 +49,7 @@ def search():
         if lastname:
             where_clauses.append(f"sn = ''*{lastname}*''")
         if username:
-            where_clauses.append(f"sAMAccountName = ''{username}''")
+            where_clauses.append(f"sAMAccountName = ''{username}*''")
 
         where_sql = " AND ".join(where_clauses)
         
