@@ -38,6 +38,9 @@ def before_request():
 @groupsearch_bp.route('/list', methods=['GET', 'POST'])
 @permission_required('listserv+view, listserv+add, listserv+edit, listserv+delete')
 def list_groups():
+    custom_breadcrumbs = [
+        {'name': 'Google Groups', 'url': '/groupsearch/list'}
+    ]
     form = GroupForm()
     if form.validate_on_submit():
         group_name = form.group_name.data.strip()
@@ -61,7 +64,7 @@ def list_groups():
         return redirect(url_for('groupsearch.list_groups'))
     
     groups = Listserv.query.filter_by(deleted=False).order_by(Listserv.group_name.asc()).all()
-    return render_template('groupsearch/list_groups.html', form=form, groups=groups)
+    return render_template('groupsearch/list_groups.html', form=form, groups=groups, breadcrumbs=custom_breadcrumbs)
 
 @groupsearch_bp.route('/delete/<int:group_id>', methods=['POST'])
 @permission_required('listserv+delete')
@@ -80,6 +83,10 @@ def delete_group(group_id):
 @groupsearch_bp.route('/members/<string:group_email>')
 @permission_required('listserv+view')
 def list_members(group_email):
+    custom_breadcrumbs = [
+        {'name': 'Google Groups', 'url': '/groupsearch/list'},
+        {'name': f'{group_email} Members', 'url': f'/groupsearch/members/{group_email}'}
+    ]
     # Make the HTTP request to Cloud Identity API
     # Lookup group
     lookup_resp = requests.get(
@@ -112,4 +119,4 @@ def list_members(group_email):
         if not page_token:
             break
 
-    return render_template('groupsearch/list_members.html', group=group_email, members=members)
+    return render_template('groupsearch/list_members.html', group=group_email, members=members, breadcrumbs=custom_breadcrumbs)

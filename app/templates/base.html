@@ -161,7 +161,8 @@
                                     Students</a>
                             </li>
                             {% endif %}
-                            {% if has_permission('listserv+view') or has_permission('listserv+add') or has_permission('listserv+edit') or has_permission('listserv+delete') %}
+                            {% if has_permission('listserv+view') or has_permission('listserv+add') or
+                            has_permission('listserv+edit') or has_permission('listserv+delete') %}
                             <li>
                                 <a class="dropdown-item" href="{{ url_for('groupsearch.list_groups') }}">Listserv</a>
                             </li>
@@ -185,6 +186,17 @@
             </div>
         </div>
     </nav>
+    {% if breadcrumbs %}
+    <nav aria-label="breadcrumb" class="mx-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('main.home') }}">Home</a></li>
+            {% for crumb in breadcrumbs[:-1] %}
+            <li class="breadcrumb-item"><a href="{{ crumb.url }}">{{ crumb.name }}</a></li>
+            {% endfor %}
+            <li class="breadcrumb-item active" aria-current="page">{{ breadcrumbs[-1].name }}</li>
+        </ol>
+    </nav>
+    {% endif %}
     <!-- end navbar -->
     {%- endblock navbar %}
     <!-- Your page content -->

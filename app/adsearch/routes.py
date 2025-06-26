@@ -43,6 +43,11 @@ def extract_ou(distinguished_name, keyword):
 @adsearch_bp.route('/search', methods=['GET', 'POST'])
 @permission_required('adsearch+view')
 def search():
+
+    custom_breadcrumbs = [
+        {'name': 'Active Directory Search', 'url': '/adsearch/search'}
+    ]
+
     results = []
     error = None
     searched = False
@@ -106,7 +111,7 @@ def search():
             error = str(e)
 
     # print(results)
-    return render_template('adsearch/search.html', results=results, error=error, searched=searched)
+    return render_template('adsearch/search.html', results=results, error=error, searched=searched, breadcrumbs=custom_breadcrumbs)
 
 #"""Using ADSI LDAP Linked Server"""
 # def search():

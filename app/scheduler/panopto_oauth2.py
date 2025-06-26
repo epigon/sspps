@@ -1,14 +1,15 @@
 #!python3
-import os
-import time
-from requests_oauthlib import OAuth2Session
+from flask import request, url_for
+from http.server import BaseHTTPRequestHandler
 from oauthlib.oauth2 import LegacyApplicationClient  # specific to Resource Owner Grant
+from requests_oauthlib import OAuth2Session
+from socketserver import ThreadingTCPServer
+from urllib.parse import urlparse, urlunparse
+import os
 import pickle
 import pprint
+import time
 import webbrowser
-from http.server import BaseHTTPRequestHandler
-from socketserver import ThreadingTCPServer
-from flask import request, url_for
 
 REDIRECT_PORT = 9127
 
@@ -19,7 +20,12 @@ class PanoptoOAuth2():
     def __init__(self, server, client_id, client_secret, ssl_verify):
 
         redirect_path = '/redirect'
-        self.REDIRECT_URL = request.host_url.rstrip('/') + redirect_path  # dynamically built
+        hostname = urlparse(request.host_url).hostname
+
+        # self.REDIRECT_URL = request.host_url.rstrip('/') + redirect_path  # dynamically built
+        # print(hostname)
+        self.REDIRECT_URL = f'{hostname}:{REDIRECT_PORT}{redirect_path}' # dynamically built
+        # print(self.REDIRECT_URL)
 
         self.client_id = client_id
         self.client_secret = client_secret

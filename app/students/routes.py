@@ -46,7 +46,11 @@ def before_request():
 @students_bp.route('/uploadform')
 @permission_required('students+add, students+edit')
 def upload_form():
-    return render_template('students/upload.html')
+    custom_breadcrumbs = [
+        {'name': 'Students', 'url': '/students/'},
+        {'name': 'Upload Form', 'url': '/students/uploadform'}
+    ]
+    return render_template('students/upload.html',breadcrumbs=custom_breadcrumbs)
 
 @students_bp.route('/template')
 @permission_required('students+add, students+edit')
@@ -223,6 +227,7 @@ def allowed_photo(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_PHOTO_EXTENSIONS
 
 @students_bp.route('/list')
+@students_bp.route('/')
 @permission_required('students+view, students+add, students+edit, students+delete')
 def list_students():
     class_of = request.args.get('class_of')

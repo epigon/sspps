@@ -55,7 +55,7 @@ def panopto_login():
 
     # Load OAuth2 logic
     oauth2 = PanoptoOAuth2(args.server, args.client_id, args.client_secret, not args.skip_verify)
-    # print(oauth2)
+
     # Initial authorization
     authorization(requests_session, oauth2)
     return requests_session, oauth2, args
