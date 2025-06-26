@@ -94,9 +94,9 @@ html, body {
 .layout-navbar {
   min-height: 50px;
   width: 100%;
-  background-color: #006A96;
+  background-color: #00629B;
   border: 0;
-  border-bottom: 1px solid #006A96;
+  border-bottom: 1px solid #00629B;
   margin-bottom: 0;
   z-index: 100; }
 
@@ -147,7 +147,7 @@ a {
  * FOOTER
  * **************/
 footer {
-  background-color: #006A96; }
+  background-color: #00629B; }
 
 .footer-links {
   list-style: none;
@@ -315,3 +315,22 @@ a.button {
 @media only screen and (max-width: 480px) {
   .button {
     padding: .5em 1em; } }
+
+
+
+html, body {
+  height: 100% !important;
+}
+
+body {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+main {
+  flex: 1 0 auto !important;
+}
+
+footer {
+  flex-shrink: 0 !important;
+}

@@ -1,0 +1,250 @@
+{% extends 'base.html' %}
+
+{% block head %}
+{{super()}}
+
+<!-- DataTables CSS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.5/css/jquery.dataTables.min.css">
+
+<!-- jQuery (required by DataTables) -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<!-- DataTables JS -->
+<script src="https://cdn.datatables.net/1.13.5/js/jquery.dataTables.min.js"></script>
+<style>
+    #drop-zone {
+        width: 100%;
+        padding: 20px;
+        border: 2px dashed #ccc;
+        text-align: center;
+        color: #888;
+        cursor: pointer;
+    }
+
+    #drop-zone.dragover {
+        background-color: #f0f8ff;
+        border-color: #4caf50;
+    }
+
+    #drop-zone img {
+        max-width: 150px;
+        margin-top: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="container">
+
+    <h2 class="mb-4">Edit Student</h2>
+    <form method="post" enctype="multipart/form-data">
+        {{ form.hidden_tag() }}
+
+        <div class="row mb-3">
+            <div class="col-sm-2">
+                <!-- Current photo preview -->
+                <div class="row">
+                    <label class="col-form-label">Current Photo:</label>
+                    {% if student.photo_url %}
+                    <img src="{{ url_for('static', filename='photos/' ~ student.photo_url) }}" class="img-thumbnail"
+                        width="100">
+                    {% else %}
+                    <em>No photo uploaded</em>
+                    {% endif %}
+
+                </div>
+
+                <!-- Drag and drop photo upload -->
+                <div class="row">
+                    <label class="col-form-label">Upload New Photo:</label>
+
+                    <div id="drop-zone" class="border rounded p-3 text-center" style="cursor:pointer;">
+                        Drop a photo here or <span class="text-primary text-decoration-underline">click to select</span>
+                    </div>
+                    <!-- Move the file input outside the drop-zone and hide manually -->
+                    {{ form.photo_file(class="d-none", id="photo_file") }}
+                    <div id="preview" class="mt-2"></div>
+
+                </div>
+
+            </div>
+            <div class="col-sm-10 ps-4">
+                <div class="row mb-3">
+                    <label class="col-sm-2 col-form-label">{{ form.pid.label }}</label>
+                    <div class="col-sm-10">
+                        {{ form.pid(class="form-control") }}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <label class="col-sm-2 col-form-label">{{ form.username.label }}</label>
+                    <div class="col-sm-10">
+                        {{ form.username(class="form-control") }}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <label class="col-sm-2 col-form-label">{{ form.email.label }}</label>
+                    <div class="col-sm-10">
+                        {{ form.email(class="form-control") }}
+                    </div>
+                </div>
+
+                <!-- First and Last Name side-by-side -->
+                <div class="row mb-3">
+                    <div class="col-sm-2">Legal</div>
+                    <div class="col-sm-5">
+                        <label class="form-label fst-italic">{{ form.first_name.label }}</label>
+                        {{ form.first_name(class="form-control") }}
+                    </div>
+                    <div class="col-sm-5">
+                        <label class="form-label fst-italic">{{ form.last_name.label }}</label>
+                        {{ form.last_name(class="form-control") }}
+                    </div>
+                </div>
+
+                <!-- Other fields -->
+                <div class="row mb-3">
+                    <label class="col-sm-2 col-form-label">{{ form.middle_name.label }}</label>
+                    <div class="col-sm-10">
+                        {{ form.middle_name(class="form-control") }}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <label class="col-sm-2 col-form-label">{{ form.suffix.label }}</label>
+                    <div class="col-sm-10">
+                        {{ form.suffix(class="form-control") }}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <label class="col-sm-2 col-form-label">{{ form.pronoun.label }}</label>
+                    <div class="col-sm-10">
+                        {{ form.pronoun(class="form-control") }}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-sm-2"></div>
+                    <div class="col-sm-10 form-check">
+                        {{ form.loa(class="form-check-input", id="loa") }}
+                        <label class="form-check-label" for="loa">{{ form.loa.label.text }}</label>
+                    </div>
+                </div>
+
+                <!-- Name pronunciation -->
+                <div class="row mb-3">
+                    <div class="col-sm-2">Phonetic</div>
+                    <div class="col-sm-5">
+                        <label class="form-label fst-italic">{{ form.phonetic_first_name.label }}</label>
+                        {{ form.phonetic_first_name(class="form-control") }}
+                    </div>
+                    <div class="col-sm-5">
+                        <label class="form-label fst-italic">{{ form.phonetic_last_name.label }}</label>
+                        {{ form.phonetic_last_name(class="form-control") }}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-sm-2">Lived Name</div>
+                    <div class="col-sm-5">
+                        <label class="form-label fst-italic">{{ form.lived_first_name.label }}</label>
+                        {{ form.lived_first_name(class="form-control") }}
+                    </div>
+                    <div class="col-sm-5">
+                        <label class="form-label fst-italic">{{ form.lived_last_name.label }}</label>
+                        {{ form.lived_last_name(class="form-control") }}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <label class="col-sm-2 col-form-label">{{ form.class_of.label }}</label>
+                    <div class="col-sm-10">
+                        {{ form.class_of(class="form-control") }}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <label class="col-sm-2 col-form-label">{{ form.photo_url.label }}</label>
+                    <div class="col-sm-10">
+                        {{ form.photo_url(class="form-control") }}
+                    </div>
+                </div>
+
+
+
+                <!-- Submit -->
+                <div class="row mb-3">
+                    <div class="col-sm-10 offset-sm-2">
+                        <button type="submit" class="btn btn-sm btn-primary">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('photo_file');
+    const preview = document.getElementById('preview');
+
+    function showPreview(file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+            preview.innerHTML = `
+                <img src="${reader.result}" class="img-thumbnail mb-2" width="150">
+                <br>
+                <button type="button" class="btn btn-sm btn-outline-danger" id="remove-photo">Remove</button>
+            `;
+            document.getElementById('remove-photo').addEventListener('click', clearPreview);
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function clearPreview() {
+        fileInput.value = '';
+        // preview.innerHTML = `<em class="text-muted">No photo selected</em>`;
+        preview.innerHTML = ``;
+    }
+
+    // Click to open file dialog
+    dropZone.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    // Handle drag-and-drop
+    dropZone.addEventListener('dragover', e => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('image/')) {
+            fileInput.files = e.dataTransfer.files;
+            showPreview(file);
+        }
+    });
+
+    // Handle manual file selection
+    fileInput.addEventListener('change', () => {
+        const file = fileInput.files[0];
+        if (file && file.type.startsWith('image/')) {
+            showPreview(file);
+        }
+    });
+</script>
+{% endblock %}

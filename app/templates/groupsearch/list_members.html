@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block head %}
+{{super()}}
+<!-- DataTables JS -->
+<script src="https://cdn.datatables.net/1.13.5/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.5/js/dataTables.bootstrap5.min.js"></script>
+{% endblock %}
+
+{% block content %}
+
+<div class="container">
+    <h1>{{ group }} Members</h1>
+    <table id="members-table" class="table table-bordered align-middle table-striped border rounded table-sm">
+        <thead>
+            <tr>
+                <th>Member Email</th>
+                <th>Role</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for member in members %}
+            <tr>
+                <td>{{ member.email }}</td>
+                <td>{{ member.role }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script>
+    $(document).ready(function () {
+        $('#members-table').DataTable({
+            order: [[0, 'asc']],  // Sort by "Email" ascending
+            pageLength: 25
+        });
+    });
+</script>
+{% endblock %}

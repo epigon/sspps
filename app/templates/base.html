@@ -132,12 +132,38 @@
                             {% if has_permission('calendar+view') or has_permission('calendar+add') or
                             has_permission('calendar+edit') %}
                             <li>
-                                <a class="dropdown-item" href="{{ url_for('scheduler.calendar_groups') }}">Curriculum Calendars</a>
+                                <a class="dropdown-item" href="{{ url_for('scheduler.calendar_groups') }}">Curriculum
+                                    Calendars</a>
                             </li>
                             {% endif %}
+
                             {% if has_permission('adsearch+view') %}
                             <li>
-                                <a class="dropdown-item" href="{{ url_for('adsearch.search') }}">Active Directory Search</a>
+                                <hr class="dropdown-divider">
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('adsearch.search') }}">Active Directory
+                                    Search</a>
+                            </li>
+                            {% endif %}
+                            {% if has_permission('students+view') %}
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('students.list_students') }}">View
+                                    Students</a>
+                            </li>
+                            {% endif %}
+                            {% if has_permission('students+add') or has_permission('student+edit') %}
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('students.upload_form') }}">Upload
+                                    Students</a>
+                            </li>
+                            {% endif %}
+                            {% if has_permission('listserv+view') or has_permission('listserv+add') or has_permission('listserv+edit') or has_permission('listserv+delete') %}
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('groupsearch.list_groups') }}">Listserv</a>
                             </li>
                             {% endif %}
                         </ul>
@@ -174,10 +200,13 @@
         {% endif %}
         {% endwith %}
     </div>
-    {% block content %}{% endblock %}
+    <main>
+        {% block content %}{% endblock %}
+        <img src="https://a5.ucsd.edu/tritON/imagebug">
+    </main>
 
     {% block footer -%}
-    <footer class="footer mt-4">
+    <footer class="footer" style="background-color: #00629B;">
         <div class="container">
             <div class="row">
                 <div class="col-sm-8">
@@ -208,8 +237,6 @@
     <!-- Optional JavaScript -->
     {{ bootstrap.load_js() }}
     {% endblock %}
-
-    <img src="https://a5.ucsd.edu/tritON/imagebug">
 </body>
 
 </html>

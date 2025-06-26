@@ -2,6 +2,7 @@ app/cred.py
 *.bak
 **/static/uploads/
 **/static/calendars/
+**/static/photos/
 **/logs/
 app/test-email.py
 
@@ -182,3 +183,6 @@ cython_debug/
 
 # Panopto token
 token_ucsd-som.hosted.panopto.*
+
+# Google token
+app/nodal-album-464015-d4-e7b2f79666a6.json

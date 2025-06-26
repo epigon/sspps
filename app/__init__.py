@@ -68,6 +68,12 @@ def create_app():
     from app.adsearch.routes import adsearch_bp
     app.register_blueprint(adsearch_bp)
 
+    from app.groupsearch.routes import groupsearch_bp
+    app.register_blueprint(groupsearch_bp)
+
+    from app.students.routes import students_bp
+    app.register_blueprint(students_bp)
+
     # @app.route('/cause-error')
     # def error():
     #     raise ValueError("This is a test error.")

@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block head %}
+{{super()}}
+<!-- DataTables JS -->
+<script src="https://cdn.datatables.net/1.13.5/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.5/js/dataTables.bootstrap5.min.js"></script>
+{% endblock %}
+
+{% block content %}
+
+<div class="container">
+    <h1>ADD GOOGLE GROUP:</h1>
+
+    {% if has_permission('listserv+add') or has_permission('listserv+edit') %}                            
+    <form method="POST" class="mb-4">
+        {{ form.hidden_tag() }}
+        <div class="mb-3">
+            {{ form.group_name.label(class="form-label") }}
+            {{ form.group_name(class="form-control") }}
+        </div>
+        <button type="submit" class="btn btn-primary">Submit</button>
+    </form>
+    {% endif %}
+
+    <h2>Existing Groups</h2>
+    <table id="groups-table" class="table table-bordered align-middle table-striped border rounded table-sm">
+        <thead>
+            <tr>
+                <th>Group Name</th>
+                <th>Manage</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for group in groups %}
+            <tr>
+                <td>{{ group.group_name }}<br>
+                    <small class="text-muted">Added: {{ group.create_date.strftime('%Y-%m-%d %H:%M') }}</small>
+                </td>
+                <form method="POST" action="{{ url_for('groupsearch.delete_group', group_id=group.id) }}">
+                <td>
+                    <a href="{{ url_for('groupsearch.list_members', group_email=group.group_name) }}"
+                        class="btn btn-primary btn-sm">Members</a>
+                    {% if has_permission('listserv+delete') %}
+                    <button class="btn btn-sm btn-danger" onclick="return confirm('Are you sure?')">Delete</button>
+                    {% endif %}
+                </td>
+                </form>
+                {% endfor %}
+        </tbody>
+    </table>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    $(document).ready(function () {
+        $('#groups-table').DataTable({
+            order: [[0, 'asc']],  // Sort by "Group Name" ascending
+            pageLength: 25
+        });
+    });
+</script>
+{% endblock %}

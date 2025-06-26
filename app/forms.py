@@ -232,3 +232,24 @@ class MeetingForm(FlaskForm):
 class FileUploadForm(FlaskForm):
     ay_committee_id = HiddenField('AYCommittee', validators=[DataRequired()])
     files = FileField('Files', render_kw={'accept': "image/*"})
+
+class StudentForm(FlaskForm):
+    pid = StringField("PID", validators=[DataRequired()])
+    username = StringField("Username", validators=[DataRequired()])
+    email = StringField("Email", validators=[Optional(), Email()])
+    first_name = StringField("First Name", validators=[DataRequired()])
+    last_name = StringField("Last Name", validators=[DataRequired()])
+    middle_name = StringField("Middle Name", validators=[Optional()])
+    suffix = StringField("Suffix", validators=[Optional()])
+    pronoun = StringField("Pronoun", validators=[Optional()])
+    loa = BooleanField("LOA")
+    phonetic_first_name = StringField("Phonetic First Name", validators=[Optional()])
+    phonetic_last_name = StringField("Phonetic Last Name", validators=[Optional()])
+    lived_first_name = StringField("Lived First Name", validators=[Optional()])
+    lived_last_name = StringField("Lived Last Name", validators=[Optional()])
+    class_of = StringField("Class Of", validators=[Optional()])
+    photo_url = StringField("Photo URL", validators=[Optional()])
+    photo_file = FileField("Upload New Photo")
+
+class GroupForm(FlaskForm):
+    group_name = StringField('Google Group Name', validators=[DataRequired()])

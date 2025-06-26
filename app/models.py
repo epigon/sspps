@@ -6,19 +6,19 @@ from sqlalchemy.orm import relationship, object_session
 
 ## ADMIN MODELS
 user_permissions = db.Table('USER_PERMISSIONS',
-    db.Column('user_id', db.Integer, db.ForeignKey('USERS.id')),
-    db.Column('permission_id', db.Integer, db.ForeignKey('PERMISSIONS.id'))
+    Column('user_id', db.Integer, db.ForeignKey('USERS.id')),
+    Column('permission_id', db.Integer, db.ForeignKey('PERMISSIONS.id'))
 )
 
 role_permissions = db.Table('ROLE_PERMISSIONS',
-    db.Column('role_id', db.Integer, db.ForeignKey('ROLES.id')),
-    db.Column('permission_id', db.Integer, db.ForeignKey('PERMISSIONS.id'))
+    Column('role_id', db.Integer, db.ForeignKey('ROLES.id')),
+    Column('permission_id', db.Integer, db.ForeignKey('PERMISSIONS.id'))
 )
 
 class Role(db.Model):
     __tablename__ = 'ROLES'
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(64), unique=True)
+    id = Column(db.Integer, primary_key=True)
+    name = Column(db.String(64), unique=True)
     permissions = db.relationship('Permission', secondary=role_permissions)
     users = db.relationship('User', back_populates='role')
     create_date = Column(DateTime, default=datetime.now)
@@ -28,22 +28,22 @@ class Role(db.Model):
     
 class Permission(db.Model):
     __tablename__ = 'PERMISSIONS'
-    id = db.Column(db.Integer, primary_key=True)
-    resource = db.Column(db.String(64))
-    action = db.Column(db.String(64))
+    id = Column(db.Integer, primary_key=True)
+    resource = Column(db.String(64))
+    action = Column(db.String(64))
     create_date = Column(DateTime, default=datetime.now)
     deleted = Column(Boolean, default=False)
     delete_date = Column(DateTime)
 
 class User(UserMixin, db.Model):
     __tablename__ = 'USERS'
-    id = db.Column(db.Integer, primary_key=True)
+    id = Column(db.Integer, primary_key=True)
     employee_id = Column(Integer, ForeignKey('EMPLOYEES.employee_id'), nullable=False)
-    username = db.Column(db.String(64), unique=True, nullable=False)
-    role_id = db.Column(db.Integer, db.ForeignKey('ROLES.id'), nullable=False)
+    username = Column(db.String(64), unique=True, nullable=False)
+    role_id = Column(db.Integer, db.ForeignKey('ROLES.id'), nullable=False)
     role = db.relationship('Role', back_populates='users')
     permissions = db.relationship('Permission', secondary=user_permissions)
-    is_active = db.Column(db.Boolean, default=True)
+    is_active = Column(db.Boolean, default=True)
     employee = relationship("Employee", backref="users")  # Link to Employee
     create_date = Column(DateTime, default=datetime.now)
     deleted = Column(Boolean, default=False)
@@ -306,27 +306,64 @@ class MemberRole(db.Model):
 # Scheduler Models
 class ScheduledRecording(db.Model):
     __tablename__ = 'SCHEDULED_RECORDINGS'
-    id = db.Column(db.Integer, primary_key=True)
-    canvas_event_id = db.Column(db.Integer, nullable=False)
-    title = db.Column(db.String(255), nullable=False)
-    start_time = db.Column(db.DateTime, nullable=False)
-    end_time = db.Column(db.DateTime, nullable=False)
-    folder_id = db.Column(db.String(255))
-    recorder_id = db.Column(db.String(255))
-    panopto_session_id = db.Column(db.String(255))
+    id = Column(db.Integer, primary_key=True)
+    canvas_event_id = Column(db.Integer, nullable=False)
+    title = Column(db.String(255), nullable=False)
+    start_time = Column(db.DateTime, nullable=False)
+    end_time = Column(db.DateTime, nullable=False)
+    folder_id = Column(db.String(255))
+    recorder_id = Column(db.String(255))
+    panopto_session_id = Column(db.String(255))
     broadcast = Column(Boolean, default=False)
-    create_date = db.Column(db.DateTime, default=datetime.now)
+    create_date = Column(db.DateTime, default=datetime.now)
 
 class CalendarGroupSelection(db.Model):
     __tablename__ = 'CALENDAR_GROUP_SELECTIONS'
-    id = db.Column(db.Integer, primary_key=True)
-    group_name = db.Column(db.String(50), nullable=False)
-    course_id = db.Column(db.String(50), nullable=False)
-    course_name = db.Column(db.String(255), nullable=False)
-    timestamp = db.Column(db.DateTime, default=datetime.now)
+    id = Column(db.Integer, primary_key=True)
+    group_name = Column(db.String(50), nullable=False)
+    course_id = Column(db.String(50), nullable=False)
+    course_name = Column(db.String(255), nullable=False)
+    timestamp = Column(db.DateTime, default=datetime.now)
 
 class CalendarGroup(db.Model):
     __tablename__ = 'CALENDAR_GROUPS'
+    id = Column(db.Integer, primary_key=True)
+    name = Column(db.String(100), nullable=False)
+    ics_filename = Column(db.String(100), nullable=False)
+
+
+class Student(db.Model):
+    __tablename__ = 'STUDENTS'
+    id = Column(Integer, primary_key=True)
+    pid = Column(String(50), nullable=False)
+    username = Column(String(255), nullable=False)
+    email = Column(String(255), nullable=False)
+    first_name = Column(String(255), nullable=False)
+    last_name = Column(String(255), nullable=False)
+    middle_name = Column(String(255))
+    suffix = Column(String(50))
+    pronoun = Column(String(50))
+    loa = Column(Boolean, default=False)
+    phonetic_first_name = Column(String(255))
+    phonetic_last_name = Column(String(255))
+    lived_first_name = Column(String(255))
+    lived_last_name = Column(String(255))
+    class_of = Column(String(50))
+    photo_url = Column(String(255))
+    create_date = Column(DateTime, default=datetime.now)
+    create_by = Column(Integer, nullable=False)
+    update_date = Column(DateTime)
+    update_by = Column(Integer)
+    delete_date = Column(DateTime)
+    delete_by = Column(Integer)
+    deleted = Column(Boolean, default=False)
+
+class Listserv(db.Model):
+    __tablename__ = 'LISTSERV'
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    ics_filename = db.Column(db.String(100), nullable=False)
+    group_name = db.Column(db.String(128), unique=True, nullable=False)
+    create_date = db.Column(db.DateTime, default=datetime.now())
+    create_by = Column(Integer, nullable=False)
+    delete_date = db.Column(db.DateTime, nullable=True)
+    delete_by = Column(Integer)
+    deleted = db.Column(db.Boolean, default=False)
