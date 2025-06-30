@@ -7,6 +7,7 @@ from flask_login import login_required, current_user
 from google.auth.transport.requests import Request
 from google.oauth2 import service_account
 import os
+import pytz
 import requests
 
 groupsearch_bp = Blueprint('groupsearch', __name__, url_prefix='/groupsearch')
@@ -102,7 +103,7 @@ def list_members(group_email):
     page_token = None
 
     while True:
-        params = {'pageToken': page_token} if page_token else {}
+        params = {'pageToken': page_token, 'view': 'FULL'} if page_token else {'view': 'FULL'}
         resp = requests.get(
             f'https://cloudidentity.googleapis.com/v1/{group_name}/memberships',
             headers=headers,
@@ -111,9 +112,22 @@ def list_members(group_email):
         resp.raise_for_status()
         data = resp.json()
         for m in data.get('memberships', []):
+            # print(m.get('createTime', 'N/A'))
+            # Original UTC timestamp
+            utc_time_str = m.get('createTime', '')
+
+            # Parse the UTC datetime
+            utc_dt = datetime.strptime(utc_time_str, "%Y-%m-%dT%H:%M:%S.%fZ")
+            utc_dt = utc_dt.replace(tzinfo=pytz.utc)
+
+            # Convert to Pacific Time
+            pacific = pytz.timezone("US/Pacific")
+            pacific_dt = utc_dt.astimezone(pacific)
+
             members.append({
                 'email': m['preferredMemberKey']['id'],
-                'role': m['roles'][0]['name'] if m['roles'] else 'UNKNOWN'
+                'role': m['roles'][0]['name'] if m['roles'] else 'UNKNOWN',
+                'added': pacific_dt.strftime("%Y-%m-%d %I:%M:%S %p")
             })
         page_token = data.get('nextPageToken')
         if not page_token:

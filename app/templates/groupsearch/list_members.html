@@ -24,6 +24,7 @@
         <thead>
             <tr>
                 <th>Member Email</th>
+                <th>Added on</th>
                 <th>Role</th>
             </tr>
         </thead>
@@ -31,6 +32,7 @@
             {% for member in members %}
             <tr>
                 <td>{{ member.email }}</td>
+                <td>{{ member.added }}</td>
                 <td>{{ member.role }}</td>
             </tr>
             {% endfor %}
