@@ -75,8 +75,8 @@ def save_selections():
 def generate_scheduled_ics():
     print(f"[{datetime.now()}] Running scheduled ICS generation job...")
 
-    courses1 = get_canvas_courses(account="SSPPS")
-    courses2= get_canvas_courses(account="SOM")
+    courses1 = get_canvas_courses(account="SSPPS", state=["available"])
+    courses2= get_canvas_courses(account="SOM", state=["available"])
     courses = sorted(courses1 + courses2, key=lambda c: c["name"])
     
     # Build a map from course ID to course info
@@ -87,6 +87,11 @@ def generate_scheduled_ics():
             "start_at": (
                 course['start_at'] 
                 if course.get('start_at') else
+                datetime(datetime.now().year, 1, 1, tzinfo=timezone.utc)
+            ),
+            "end_at": (
+                course['end_at'] 
+                if course.get('end_at') else
                 datetime(datetime.now().year, 1, 1, tzinfo=timezone.utc)
             )
         }
@@ -105,17 +110,14 @@ def generate_scheduled_ics():
     # Fetch calendar groups with their filenames
     groups = CalendarGroup.query.all()
     filename_map = {group.name: group.ics_filename for group in groups}
-    # print(course_map)
     for group_name, courses in group_data.items():
-        # print("courses",courses)
         calendar = Calendar()
-        for course in courses:
+        for course in courses:            
             course_info = course_map.get(course['id'])
             if course_info:
-                course_events = get_canvas_events(context_codes=f"course_{course_info['course_id']}", start_date = course_info['start_at'])
+                course_events = get_canvas_events(context_codes=f"course_{course_info['course_id']}", start_date = course_info['start_at'], end_date = course_info['end_at'])
                 for item in course_events:
                     event = Event()
-
                     event.add('summary', course_info['course_name'] + " " + item["title"])
                     
                     # Remove 'Z' and replace with '+00:00' to make it ISO compliant for fromisoformat

@@ -37,7 +37,7 @@ SSPPSAccountID = 50
 def before_request():
     pass
 
-def get_canvas_courses(account="SSPPS", blueprint=False):
+def get_canvas_courses(account="SSPPS", blueprint=False, state=None):
     """
     Fetches all Canvas courses for the authenticated user using pagination.
 
@@ -62,6 +62,8 @@ def get_canvas_courses(account="SSPPS", blueprint=False):
     params = {'per_page': 100, 
               "blueprint": blueprint, 
               "include[]": ["term","account_name"]}
+    if state is not None:
+      params['state[]'] = state
     url = f"{CANVAS_API_BASE}/accounts/{accountID}/courses"
     all_courses = []
 
@@ -86,7 +88,7 @@ def get_canvas_courses(account="SSPPS", blueprint=False):
 @bp.route("/api/courses")
 def get_courses_api():
     term_id = request.args.get('term_id')
-    print(term_id)
+    # print(term_id)
     all_courses = get_canvas_courses()
     filtered_courses = []
 
@@ -121,8 +123,7 @@ def get_canvas_events(context_codes=[], start_date=datetime.now(), end_date=None
 
     if context_codes:
         params.setdefault('context_codes[]', []).append(context_codes)
-    
-    # print("params",params)
+
     if start_date or end_date:
         if start_date:
             if isinstance(start_date, datetime):
