@@ -167,8 +167,21 @@
                 }
             ]
         });
-
+        
         var selectedStudentIds = new Set();
+
+        // Auto-check all checkboxes and populate selectedStudentIds on page load
+        table.rows().every(function () {
+            const checkbox = $(this.node()).find('input[name="student_ids"]');
+            const studentId = checkbox.val();
+            if (studentId) {
+                checkbox.prop('checked', true);
+                selectedStudentIds.add(studentId);
+            }
+        });
+
+        // Update "check all" box state
+        $('#check-all').prop('checked', true);
 
         // "Check All" toggle
         $('#check-all').on('click', function () {
@@ -277,15 +290,6 @@
             const selectedClass = $('#class_of').val();
             const selectedCourse = $('#course_id').val();
 
-            console.log("on change")
-
-            // const $selectedOption = $('#course_id option:selected'); // jQuery object
-            // const courseCode = $selectedOption.data('course-code') || ''; // ✅ Use .data()
-            // const courseName = $selectedOption.text(); // ✅ Use .text()
-
-            // $('#pdf_title').val(courseName);
-            // $('#pdf_filename').val(courseCode);
-
             const queryParams = new URLSearchParams();
             if (selectedClass) queryParams.append('class_of', selectedClass);
             if (selectedTerm) queryParams.append('term', selectedTerm);
@@ -309,8 +313,8 @@
         if ($classSelect.val()) {
             const selectedOption = $classSelect[0].options[$classSelect[0].selectedIndex];
             const selectedClassOf = selectedOption.text;
-            $('#pdf_title').val("Class of "+selectedClassOf);
-            $('#pdf_filename').val("class_of_"+selectedClassOf);
+            $('#pdf_title').val("Class of " + selectedClassOf);
+            $('#pdf_filename').val("class_of_" + selectedClassOf);
         }
 
         // Delete student via AJAX
