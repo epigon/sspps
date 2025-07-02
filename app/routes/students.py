@@ -332,8 +332,8 @@ def add_page_header(canvas, doc, title, header, subheader):
 @bp.route('/generate_photo_cards', methods=['POST'])
 @permission_required('students+view, students+add, students+edit, students+delete')
 def generate_photo_cards():
-    ids = request.form.getlist('student_ids')
-    # print(ids)
+    ids = list(set(request.form.getlist('student_ids')))
+
     if not ids:
         flash("No students selected.", 'danger')
         return redirect(url_for('students.list_students'))
@@ -348,7 +348,11 @@ def generate_photo_cards():
     pdf_filename = request.form.get('pdf_filename', '').strip() or "photo_cards"
 
     students = Student.query.filter(Student.id.in_(ids), Student.deleted == False).order_by(Student.last_name, Student.first_name).all()
-        
+
+    if not students:
+        flash("No matching students found.", 'danger')
+        return redirect(url_for('students.list_students'))
+
     buffer = BytesIO()
     doc = SimpleDocTemplate(
         buffer,
@@ -372,6 +376,7 @@ def generate_photo_cards():
     for student in students:
         # Image
         photo_path = os.path.join(PHOTO_UPLOAD_FOLDER, student.photo_url or '')
+
         try:
             if os.path.exists(photo_path):
                 img_reader = ImageReader(photo_path)
@@ -445,12 +450,19 @@ def generate_photo_cards():
         elements.append(t)
         elements.append(Spacer(1, 0.05 * inch))  # smaller space between rows
 
-    doc.build(
-        elements,
-        onFirstPage=lambda c, d: add_page_header(c, d, pdf_title, pdf_header, pdf_subheader),
-        onLaterPages=lambda c, d: add_page_header(c, d, pdf_title, pdf_header, pdf_subheader)
-    )
-
+    try:
+        print("Calling doc.build()...", flush=True)
+        doc.build(
+            elements,
+            onFirstPage=lambda c, d: add_page_header(c, d, pdf_title, pdf_header, pdf_subheader),
+            onLaterPages=lambda c, d: add_page_header(c, d, pdf_title, pdf_header, pdf_subheader)
+        )
+        print("Finished doc.build()", flush=True)
+    except Exception as ex:
+        print("PDF generation failed:", ex)
+        flash("There was a problem generating the PDF.", "danger")
+        return redirect(url_for('students.list_students'))
+    
     buffer.seek(0)
 
     return send_file(

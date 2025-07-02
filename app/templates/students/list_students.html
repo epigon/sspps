@@ -67,7 +67,8 @@
     <div id="client-alert" class="alert alert-warning d-none" role="alert">
         Please select at least one student.
     </div>
-    <form method="POST" action="{{ url_for('students.generate_photo_cards') }}" id="photo-card-form">
+    <form method="POST" action="{{ url_for('students.generate_photo_cards') }}" id="photo-card-form" target="_blank">
+        {{ form.hidden_tag() }}
         <input type="hidden" name="class_of" value="{{ selected_class or '' }}">
         <input type="hidden" name="term" value="{{ selected_term or '' }}">
         <input type="hidden" name="course_id" value="{{ selected_course or '' }}">
@@ -209,29 +210,40 @@
 
         // Add hidden inputs on submit for selected students
         $('#photo-card-form').on('submit', function (e) {
+            console.log("Submit clicked");
+
+            // Remove old hidden inputs only
+            $('#photo-card-form input[type="hidden"][name="student_ids"]').remove();
+
+            // Rebuild selected IDs from checkboxes
+            selectedStudentIds = new Set();
+            $('input[name="student_ids"]:checked').each(function () {
+                selectedStudentIds.add($(this).val());
+            });
+
             if (selectedStudentIds.size === 0) {
-                e.preventDefault(); // 🛑 Stop submission
+                e.preventDefault();
                 $('#client-alert').removeClass('d-none').hide().fadeIn();
-
-                setTimeout(() => {
-                    $('#client-alert').fadeOut();
-                }, 4000);
-
                 return false;
             }
 
-            // Remove any prior hidden inputs (avoid duplicates)
-            $('#photo-card-form input[name="student_ids"][type="hidden"]').remove();
+            $('#client-alert').addClass('d-none').hide().fadeIn();
 
-            // ✅ Append selected student IDs
+            // Add hidden inputs only for IDs not already visible (i.e., from previous pages)
             selectedStudentIds.forEach(function (id) {
-                $('<input>').attr({
-                    type: 'hidden',
-                    name: 'student_ids',
-                    value: id
-                }).appendTo('#photo-card-form');
+                const checkbox = $('input[name="student_ids"][value="' + id + '"]');
+                if (checkbox.length === 0 || !checkbox.is(':checked')) {
+                    $('<input>').attr({
+                        type: 'hidden',
+                        name: 'student_ids',
+                        value: id
+                    }).appendTo('#photo-card-form');
+                }
             });
+
+            console.log("Student IDs submitted:", Array.from(selectedStudentIds));
         });
+
 
         // Update courses on term change without submitting form
         $('#term').on('change', function () {
@@ -265,12 +277,14 @@
             const selectedClass = $('#class_of').val();
             const selectedCourse = $('#course_id').val();
 
-            const $selectedOption = $('#course_id option:selected'); // jQuery object
-            const courseCode = $selectedOption.data('course-code') || ''; // ✅ Use .data()
-            const courseName = $selectedOption.text(); // ✅ Use .text()
+            console.log("on change")
 
-            $('#pdf_title').val(courseName);
-            $('#pdf_filename').val(courseCode);
+            // const $selectedOption = $('#course_id option:selected'); // jQuery object
+            // const courseCode = $selectedOption.data('course-code') || ''; // ✅ Use .data()
+            // const courseName = $selectedOption.text(); // ✅ Use .text()
+
+            // $('#pdf_title').val(courseName);
+            // $('#pdf_filename').val(courseCode);
 
             const queryParams = new URLSearchParams();
             if (selectedClass) queryParams.append('class_of', selectedClass);
