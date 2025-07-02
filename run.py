@@ -14,8 +14,8 @@ def inject_breadcrumbs():
     for segment in path:
         cumulative_path += f'/{segment}'
         breadcrumbs.append({
-            # 'name': segment.replace('-', ' ').capitalize(),
-            'name': segment.capitalize(),
+            'name': segment.replace('_', ' ').capitalize(),
+            # 'name': segment.capitalize(),
             'url': cumulative_path
         })
     print(breadcrumbs)

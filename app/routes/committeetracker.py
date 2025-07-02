@@ -19,7 +19,7 @@ import re
 import sys
 import traceback
 
-committee_bp = Blueprint('committee', __name__, url_prefix='/committeetracker')
+bp = Blueprint('committee', __name__, url_prefix='/committeetracker')
 
 # Allow presentations, documents, images, and PDFs
 ALLOWED_EXTENSIONS = {
@@ -33,14 +33,14 @@ if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
 # Routes to Webpages
-@committee_bp.before_request
+@bp.before_request
 @login_required
 def before_request():
     pass
 
 # List Committees
-@committee_bp.route('/dashboard')
-@committee_bp.route('/base_committees')
+@bp.route('/dashboard')
+@bp.route('/base_committees')
 @permission_required('committee+view, committee+add, committee+edit, committee+delete')
 def base_committees():    
     form = CommitteeForm()
@@ -49,8 +49,8 @@ def base_committees():
     return render_template('committeetracker/base_committees.html', form = form, committees=base_committees)
 
 # Add/Edit a Committee
-@committee_bp.route('/base_committee/new', methods=['GET', 'POST'])
-@committee_bp.route('/base_committee/<int:committee_id>/edit', methods=['GET', 'POST'])
+@bp.route('/base_committee/new', methods=['GET', 'POST'])
+@bp.route('/base_committee/<int:committee_id>/edit', methods=['GET', 'POST'])
 @permission_required('committee+add, committee+edit')
 def edit_committee(committee_id:int=None):
     committee = Committee.query.filter_by(id=committee_id, deleted=False).first() if committee_id else Committee()
@@ -87,7 +87,7 @@ def edit_committee(committee_id:int=None):
 
     return render_template('committeetracker/edit_base_committee.html', form=form, committee=committee)
 
-@committee_bp.route('/base_committee/<int:committee_id>/delete')
+@bp.route('/base_committee/<int:committee_id>/delete')
 @permission_required('committee+delete')
 def delete_base(committee_id):
     try:
@@ -111,8 +111,8 @@ def delete_base(committee_id):
         flash(str(e), "danger")
         return redirect(url_for('committee.base_committees'))
     
-@committee_bp.route('/ay_committees/')
-@committee_bp.route('<int:academic_year_id>/ay_committees/')
+@bp.route('/ay_committees/')
+@bp.route('<int:academic_year_id>/ay_committees/')
 @permission_required('ay_committee+view, ay_committee+add, ay_committee+edit, ay_committee+delete')
 def ay_committees(academic_year_id:int=None):
 
@@ -131,7 +131,7 @@ def ay_committees(academic_year_id:int=None):
     return render_template('committeetracker/ay_committees.html', ay_committees=current_ay_committees, current_year = current_year, academic_years = academic_years)
 
 # Add a Committee    
-@committee_bp.route('/ay_committee/new', methods=['GET', 'POST'])
+@bp.route('/ay_committee/new', methods=['GET', 'POST'])
 @permission_required('ay_committee+add, ay_committee+edit')
 def ay_committee():
     academic_year_id = request.args.get('academic_year_id', type=int)
@@ -175,7 +175,7 @@ def ay_committee():
 
     return render_template('committeetracker/edit_ay_committee.html', form=form)
 
-@committee_bp.route('/delete_ay_committee/<int:ay_committee_id>')
+@bp.route('/delete_ay_committee/<int:ay_committee_id>')
 @permission_required('ay_committee+delete')
 def delete_ay_committee(ay_committee_id):
     try:
@@ -192,7 +192,7 @@ def delete_ay_committee(ay_committee_id):
         return redirect(url_for('committee.ay_committees'))
     
 # List Academic Year
-@committee_bp.route('/academic_years', methods=['GET'])
+@bp.route('/academic_years', methods=['GET'])
 @permission_required('academic_year+view, academic_year+add, academic_year+edit, academic_year+delete')
 def academic_years():
     form = AcademicYearForm()
@@ -201,8 +201,8 @@ def academic_years():
     return render_template('committeetracker/academic_years.html', form=form, ayears = ayears_data)
 
 # Edit Academic Year
-@committee_bp.route("/academic_year/new/", methods=["POST", "GET"])
-@committee_bp.route("/academic_year/<int:academic_year_id>/", methods=["POST", "GET"])
+@bp.route("/academic_year/new/", methods=["POST", "GET"])
+@bp.route("/academic_year/<int:academic_year_id>/", methods=["POST", "GET"])
 @permission_required('academic_year+add, academic_year+edit')
 def edit_academic_year(academic_year_id:int=None):
     ayears = get_academic_years()
@@ -231,7 +231,7 @@ def edit_academic_year(academic_year_id:int=None):
     return render_template('committeetracker/academic_years.html', form=form, ayears = ayears)
 
 # Delete Academic Year
-@committee_bp.route('/academic_year/<int:academic_year_id>', methods=['DELETE'])
+@bp.route('/academic_year/<int:academic_year_id>', methods=['DELETE'])
 @permission_required('academic_year+delete')
 def delete_academic_year(academic_year_id):
     try:
@@ -255,7 +255,7 @@ def delete_academic_year(academic_year_id):
         db.session.rollback()
         return jsonify({"success": False, "message": str(e)})
 
-@committee_bp.route('/academic_year/<int:ay_id>/set_current', methods=['POST'])
+@bp.route('/academic_year/<int:ay_id>/set_current', methods=['POST'])
 @permission_required("academic_year+add, academic_year+edit")
 # @csrf.exempt  # If CSRF is handled manually in AJAX
 def set_current_academic_year(ay_id):
@@ -275,7 +275,7 @@ def set_current_academic_year(ay_id):
         return jsonify(success=False, message=str(e))
     
 # List Frequency Type
-@committee_bp.route('/frequency_types')
+@bp.route('/frequency_types')
 @permission_required("frequency_type+view,frequency_type+add,frequency_type+edit,frequency_type+delete")
 def frequency_types():
     form = FrequencyTypeForm()
@@ -283,8 +283,8 @@ def frequency_types():
     return render_template('committeetracker/frequency_types.html', form=form, ftypes = ftypes)
 
 # Add/Edit Frequency Type
-@committee_bp.route("/frequency_type/new/", methods=["POST", "GET"])
-@committee_bp.route("/frequency_type/<int:frequency_type_id>/", methods=["POST", "GET"])
+@bp.route("/frequency_type/new/", methods=["POST", "GET"])
+@bp.route("/frequency_type/<int:frequency_type_id>/", methods=["POST", "GET"])
 @permission_required("frequency_type+add, frequency_type+edit")
 def edit_frequency_type(frequency_type_id:int=None):
     ftypes = get_frequency_types()
@@ -317,7 +317,7 @@ def edit_frequency_type(frequency_type_id:int=None):
     return render_template('committeetracker/frequency_types.html', form=form, ftypes = ftypes)
 
 # Delete Frequency Type
-@committee_bp.route('/frequency_type/<int:frequency_type_id>', methods=['DELETE'])
+@bp.route('/frequency_type/<int:frequency_type_id>', methods=['DELETE'])
 @permission_required("frequency_type+delete")
 def delete_frequency_type(frequency_type_id):
     try:
@@ -340,7 +340,7 @@ def delete_frequency_type(frequency_type_id):
         return jsonify({"success": False, "message": str(e)})
 
 # Add/List Committee Type
-@committee_bp.route('/committee_types')
+@bp.route('/committee_types')
 @permission_required("committee_type+view,committee_type+add,committee_type+edit,committee_type+delete")
 def committee_types():
     form = CommitteeTypeForm()
@@ -348,8 +348,8 @@ def committee_types():
     return render_template('committeetracker/committee_types.html', form=form, ctypes = ctypes)
 
 # Add/Edit Committee Type
-@committee_bp.route("/committee_type/new/", methods=["POST", "GET"])    
-@committee_bp.route("/committee_type/<int:committee_type_id>/", methods=["POST", "GET"])
+@bp.route("/committee_type/new/", methods=["POST", "GET"])    
+@bp.route("/committee_type/<int:committee_type_id>/", methods=["POST", "GET"])
 @permission_required("committee_type+add,committee_type+edit")
 def edit_committee_type(committee_type_id:int=None):
     ctypes = get_committee_types()
@@ -381,7 +381,7 @@ def edit_committee_type(committee_type_id:int=None):
     return render_template('committeetracker/committee_types.html', form=form, ctypes = ctypes)
 
 # Delete Committee Type
-@committee_bp.route('/committee_type/<int:committee_type_id>', methods=['DELETE'])
+@bp.route('/committee_type/<int:committee_type_id>', methods=['DELETE'])
 @permission_required("committee_type+delete")
 def delete_committee_type(committee_type_id):
     try:
@@ -406,7 +406,7 @@ def delete_committee_type(committee_type_id):
         return jsonify({"success": False, "message": str(e)})
 
 # List Member Role
-@committee_bp.route('/member_roles')
+@bp.route('/member_roles')
 @permission_required("member_role+view,member_role+add,member_role+edit,member_role+delete")
 def member_roles():
     form = MemberRoleForm()
@@ -414,8 +414,8 @@ def member_roles():
     return render_template('committeetracker/member_roles.html', form=form, roles = roles)
 
 # Edit Member Role
-@committee_bp.route("/member_role/new/", methods=["POST", "GET"])
-@committee_bp.route("/member_role/<int:role_id>/", methods=["POST", "GET"])
+@bp.route("/member_role/new/", methods=["POST", "GET"])
+@bp.route("/member_role/<int:role_id>/", methods=["POST", "GET"])
 @permission_required("member_role+add, member_role+edit")
 def edit_role(role_id:int=None):
     mroles = get_member_roles()
@@ -448,7 +448,7 @@ def edit_role(role_id:int=None):
     return render_template('committeetracker/member_roles.html', form=form, roles = mroles)
 
 # Delete Member Role
-@committee_bp.route('/member_role/<int:role_id>', methods=['DELETE'])
+@bp.route('/member_role/<int:role_id>', methods=['DELETE'])
 @permission_required("member_role+delete")
 def delete_role(role_id):
     try:
@@ -476,7 +476,7 @@ def delete_role(role_id):
         return jsonify({"success": False, "message": str(e)})
 
 # List Members    
-@committee_bp.route('/<int:ay_committee_id>/members/', methods=['GET'])
+@bp.route('/<int:ay_committee_id>/members/', methods=['GET'])
 @permission_required("ay_committee+add")
 def members(ay_committee_id:int):
     memberForm = MemberForm()
@@ -513,7 +513,7 @@ def members(ay_committee_id:int):
     uploadForm = FileUploadForm(ay_committee_id=ay_committee_id)
     return render_template('committeetracker/members.html', memberForm = memberForm, meetingForm = meetingForm, uploadForm = uploadForm, aycommittee = aycommittee)
 
-@committee_bp.route('/add_member', methods=['POST'])
+@bp.route('/add_member', methods=['POST'])
 @permission_required("member+add, member+edit")
 def add_member():
     form = MemberForm(request.form)
@@ -541,6 +541,8 @@ def add_member():
             # new_member.member_role = db.session.query(MemberRole).filter_by(id=new_member.member_role_id).first()
             new_member.user = Employee.query.filter_by(employee_id=new_member.employee_id).first()
             new_member.member_role = MemberRole.query.filter_by(id=new_member.member_role_id, deleted=False).first()
+            add_member_as_user(employee_id=new_member.employee_id)
+
             return jsonify({
                 'success': True,
                 'message':'Member '+new_member.user.employee_name+' added successfully!',
@@ -575,7 +577,7 @@ def add_member():
                     errors.append(key)
         return jsonify({"message": message, "errors": errors}), 400
     
-@committee_bp.route('/edit_member/<int:member_id>', methods=['POST'])
+@bp.route('/edit_member/<int:member_id>', methods=['POST'])
 @permission_required("member+add, member+edit")
 def edit_member(member_id:int):
     # member = db.session.query(Member).get(member_id)
@@ -597,8 +599,8 @@ def edit_member(member_id:int):
             db.session.commit()
             member.user = Employee.query.filter_by(employee_id=member.employee_id).first()
             member.member_role = MemberRole.query.filter_by(id=member.member_role_id, deleted=False).first()
-            added_user = add_member_as_user(employee_id=member.employee_id)
-            print(added_user)
+            add_member_as_user(employee_id=member.employee_id)
+
             return jsonify({
                 'success': True,
                 'message':'Member '+member.user.employee_name+' saved successfully!',
@@ -632,7 +634,7 @@ def edit_member(member_id:int):
                     errors.append(key)
         return jsonify({"message": message, "errors": errors}), 400
 
-@committee_bp.route('/delete_member/<int:member_id>', methods=['POST'])
+@bp.route('/delete_member/<int:member_id>', methods=['POST'])
 @permission_required("member+delete")
 def delete_member(member_id:int):
         
@@ -693,7 +695,7 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 @permission_required("document+add, document+edit")
-@committee_bp.route("/upload", methods=["POST"])
+@bp.route("/upload", methods=["POST"])
 def upload_files():
     if "files" not in request.files:
         return jsonify({"error": "No files provided"}), 400
@@ -728,7 +730,7 @@ def upload_files():
         
     return jsonify({"success": "Files uploaded successfully", "files": saved_files})
 
-@committee_bp.route("/<int:ay_committee_id>/uploaded_files", methods=["GET"])
+@bp.route("/<int:ay_committee_id>/uploaded_files", methods=["GET"])
 @permission_required("document+view, document+add, document+edit, document+delete")
 def uploaded_files(ay_committee_id:int):
     allfiles = FileUpload.query.filter_by(ay_committee_id=ay_committee_id, deleted=False).all()
@@ -737,7 +739,7 @@ def uploaded_files(ay_committee_id:int):
     return jsonify({"files": files, "allow_delete": has_permission('document+delete')})
 
 # Delete File
-@committee_bp.route('/delete_file/<int:file_id>', methods=['POST'])
+@bp.route('/delete_file/<int:file_id>', methods=['POST'])
 @permission_required("document+delete")
 def delete_file(file_id:int):
     try:
@@ -760,7 +762,7 @@ def meetings(ay_committee_id:int):
                 "notes": row.notes, "id": row.id} for row in allMeetings]
     return jsonify({"meetings": meetings})
 
-@committee_bp.route("/save_meeting", methods=["POST"])
+@bp.route("/save_meeting", methods=["POST"])
 @permission_required("meeting+add, meeting+edit")
 def save_meeting():
     form = MeetingForm()
@@ -794,7 +796,7 @@ def save_meeting():
         print("error")
         return jsonify({"error": "Invalid data"}), 400
 
-@committee_bp.route("/delete_meeting/<int:meeting_id>", methods=["POST"])
+@bp.route("/delete_meeting/<int:meeting_id>", methods=["POST"])
 @permission_required("meeting+delete")
 def delete_meeting(meeting_id:int):
     try:
@@ -834,7 +836,7 @@ def get_member_roles():
     mroles = MemberRole.query.filter_by(deleted=False).order_by(MemberRole.role).all()
     return mroles
 
-@committee_bp.route("/get_all_committees", methods=["GET"])
+@bp.route("/get_all_committees", methods=["GET"])
 @permission_required("committee_report+view")
 def get_all_committees():
 
@@ -946,7 +948,7 @@ def get_all_committees():
 
     return jsonify(results)
 
-@committee_bp.route("/get_committees_by_member", methods=["GET"])
+@bp.route("/get_committees_by_member", methods=["GET"])
 @permission_required("committee_report+view")
 def get_committees_by_member():
 
@@ -1035,7 +1037,7 @@ def get_committees_by_member():
 
     return results
 
-@committee_bp.route("/get_committees_by_assignment", methods=["GET"])
+@bp.route("/get_committees_by_assignment", methods=["GET"])
 @permission_required("committee_report+view")
 def get_committees_by_assignment():
 
@@ -1131,7 +1133,7 @@ def get_committees_by_assignment():
     
     return results
 
-@committee_bp.route('/generate_pdf', methods=['POST'])
+@bp.route('/generate_pdf', methods=['POST'])
 @permission_required("committee_report+view")
 def generate_pdf():
     html_content = request.form.get('html_data')
@@ -1166,7 +1168,7 @@ def get_employees():
     data = Employee.query.order_by(Employee.employee_last_name,Employee.employee_first_name).all()
     return data
 
-@committee_bp.route('/report_all_committees/')
+@bp.route('/report_all_committees/')
 @permission_required("committee_report+view")
 def report_all_committees():
     form=CommitteeReportForm()
@@ -1189,7 +1191,7 @@ def report_all_committees():
 
     return render_template('committeetracker/report_all_committees.html', form=form)
 
-@committee_bp.route('/member_report/')
+@bp.route('/member_report/')
 @permission_required("committee_report+view")
 def member_report():
     form=CommitteeReportForm()
@@ -1212,7 +1214,7 @@ def member_report():
 
     return render_template('committeetracker/report_by_member.html', form=form)
 
-@committee_bp.route('/assignment_report/')
+@bp.route('/assignment_report/')
 @permission_required("committee_report+view")
 def assignment_report():
     form=CommitteeReportForm()

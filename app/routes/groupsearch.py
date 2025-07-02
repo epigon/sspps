@@ -1,5 +1,5 @@
 from app.forms import GroupForm
-from app.models import db, Listserv
+from app.models import db, Listserv, Student, Employee
 from app.utils import permission_required
 from datetime import datetime
 from flask import render_template, redirect, url_for, request, flash, jsonify, Blueprint, send_file, abort, make_response, Response
@@ -10,35 +10,37 @@ import os
 import pytz
 import requests
 
-groupsearch_bp = Blueprint('groupsearch', __name__, url_prefix='/groupsearch')
+bp = Blueprint('groupsearch', __name__, url_prefix='/groupsearch')
 
 SERVICE_ACCOUNT_FILE =  os.path.join('app', 'nodal-album-464015-d4-e7b2f79666a6.json')
 DELEGATED_EMAIL =  'groups-read-only@nodal-album-464015-d4.iam.gserviceaccount.com'  # Admin email
 SCOPES = ['https://www.googleapis.com/auth/cloud-identity.groups.readonly']
-# GROUP_EMAIL = 'sspps-staff-l@ucsd.edu'
-
-credentials = service_account.Credentials.from_service_account_file(
-    SERVICE_ACCOUNT_FILE, scopes=SCOPES
-).with_subject(DELEGATED_EMAIL)
-
-# Refresh to get token
-credentials.refresh(Request())
-access_token = credentials.token
-
-headers = {
-    'Authorization': f'Bearer {access_token}',
-    'Accept': 'application/json'
-}
 
 # Routes to Webpages
-@groupsearch_bp.before_request
+@bp.before_request
 @login_required
 def before_request():
     pass
 
-@groupsearch_bp.route('/list', methods=['GET', 'POST'])
+def get_request_headers():
+    credentials = service_account.Credentials.from_service_account_file(
+        SERVICE_ACCOUNT_FILE, scopes=SCOPES
+    ).with_subject(DELEGATED_EMAIL)
+
+    # Refresh to get token
+    credentials.refresh(Request())
+    access_token = credentials.token
+    
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+        'Accept': 'application/json'
+    }
+    return headers
+
+@bp.route('/list', methods=['GET', 'POST'])
 @permission_required('listserv+view, listserv+add, listserv+edit, listserv+delete')
 def list_groups():
+
     custom_breadcrumbs = [
         {'name': 'Google Groups', 'url': '/groupsearch/list'}
     ]
@@ -67,7 +69,7 @@ def list_groups():
     groups = Listserv.query.filter_by(deleted=False).order_by(Listserv.group_name.asc()).all()
     return render_template('groupsearch/list_groups.html', form=form, groups=groups, breadcrumbs=custom_breadcrumbs)
 
-@groupsearch_bp.route('/delete/<int:group_id>', methods=['POST'])
+@bp.route('/delete/<int:group_id>', methods=['POST'])
 @permission_required('listserv+delete')
 def delete_group(group_id):
     group = Listserv.query.get_or_404(group_id)
@@ -81,9 +83,12 @@ def delete_group(group_id):
         flash('Group already deleted.', 'warning')
     return redirect(url_for('groupsearch.list_groups'))
 
-@groupsearch_bp.route('/members/<string:group_email>')
+@bp.route('/members/<string:group_email>')
 @permission_required('listserv+view')
 def list_members(group_email):
+    
+    headers = get_request_headers()
+    
     custom_breadcrumbs = [
         {'name': 'Google Groups', 'url': '/groupsearch/list'},
         {'name': f'{group_email} Members', 'url': f'/groupsearch/members/{group_email}'}
@@ -102,6 +107,22 @@ def list_members(group_email):
     members = []
     page_token = None
 
+    # Filter students by class_of, course_id, etc.
+    students = Student.query.filter_by(deleted = False).order_by(Student.last_name, Student.first_name).all()
+    employees = Employee.query.order_by(Employee.employee_last_name, Employee.employee_first_name).all()
+
+    # Build username map
+    usernames = {}
+
+    # Add students
+    for s in students:
+        # You can adjust the key and value as needed
+        usernames[s.username] = f"{s.first_name} {s.last_name}"
+
+    # Add employees
+    for e in employees:
+        usernames[e.username] = f"{e.employee_first_name} {e.employee_last_name}"
+    
     while True:
         params = {'pageToken': page_token, 'view': 'FULL'} if page_token else {'view': 'FULL'}
         resp = requests.get(
@@ -112,7 +133,7 @@ def list_members(group_email):
         resp.raise_for_status()
         data = resp.json()
         for m in data.get('memberships', []):
-            # print(m.get('createTime', 'N/A'))
+            print(m)
             # Original UTC timestamp
             utc_time_str = m.get('createTime', '')
 
@@ -127,8 +148,10 @@ def list_members(group_email):
             members.append({
                 'email': m['preferredMemberKey']['id'],
                 'role': m['roles'][0]['name'] if m['roles'] else 'UNKNOWN',
-                'added': pacific_dt.strftime("%Y-%m-%d %I:%M:%S %p")
+                'added': pacific_dt.strftime("%Y-%m-%d %I:%M:%S %p"),
+                'name': usernames.get(m['preferredMemberKey']['id'].split('@')[0], 'Unknown User')
             })
+
         page_token = data.get('nextPageToken')
         if not page_token:
             break

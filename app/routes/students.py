@@ -1,6 +1,7 @@
-from app.forms import StudentForm
+from app.forms import StudentForm, CSRFOnlyForm
 from app.models import db, Student
 from app.utils import permission_required
+from .canvas import get_enrollment_terms, get_canvas_courses, get_enrollments, get_canvas_courses_by_term
 from datetime import datetime
 from flask import render_template, redirect, url_for, request, flash, jsonify, Blueprint, send_file, abort, make_response, Response
 from flask_login import login_required, current_user
@@ -17,7 +18,7 @@ import chardet
 import os
 import pandas as pd
 
-students_bp = Blueprint('students', __name__, url_prefix='/students')
+bp = Blueprint('students', __name__, url_prefix='/students')
 
 UPLOAD_FOLDER = os.path.join('app', 'static', 'uploads')
 if not os.path.exists(UPLOAD_FOLDER):
@@ -38,12 +39,12 @@ TEMPLATE_COLUMNS = [
 ]
 
 # Routes to Webpages
-@students_bp.before_request
+@bp.before_request
 @login_required
 def before_request():
     pass
 
-@students_bp.route('/uploadform')
+@bp.route('/uploadform')
 @permission_required('students+add, students+edit')
 def upload_form():
     custom_breadcrumbs = [
@@ -52,7 +53,7 @@ def upload_form():
     ]
     return render_template('students/upload.html',breadcrumbs=custom_breadcrumbs)
 
-@students_bp.route('/template')
+@bp.route('/template')
 @permission_required('students+add, students+edit')
 def download_template():
     # Create empty DataFrame with header only
@@ -77,7 +78,7 @@ def safe_str(value, max_len=None):
     s = str(value).strip()
     return s[:max_len] if max_len else s
 
-@students_bp.route('/upload', methods=['POST'])
+@bp.route('/upload', methods=['POST'])
 @permission_required('students+add, students+edit')
 def upload_csv():
 
@@ -226,22 +227,53 @@ def upload_csv():
 def allowed_photo(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_PHOTO_EXTENSIONS
 
-@students_bp.route('/list')
-@students_bp.route('/')
+@bp.route('/')
 @permission_required('students+view, students+add, students+edit, students+delete')
 def list_students():
-    class_of = request.args.get('class_of')
+    form = CSRFOnlyForm()
+    selected_class = request.args.get('class_of', '')
+    selected_term = request.args.get('term', '')
+    selected_course = request.args.get('course_id', '')
+    # print(selected_course)
+    pdf_title = request.args.get('pdf_title', '')  # optional: if you want to preserve it in URL or store elsewhere
 
-    query = Student.query.filter_by(deleted=False)
-    if class_of:
-        query = query.filter(Student.class_of == class_of)
-
-    students = query.order_by(Student.class_of, Student.last_name, Student.first_name).all()
+    # Get class years for dropdown
     class_years = db.session.query(Student.class_of).distinct().filter(Student.class_of != '').order_by(Student.class_of).all()
-    
-    return render_template('students/list_students.html', students=students, class_years=[c[0] for c in class_years], selected_class=class_of)
 
-@students_bp.route('/edit/<int:student_id>', methods=['GET', 'POST'])
+    # Fetch terms from Canvas API
+    terms = get_enrollment_terms()  # or as appropriate
+
+    # Fetch courses filtered by term if term selected
+    if selected_term:
+        courses = get_canvas_courses_by_term(selected_term)  # your function to fetch courses by term
+    else:
+        courses = get_canvas_courses(account="SSPPS")
+    
+    # Filter students by class_of, course_id, etc.
+    students = Student.query  # start query
+
+    if selected_class:
+        students = students.filter(Student.class_of == selected_class)
+
+    if selected_course:
+        enrollments = get_enrollments(course_id=int(selected_course))        
+        enrolled_student_ids = [e['user']['sis_user_id'] for e in enrollments if 'user' in e and 'id' in e['user']]
+        students = students.filter(Student.pid.in_(enrolled_student_ids))
+
+    students = students.filter(Student.deleted == False).order_by(Student.last_name, Student.first_name).all()
+    
+    return render_template('students/list_students.html',
+                           students=students,
+                           class_years=[c[0] for c in class_years],
+                           selected_class=selected_class,
+                           terms=terms,
+                           selected_term=selected_term,
+                           courses=courses,
+                           selected_course=selected_course,
+                           pdf_title=pdf_title,
+                           form=form)
+
+@bp.route('/edit/<int:student_id>', methods=['GET', 'POST'])
 @permission_required('students+add, students+edit')
 def edit_student(student_id):
     student = Student.query.get_or_404(student_id)
@@ -265,17 +297,14 @@ def edit_student(student_id):
 
     return render_template('students/edit_student.html', form=form, student=student)
 
-@students_bp.route('/delete/<int:student_id>', methods=['POST'])
-@permission_required('students+delete')
+@bp.route('/<int:student_id>/delete', methods=['POST'])
 def delete_student(student_id):
-    print("DELETE triggered for", student_id)
     student = Student.query.get_or_404(student_id)
     student.deleted = True
     student.delete_date = datetime.now()
-    student.delete_by = int(current_user.id)
+    student.delete_by = current_user.id
     db.session.commit()
-    flash('Student deleted.', 'success')
-    return redirect(url_for('students.list_students'))
+    return jsonify({'success': True, 'message': 'Student deleted'})
 
 def add_page_header(canvas, doc, title, header, subheader):
     canvas.saveState()
@@ -300,11 +329,11 @@ def add_page_header(canvas, doc, title, header, subheader):
 
     canvas.restoreState()
 
-@students_bp.route('/generate_photo_cards', methods=['POST'])
+@bp.route('/generate_photo_cards', methods=['POST'])
 @permission_required('students+view, students+add, students+edit, students+delete')
 def generate_photo_cards():
     ids = request.form.getlist('student_ids')
-    print(ids)
+    # print(ids)
     if not ids:
         flash("No students selected.", 'danger')
         return redirect(url_for('students.list_students'))
@@ -318,8 +347,8 @@ def generate_photo_cards():
         pdf_subheader = f"Class of {filter_class_of}"
     pdf_filename = request.form.get('pdf_filename', '').strip() or "photo_cards"
 
-    students = Student.query.filter(Student.id.in_(ids)).order_by(Student.last_name, Student.first_name).all()
-
+    students = Student.query.filter(Student.id.in_(ids), Student.deleted == False).order_by(Student.last_name, Student.first_name).all()
+        
     buffer = BytesIO()
     doc = SimpleDocTemplate(
         buffer,

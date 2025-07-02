@@ -2,14 +2,14 @@ from app.models import User, Employee
 from flask import session, Blueprint, render_template, request, redirect, url_for, flash, send_from_directory
 from flask_login import login_user, logout_user, login_required, current_user
 
-main_bp = Blueprint('main', __name__, template_folder='templates')
+bp = Blueprint('main', __name__, template_folder='templates')
 
-@main_bp.route("/")
-@main_bp.route("/home/")
+@bp.route("/")
+@bp.route("/home/")
 def home():    
-    return render_template("home.html")
+    return render_template("main/home.html")
 
-@main_bp.route("/profile/")
+@bp.route("/profile/")
 @login_required
 def profile():  
     user = User.query.filter_by(username=current_user.username, deleted=False).first()
@@ -17,9 +17,9 @@ def profile():
         supervisor = Employee.query.filter_by(employee_id=user.employee.reports_to_id).first()
     else:
         supervisor = Employee()
-    return render_template("profile.html", user=user.employee.to_dict(include_labels=True), supervisor=supervisor.to_dict())
+    return render_template("main/profile.html", user=user.employee.to_dict(include_labels=True), supervisor=supervisor.to_dict())
 
-@main_bp.route('/sso-redirect')
+@bp.route('/sso-redirect')
 def sso_redirect():
     next_url = request.args.get('next')
     secure_url = url_for('main.secure', _external=True)
@@ -27,8 +27,8 @@ def sso_redirect():
         secure_url += f'?next={next_url}'
     return redirect(secure_url)
 
-@main_bp.route("/secure/")
-# @main_bp.route('/login/')
+@bp.route("/secure/")
+# @bp.route('/login/')
 def secure():
     try:
 
@@ -66,7 +66,7 @@ def secure():
     except Exception as e:
         return f"Error: {str(e)}", 500    
 
-@main_bp.route('/logout/')
+@bp.route('/logout/')
 @login_required
 def logout():    
     print(f"User before: {current_user.get_id()}, {current_user.is_authenticated}")
@@ -82,11 +82,11 @@ def logout():
         redirect_url = "/Shibboleth.sso/Logout?return=https://a5.ucsd.edu/tritON/logout?target=https://"+host+url_for('main.home')
     return redirect(redirect_url)
 
-@main_bp.route('/calendars/<path:filename>')
+@bp.route('/calendars/<path:filename>')
 def serve_calendar_file(filename):
     return send_from_directory('static/calendars', filename)
 
-@main_bp.route('/favicon.ico')
+@bp.route('/favicon.ico')
 def favicon():
     return send_from_directory(
         'static',

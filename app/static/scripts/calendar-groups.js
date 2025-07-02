@@ -125,7 +125,7 @@ function saveSelection() {
         }
     });
 
-    fetch("/scheduler/save_selections", {
+    fetch("/calendars/save_selections", {
         method: "POST",
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)

@@ -4,6 +4,7 @@ app/cred.py
 **/static/calendars/
 **/static/photos/
 **/logs/
+**/unused/
 app/test-email.py
 
 # Byte-compiled / optimized / DLL files

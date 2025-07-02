@@ -53,26 +53,18 @@ def create_app():
         return dict(has_permission=has_permission, is_admin=is_admin)
     
     # Register Blueprints
-    from app.routes import main_bp
-    app.register_blueprint(main_bp)
-
-    from app.committeetracker.routes import committee_bp
-    app.register_blueprint(committee_bp)
-
-    from app.admin.routes import admin_bp
-    app.register_blueprint(admin_bp)
-
-    from app.scheduler.routes import scheduler_bp
-    app.register_blueprint(scheduler_bp)
-
-    from app.adsearch.routes import adsearch_bp
-    app.register_blueprint(adsearch_bp)
-
-    from app.groupsearch.routes import groupsearch_bp
-    app.register_blueprint(groupsearch_bp)
-
-    from app.students.routes import students_bp
-    app.register_blueprint(students_bp)
+    from app.routes import main, users, roles, permissions, students, calendars, canvas, committeetracker, adsearch, groupsearch, scheduler
+    app.register_blueprint(main.bp)
+    app.register_blueprint(adsearch.bp)
+    app.register_blueprint(students.bp)
+    app.register_blueprint(calendars.bp)
+    app.register_blueprint(canvas.bp)
+    app.register_blueprint(committeetracker.bp)
+    app.register_blueprint(permissions.bp)
+    app.register_blueprint(roles.bp)
+    app.register_blueprint(users.bp)
+    app.register_blueprint(scheduler.bp)
+    app.register_blueprint(groupsearch.bp)
 
     # @app.route('/cause-error')
     # def error():

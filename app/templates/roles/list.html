@@ -3,7 +3,7 @@
 <div class="container my-2">
     <h2>Roles</h2>
 
-    <a href="{{ url_for('admin.edit_role') }}" class="btn btn-primary mb-3">Create New Role</a>
+    <a href="{{ url_for('roles.edit') }}" class="btn btn-primary mb-3">Create New Role</a>
     <table class="table table-striped">
         <tr>
             <th>Name</th>
@@ -13,8 +13,8 @@
         <tr>
             <td>{{ role.name }}</td>
             <td>
-                <a href="{{ url_for('admin.edit_role', role_id=role.id) }}">Edit</a> |
-                <a href="{{ url_for('admin.delete_role', role_id=role.id) }}"
+                <a href="{{ url_for('roles.edit', role_id=role.id) }}">Edit</a> |
+                <a href="{{ url_for('roles.delete', role_id=role.id) }}"
                     onclick="return confirm('Are you sure you want to delete the role \'{{ role.name }}\'? This action cannot be undone.')">
                     Delete
                 </a>

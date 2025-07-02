@@ -357,13 +357,13 @@ class Student(db.Model):
     delete_date = Column(DateTime)
     delete_by = Column(Integer)
     deleted = Column(Boolean, default=False)
-
+    
 class Listserv(db.Model):
     __tablename__ = 'LISTSERV'
-    id = db.Column(db.Integer, primary_key=True)
-    group_name = db.Column(db.String(128), unique=True, nullable=False)
-    create_date = db.Column(db.DateTime, default=datetime.now())
+    id = Column(db.Integer, primary_key=True)
+    group_name = Column(db.String(128), unique=True, nullable=False)
+    create_date = Column(db.DateTime, default=datetime.now())
     create_by = Column(Integer, nullable=False)
-    delete_date = db.Column(db.DateTime, nullable=True)
+    delete_date = Column(db.DateTime, nullable=True)
     delete_by = Column(Integer)
-    deleted = db.Column(db.Boolean, default=False)
+    deleted = Column(db.Boolean, default=False)

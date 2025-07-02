@@ -1,6 +1,7 @@
 from flask_wtf import FlaskForm
 from wtforms.widgets import ListWidget, CheckboxInput
-from wtforms import widgets, SelectMultipleField, StringField, PasswordField, BooleanField, SelectField, HiddenField, TextAreaField, DateField, TimeField, SubmitField, FileField
+from wtforms import widgets, SelectMultipleField, StringField, PasswordField, BooleanField, \
+    SelectField, HiddenField, TextAreaField, DateField, TimeField, SubmitField, FileField, IntegerField
 from wtforms.validators import InputRequired, Email, Length, DataRequired, ValidationError, Optional
 from app.models import User, Employee, Role, Permission, Committee
 
@@ -10,6 +11,9 @@ MONTHS = [
     ('7', 'July'), ('8', 'August'), ('9', 'September'),
     ('10', 'October'), ('11', 'November'), ('12', 'December')
 ]
+
+class CSRFOnlyForm(FlaskForm):
+    pass
 
 ## ADMIN FORMS
 class MultiCheckboxField(SelectMultipleField):

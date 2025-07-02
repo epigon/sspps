@@ -5,16 +5,14 @@ from datetime import datetime, timedelta
 from flask import render_template, request, Blueprint
 from flask_login import login_required
 from ldap3 import Server, Connection, ALL, SUBTREE
-from sqlalchemy import text
-import pyodbc
 
-adsearch_bp = Blueprint('adsearch', __name__, url_prefix='/adsearch')
+bp = Blueprint('adsearch', __name__, url_prefix='/adsearch')
 
 LDAP_SERVER = 'ldap.ad.ucsd.edu'
 BASE_DN = 'DC=AD,DC=UCSD,DC=EDU'
 
 # Routes to Webpages
-@adsearch_bp.before_request
+@bp.before_request
 @login_required
 def before_request():
     pass
@@ -40,7 +38,7 @@ def extract_ou(distinguished_name, keyword):
             return part.strip()
     return ''
 
-@adsearch_bp.route('/search', methods=['GET', 'POST'])
+@bp.route('/search', methods=['GET', 'POST'])
 @permission_required('adsearch+view')
 def search():
 

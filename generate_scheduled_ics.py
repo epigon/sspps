@@ -1,5 +1,5 @@
 from app import create_app
-from app.scheduler.routes import generate_scheduled_ics
+from app.routes.calendars import generate_scheduled_ics
 
 app = create_app()
 

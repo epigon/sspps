@@ -3,7 +3,7 @@
 <div class="container my-2">
     <h2>{{ 'Edit' if form.username.data else 'New' }} User</h2>
 
-    <form method="POST" action="{{ url_for('admin.edit_user', user_id=user.id) if user.id else url_for('admin.edit_user') }}">
+    <form method="POST" action="{{ url_for('users.edit', user_id=user.id) if user.id else url_for('users.edit') }}">
 
         {{ form.hidden_tag() }}
         <div class="mb-3">
@@ -21,7 +21,7 @@
         <div class="mb-3">
             {{ form.role_id.label(class="form-label") }}
             {{ form.role_id(class="form-select", id="role_id",
-            data_role_permissions_url=url_for('admin.get_role_permissions')) }}
+            data_role_permissions_url=url_for('permissions.get_role_permissions')) }}
         </div>
 
         <h4>Permissions</h4>

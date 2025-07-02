@@ -3,7 +3,7 @@
 <div class="container my-2">
     <h2>Permissions</h2>
 
-    <a href="{{ url_for('admin.edit_permission') }}" class="btn btn-primary mb-3">Create New Permission</a>
+    <a href="{{ url_for('permissions.edit') }}" class="btn btn-primary mb-3">Create New Permission</a>
     <table class="table table-bordered table-striped">
         <tr>
             <th>Resource</th>
@@ -15,8 +15,8 @@
             <td>{{ p.resource }}</td>
             <td>{{ p.action }}</td>
             <td>
-                <a href="{{ url_for('admin.edit_permission', perm_id=p.id) }}">Edit</a> |
-                <a href="{{ url_for('admin.delete_permission', perm_id=p.id) }}"
+                <a href="{{ url_for('permissions.edit', perm_id=p.id) }}">Edit</a> |
+                <a href="{{ url_for('permissions.delete', perm_id=p.id) }}"
                     onclick="return confirm('Are you sure you want to delete the permission \'{{ p.resource }}-{{ p.action }}\'? This action cannot be undone.')">
                     Delete
                 </a>

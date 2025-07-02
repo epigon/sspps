@@ -3,7 +3,7 @@
 <div class="container my-2">
     <h2>Users</h2>
 
-    <a href="{{ url_for('admin.edit_user') }}" class="btn btn-primary mb-3">Create New User</a>
+    <a href="{{ url_for('users.edit') }}" class="btn btn-primary mb-3">Create New User</a>
     <table class="table table-striped">
         <tr>
             <th>Name</th>
@@ -17,8 +17,8 @@
             <td>{{ user.username }}</td>
             <td>{{ user.role.name if user.role else 'None' }}</td>
             <td>
-                <a href="{{ url_for('admin.edit_user', user_id=user.id) }}">Edit</a> |
-                <a href="{{ url_for('admin.delete_user', user_id=user.id) }}"
+                <a href="{{ url_for('users.edit', user_id=user.id) }}">Edit</a> |
+                <a href="{{ url_for('users.delete', user_id=user.id) }}"
                     onclick="return confirm('Are you sure you want to delete the user \'{{ user.employee.employee_name }}\'? This action cannot be undone.')">
                     Delete
                 </a>

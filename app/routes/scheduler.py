@@ -2,6 +2,7 @@ from app.cred import CANVAS_API_BASE, CANVAS_API_TOKEN, PANOPTO_API_BASE, PANOPT
 from app.models import db, ScheduledRecording, CalendarGroup, CalendarGroupSelection
 from app.utils import permission_required
 from bs4 import BeautifulSoup
+from .canvas import get_canvas_courses, get_canvas_events, chunked_list
 from datetime import datetime, timezone, timedelta
 from flask import render_template, request, Blueprint, jsonify
 from flask_login import login_required
@@ -18,7 +19,8 @@ import urllib3
 
 sys.path.insert(0, abspath(join(dirname(__file__), '..', 'common')))
 
-scheduler_bp = Blueprint('scheduler', __name__, url_prefix='/scheduler')
+bp = Blueprint('scheduler', __name__, url_prefix='/scheduler')
+
 PACIFIC_TZ = pytz.timezone("America/Los_Angeles")
 PANOPTO_PARENT_FOLDER = '66a0fa02-94a9-4fb9-ae75-aa71011bd7fc'
 
@@ -31,7 +33,7 @@ SOMAccountID = 445
 SSPPSAccountID = 50 
 
 # Routes to Webpages
-@scheduler_bp.before_request
+@bp.before_request
 @login_required
 def before_request():
     pass
@@ -149,112 +151,194 @@ def get_panopto_recorders():
     # print(folders)
     return recorders
 
-def get_canvas_courses(account="SSPPS", blueprint=False, completed=False, state = ""):
-    """
-    Fetches all Canvas courses for the authenticated user using pagination.
+# def get_canvas_courses(account="SSPPS", blueprint=False):
+#     """
+#     Fetches all Canvas courses for the authenticated user using pagination.
 
-    Args:
-        base_url (str): Base URL of the Canvas instance (e.g., 'https://canvas.instructure.com')
-        access_token (str): Bearer token for authentication.
-        per_page (int): Number of courses per page.
+#     Args:
+#         base_url (str): Base URL of the Canvas instance (e.g., 'https://canvas.instructure.com')
+#         access_token (str): Bearer token for authentication.
+#         per_page (int): Number of courses per page.
 
-    Returns:
-        list: List of all course dictionaries.
-    """
-    if account == "HS":
-        accountID = HSAccountID
-    elif account == "SSPPS":
-        accountID = SSPPSAccountID
-    elif account == "SOM":
-        accountID = SOMAccountID
-    else:
-        accountID = mainAccountID
+#     Returns:
+#         list: List of all course dictionaries.
+#     """
+#     if account == "HS":
+#         accountID = HSAccountID
+#     elif account == "SSPPS":
+#         accountID = SSPPSAccountID
+#     elif account == "SOM":
+#         accountID = SOMAccountID
+#     else:
+#         accountID = mainAccountID
     
-    headers = {'Authorization': f'Bearer {CANVAS_API_TOKEN}'}
-    params = {'per_page': 100, "enrollment_state": "active", "blueprint": blueprint, "completed": completed, "include[]": ["term","account_name"]}
-    url = f"{CANVAS_API_BASE}/accounts/{accountID}/courses"
-    all_courses = []
+#     headers = {'Authorization': f'Bearer {CANVAS_API_TOKEN}'}
+#     params = {'per_page': 100, 
+#               "blueprint": blueprint, 
+#               "include[]": ["term","account_name"]}
+#     url = f"{CANVAS_API_BASE}/accounts/{accountID}/courses"
+#     all_courses = []
 
-    while url:
-        # print(url)
-        response = requests.get(url, headers=headers, params=params)
-        response.raise_for_status()
-        all_courses.extend(response.json())
+#     while url:
+#         # print(url)
+#         response = requests.get(url, headers=headers, params=params)
+#         response.raise_for_status()
+#         all_courses.extend(response.json())
 
-        # Parse the Link header for next page
-        links = response.headers.get("Link", "")
-        next_url = None
-        for link in links.split(","):
-            if 'rel="next"' in link:
-                next_url = link[link.find("<") + 1:link.find(">")]
-                break
-        url = next_url
-        params = None  # After the first request, pagination is handled by the link
+#         # Parse the Link header for next page
+#         links = response.headers.get("Link", "")
+#         next_url = None
+#         for link in links.split(","):
+#             if 'rel="next"' in link:
+#                 next_url = link[link.find("<") + 1:link.find(">")]
+#                 break
+#         url = next_url
+#         params = None  # After the first request, pagination is handled by the link
 
-    return all_courses
+#     return all_courses
 
-def get_canvas_events(context_codes=[], start_date=datetime.now(), end_date=None, all_events=True):
-    headers = {'Authorization': f'Bearer {CANVAS_API_TOKEN}'}
-    page = 1
-    page_size = 100
-    params = {'per_page': page_size, "state[]":"available"}    
+# def get_canvas_events(context_codes=[], start_date=datetime.now(), end_date=None, all_events=True):
+#     headers = {'Authorization': f'Bearer {CANVAS_API_TOKEN}'}
+#     page = 1
+#     page_size = 100
+#     params = {'per_page': page_size, "state[]":"available"}    
 
-    if context_codes:
-        params.setdefault('context_codes[]', []).append(context_codes)
+#     if context_codes:
+#         params.setdefault('context_codes[]', []).append(context_codes)
     
-    # print("params",params)
-    if start_date or end_date:
-        if start_date:
-            if isinstance(start_date, datetime):
-                start_date = start_date.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-            params['start_date'] = start_date
-        # Default end_date to one year after start_date if not provided
-            if not end_date:
-                dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-                end_date = (dt + timedelta(days=365)).astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-        if end_date:
-            if isinstance(end_date, datetime):
-                end_date = end_date.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-            params['end_date'] = end_date
-    else:
-        params['all_events'] = 'true'
+#     # print("params",params)
+#     if start_date or end_date:
+#         if start_date:
+#             if isinstance(start_date, datetime):
+#                 start_date = start_date.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+#             params['start_date'] = start_date
+#         # Default end_date to one year after start_date if not provided
+#             if not end_date:
+#                 dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+#                 end_date = (dt + timedelta(days=365)).astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+#         if end_date:
+#             if isinstance(end_date, datetime):
+#                 end_date = end_date.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+#             params['end_date'] = end_date
+#     else:
+#         params['all_events'] = 'true'
 
-    url = f"{CANVAS_API_BASE}/calendar_events"
-    events = []
-    repeat = True
+#     url = f"{CANVAS_API_BASE}/calendar_events"
+#     events = []
+#     repeat = True
 
-    while repeat:
-        # print("page",page)
-        params['page'] = page  
-        response = requests.get(url, headers=headers, params=params)
-        # print(response)
-        if not response.ok:
-            # print(f"Canvas API error {response.status_code}: {response.text}")
-            break
+#     while repeat:
+#         # print("page",page)
+#         params['page'] = page  
+#         response = requests.get(url, headers=headers, params=params)
+#         # print(response)
+#         if not response.ok:
+#             # print(f"Canvas API error {response.status_code}: {response.text}")
+#             break
 
-        data = response.json()
-        for event in data:
-            if 'start_at' in event:
-                event['local_start_at'] = datetime.fromisoformat(event['start_at'].replace('Z', '+00:00')).astimezone(PACIFIC_TZ).strftime('%m/%d/%Y %I:%M %p')
-            if 'end_at' in event:
-                event['local_end_at'] = datetime.fromisoformat(event['end_at'].replace('Z', '+00:00')).astimezone(PACIFIC_TZ).strftime('%m/%d/%Y %I:%M %p')
-            events.append(event)
-        # print("len",len(data))
+#         data = response.json()
+#         for event in data:
+#             if 'start_at' in event:
+#                 event['local_start_at'] = datetime.fromisoformat(event['start_at'].replace('Z', '+00:00')).astimezone(PACIFIC_TZ).strftime('%m/%d/%Y %I:%M %p')
+#             if 'end_at' in event:
+#                 event['local_end_at'] = datetime.fromisoformat(event['end_at'].replace('Z', '+00:00')).astimezone(PACIFIC_TZ).strftime('%m/%d/%Y %I:%M %p')
+#             events.append(event)
+#         # print("len",len(data))
 
-        if len(data) < page_size:
-            repeat = False
+#         if len(data) < page_size:
+#             repeat = False
 
-        page += 1
+#         page += 1
 
-    return events
+#     return events
 
-def chunked_list(lst, n):
-    """Yield successive n-sized chunks from list."""
-    for i in range(0, len(lst), n):
-        yield lst[i:i + n]
+# def chunked_list(lst, n):
+#     """Yield successive n-sized chunks from list."""
+#     for i in range(0, len(lst), n):
+#         yield lst[i:i + n]
+
+# @bp.route('/terms')
+# def get_canvas_enrollment_terms(account=""):
+#     """
+#     Fetches all enrollment terms for a given Canvas account using pagination.
+
+#     Args:
+#         account (str): Short code for account ("SSPPS", "HS", "SOM", etc.)
+
+#     Returns:
+#         list: List of term dictionaries.
+#     """
+#     if account == "HS":
+#         accountID = HSAccountID
+#     elif account == "SSPPS":
+#         accountID = SSPPSAccountID
+#     elif account == "SOM":
+#         accountID = SOMAccountID
+#     else:
+#         accountID = mainAccountID
+
+#     headers = {'Authorization': f'Bearer {CANVAS_API_TOKEN}'}
+#     params = {'per_page': 100}
+#     url = f"{CANVAS_API_BASE}/accounts/{accountID}/terms"
+#     all_terms = []
+
+#     while url:
+#         response = requests.get(url, headers=headers, params=params)
+#         response.raise_for_status()
+#         data = response.json()
+#         all_terms.extend(data.get("enrollment_terms", []))
+
+#         # Parse the Link header for pagination
+#         links = response.headers.get("Link", "")
+#         next_url = None
+#         for link in links.split(","):
+#             if 'rel="next"' in link:
+#                 next_url = link[link.find("<") + 1:link.find(">")]
+#                 break
+#         url = next_url
+#         params = None  # Don't re-apply params after the first request
+
+#     return all_terms
+
+# def get_canvas_enrollments(course_id, enrollment_type="StudentEnrollment"):
+#     """
+#     Fetches all enrollments for a given Canvas course using pagination.
+
+#     Args:
+#         course_id (int): Canvas course ID.
+#         enrollment_type (str): Type of enrollment to fetch (default is "StudentEnrollment").
+
+#     Returns:
+#         list: List of enrollment dictionaries.
+#     """
+#     headers = {'Authorization': f'Bearer {CANVAS_API_TOKEN}'}
+#     params = {
+#         'per_page': 100,
+#         'type[]': enrollment_type,
+#         'include[]': 'user'
+#     }
+#     url = f"{CANVAS_API_BASE}/courses/{course_id}/enrollments"
+#     all_enrollments = []
+
+#     while url:
+#         response = requests.get(url, headers=headers, params=params)
+#         response.raise_for_status()
+#         all_enrollments.extend(response.json())
+
+#         # Pagination via Link header
+#         links = response.headers.get("Link", "")
+#         next_url = None
+#         for link in links.split(","):
+#             if 'rel="next"' in link:
+#                 next_url = link[link.find("<") + 1:link.find(">")]
+#                 break
+#         url = next_url
+#         params = None  # Handled via next URL
+
+#     return all_enrollments
 
 @permission_required('panopto_scheduler+add, panopto_scheduler+edit')
-@scheduler_bp.route('/events')
+@bp.route('/events')
 def list_canvas_events():
     courses = get_canvas_courses()
     
@@ -303,7 +387,7 @@ def list_canvas_events():
     return render_template("scheduler/canvas_events.html", events=events, scheduled_map=scheduled_map, folders=folders, recorders=recorders)
 
 @permission_required('panopto_scheduler+add, panopto_scheduler+edit')
-@scheduler_bp.route('/recordings/toggle', methods=['POST'])
+@bp.route('/recordings/toggle', methods=['POST'])
 def toggle_recording():
     data = request.form
     canvas_event_id = data['event_id']
@@ -389,131 +473,3 @@ def delete_panopto_recording(session_id):
         resp = requests_session.delete(url=url)
 
     return resp.ok
-
-@permission_required('calendar+add, calendar+edit')
-@scheduler_bp.route("/calendar_groups")
-def calendar_groups():
-
-    courses1 = get_canvas_courses(account="SSPPS")
-    courses2= get_canvas_courses(account="SOM")
-    courses = sorted(courses1 + courses2, key=lambda c: c["name"])
-    groups = CalendarGroup.query.all()
-    selections = CalendarGroupSelection.query.order_by(CalendarGroupSelection.course_name).all()
-
-    # Group selections by group name
-    grouped_selections = {}
-    for sel in selections:
-        grouped_selections.setdefault(sel.group_name, []).append({
-            "id": sel.course_id,
-            "name": sel.course_name
-        })
-
-    return render_template("scheduler/calendar_groups.html", courses=courses, groups=groups, selections=grouped_selections)
-
-@permission_required('calendar+add, calendar+edit')
-@scheduler_bp.route("/save_selections", methods=["POST"])
-def save_selections():
-    data = request.json
-    CalendarGroupSelection.query.delete()
-    for group_dom_id, courses in data.items():
-        group_id = group_dom_id.replace("calendar-group-", "")
-        group = CalendarGroup.query.get(int(group_id))
-        for course in courses:
-            db.session.add(CalendarGroupSelection(
-                group_name=group.name,
-                course_id=course["id"],
-                course_name=course["name"]
-            ))
-    db.session.commit()
-    generate_scheduled_ics()
-    return jsonify({"message": "Selections saved to MSSQL."})
-
-def generate_scheduled_ics():
-    print(f"[{datetime.now()}] Running scheduled ICS generation job...")
-
-    courses1 = get_canvas_courses(account="SSPPS")
-    courses2= get_canvas_courses(account="SOM")
-    courses = sorted(courses1 + courses2, key=lambda c: c["name"])
-    
-    # Build a map from course ID to course info
-    course_map = {
-        f"{course['id']}": {
-            "course_id": course['id'],
-            "course_name": course.get('name', 'Unnamed Course'),
-            "start_at": (
-                course['start_at'] 
-                if course.get('start_at') else
-                datetime(datetime.now().year, 1, 1, tzinfo=timezone.utc)
-            )
-        }
-        for course in courses if 'id' in course 
-    }
-
-    selections = CalendarGroupSelection.query.all()
-    group_data = {}
-    for selection in selections:
-        group = selection.group_name
-        group_data.setdefault(group, []).append({
-            "id": selection.course_id,
-            "name": selection.course_name
-        })
-
-    # Fetch calendar groups with their filenames
-    groups = CalendarGroup.query.all()
-    filename_map = {group.name: group.ics_filename for group in groups}
-    # print(course_map)
-    for group_name, courses in group_data.items():
-        # print("courses",courses)
-        calendar = Calendar()
-        for course in courses:
-            course_info = course_map.get(course['id'])
-            if course_info:
-                course_events = get_canvas_events(context_codes=f"course_{course_info['course_id']}", start_date = course_info['start_at'])
-                for item in course_events:
-                    event = Event()
-
-                    event.add('summary', course_info['course_name'] + " " + item["title"])
-                    
-                    # Remove 'Z' and replace with '+00:00' to make it ISO compliant for fromisoformat
-                    dtstart = datetime.fromisoformat(item["start_at"].replace('Z', '+00:00'))
-                    # Optionally convert to UTC explicitly
-                    dtstart = dtstart.astimezone(timezone.utc)
-                    event.add('dtstart', dtstart)
-
-                    # Remove 'Z' and replace with '+00:00' to make it ISO compliant for fromisoformat
-                    dtend = datetime.fromisoformat(item["end_at"].replace('Z', '+00:00'))
-                    # Optionally convert to UTC explicitly
-                    dtend = dtend.astimezone(timezone.utc)
-                    event.add('dtend', dtend)
-
-                    event.add('location', item["location_name"])
-                    event.add('description', html_to_text(item.get("description", "")))
-
-                    # Add HTML version (non-standard but widely supported)
-                    # Create the HTML description with parameter
-                    event['X-ALT-DESC'] = vText(item.get("description", ""))
-                    event['X-ALT-DESC'].params['FMTTYPE'] = 'text/html'
-                    calendar.add_component(event)
-                    
-        filename = filename_map.get(group_name, f"{group_name}.ics")
-        full_path = os.path.join(CALENDAR_FOLDER, filename)
-
-        with open(full_path, "wb") as f:
-            f.write(calendar.to_ical())
-            
-    print(f"[{datetime.now()}] ICS files generated.")
-
-def html_to_text(html):
-    if not html:
-        return ""
-    
-    soup = BeautifulSoup(html, "html.parser")
-    text = soup.get_text(separator="\n")
-
-    # Normalize line endings and remove excessive empty lines
-    text = re.sub(r'\n\s*\n+', '\n\n', text.strip())
-    
-    # Escape problematic characters for ICS
-    text = text.replace('\\', '\\\\').replace('\n', '\\n').replace(',', '\\,').replace(';', '\\;')
-    
-    return text

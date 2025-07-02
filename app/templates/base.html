@@ -115,9 +115,9 @@
                         </a>
                         <ul class="dropdown-menu">
                             {% if is_admin() %}
-                            <li><a class="dropdown-item" href="{{ url_for('admin.users') }}">Users</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('admin.roles') }}">Roles</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('admin.permissions') }}">Permissions</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('users.list_users') }}">Users</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('roles.list_roles') }}">Roles</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('permissions.list_permissions') }}">Permissions</a></li>
                             {% endif %}
                             <li>
                                 <hr class="dropdown-divider">
@@ -132,7 +132,7 @@
                             {% if has_permission('calendar+view') or has_permission('calendar+add') or
                             has_permission('calendar+edit') %}
                             <li>
-                                <a class="dropdown-item" href="{{ url_for('scheduler.calendar_groups') }}">Curriculum
+                                <a class="dropdown-item" href="{{ url_for('calendars.calendar_groups') }}">Curriculum
                                     Calendars</a>
                             </li>
                             {% endif %}
@@ -164,7 +164,7 @@
                             {% if has_permission('listserv+view') or has_permission('listserv+add') or
                             has_permission('listserv+edit') or has_permission('listserv+delete') %}
                             <li>
-                                <a class="dropdown-item" href="{{ url_for('groupsearch.list_groups') }}">Listserv</a>
+                                <a class="dropdown-item" href="{{ url_for('groupsearch.list_groups') }}">Google Listserv</a>
                             </li>
                             {% endif %}
                         </ul>

@@ -23,7 +23,8 @@
     <table id="members-table" class="table table-bordered align-middle table-striped border rounded table-sm">
         <thead>
             <tr>
-                <th>Member Email</th>
+                <th>Email</th>
+                <th>Name</th>
                 <th>Added on</th>
                 <th>Role</th>
             </tr>
@@ -32,6 +33,7 @@
             {% for member in members %}
             <tr>
                 <td>{{ member.email }}</td>
+                <td>{{ member.name }}</td>
                 <td>{{ member.added }}</td>
                 <td>{{ member.role }}</td>
             </tr>
