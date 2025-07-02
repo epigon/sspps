@@ -306,7 +306,7 @@ def delete_student(student_id):
     db.session.commit()
     return jsonify({'success': True, 'message': 'Student deleted'})
 
-def add_page_header(canvas, doc, title, header, subheader):
+def add_page_header(canvas, doc, title, header):
     canvas.saveState()
     width, height = LETTER
 
@@ -319,11 +319,7 @@ def add_page_header(canvas, doc, title, header, subheader):
     canvas.setFont("Helvetica", 10)
     canvas.drawString(doc.leftMargin, height - 0.4*inch, header)
 
-    # 3) Subheader just below it
-    canvas.setFont("Helvetica", 10)
-    canvas.drawString(doc.leftMargin, height - 0.6*inch, subheader)
-
-    # 4) Main title on center
+    # 3) Main title on center
     canvas.setFont("Helvetica-Bold", 12)
     canvas.drawCentredString(width / 2, height - 0.9 * inch, title)
 
@@ -342,9 +338,6 @@ def generate_photo_cards():
     filter_class_of = request.form.get('class_of', '').strip()
         
     pdf_header = "UC San Diego Skaggs School of Pharmacy & Pharmaceutical Sciences"
-    pdf_subheader = ""
-    if filter_class_of:
-        pdf_subheader = f"Class of {filter_class_of}"
     pdf_filename = request.form.get('pdf_filename', '').strip() or "photo_cards"
 
     students = Student.query.filter(Student.id.in_(ids), Student.deleted == False).order_by(Student.last_name, Student.first_name).all()
@@ -454,8 +447,8 @@ def generate_photo_cards():
         print("Calling doc.build()...", flush=True)
         doc.build(
             elements,
-            onFirstPage=lambda c, d: add_page_header(c, d, pdf_title, pdf_header, pdf_subheader),
-            onLaterPages=lambda c, d: add_page_header(c, d, pdf_title, pdf_header, pdf_subheader)
+            onFirstPage=lambda c, d: add_page_header(c, d, pdf_title, pdf_header),
+            onLaterPages=lambda c, d: add_page_header(c, d, pdf_title, pdf_header)
         )
         print("Finished doc.build()", flush=True)
     except Exception as ex:

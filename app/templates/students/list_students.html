@@ -304,6 +304,15 @@
             $('#pdf_filename').val(courseCode);
         }
 
+        // On page load, if class_of selected, set PDF title and filename
+        const $classSelect = $('#class_of');
+        if ($classSelect.val()) {
+            const selectedOption = $classSelect[0].options[$classSelect[0].selectedIndex];
+            const selectedClassOf = selectedOption.text;
+            $('#pdf_title').val("Class of "+selectedClassOf);
+            $('#pdf_filename').val("class_of_"+selectedClassOf);
+        }
+
         // Delete student via AJAX
         $('#students-table').on('click', '.delete-btn', function () {
             const studentId = $(this).data('student-id');
