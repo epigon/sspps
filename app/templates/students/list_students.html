@@ -216,10 +216,10 @@
             $('#photo-card-form input[type="hidden"][name="student_ids"]').remove();
 
             // Rebuild selected IDs from checkboxes
-            selectedStudentIds = new Set();
-            $('input[name="student_ids"]:checked').each(function () {
-                selectedStudentIds.add($(this).val());
-            });
+            // selectedStudentIds = new Set();
+            // $('input[name="student_ids"]:checked').each(function () {
+            //     selectedStudentIds.add($(this).val());
+            // });
 
             if (selectedStudentIds.size === 0) {
                 e.preventDefault();
