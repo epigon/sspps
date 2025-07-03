@@ -99,7 +99,7 @@ Academic Years
 
             $.ajax({
                 type: 'POST',
-                url: '/committeetracker/academic_year/' + ayId + '/set_current',
+                url: '/academic_years/' + ayId + '/set_current',
                 data: {
                     is_current: isChecked,
                     csrf_token: csrfToken
