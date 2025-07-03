@@ -6,6 +6,7 @@ from collections import defaultdict
 from datetime import datetime
 from flask import render_template, redirect, url_for, request, flash, jsonify, Blueprint, send_file, abort, make_response
 from flask_login import login_required
+from .academic_years import get_academic_years
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload, selectinload, with_loader_criteria
 from sqlalchemy.sql import func
@@ -19,7 +20,7 @@ import re
 import sys
 import traceback
 
-bp = Blueprint('committee', __name__, url_prefix='/committeetracker')
+bp = Blueprint('committee', __name__, url_prefix='/committee_tracker')
 
 # Allow presentations, documents, images, and PDFs
 ALLOWED_EXTENSIONS = {
@@ -46,7 +47,7 @@ def base_committees():
     form = CommitteeForm()
     base_committees = Committee.query.filter_by(deleted=False).order_by(Committee.name).all()
 
-    return render_template('committeetracker/base_committees.html', form = form, committees=base_committees)
+    return render_template('committee_tracker/base_committees.html', form = form, committees=base_committees)
 
 # Add/Edit a Committee
 @bp.route('/base_committee/new', methods=['GET', 'POST'])
@@ -80,12 +81,12 @@ def edit_committee(committee_id:int=None):
             err_msg = err.args[0]
             if "UNIQUE KEY constraint" in err_msg:
                 flash("ERROR: Committee name already exists (%s)" % form.name.data, 'danger')
-                return render_template('committeetracker/edit_base_committee.html', form=form)
+                return render_template('committee_tracker/edit_base_committee.html', form=form)
             else:
                 flash("ERROR: (%s)" % err_msg, 'danger')
-                return render_template('committeetracker/edit_base_committee.html', form=form)
+                return render_template('committee_tracker/edit_base_committee.html', form=form)
 
-    return render_template('committeetracker/edit_base_committee.html', form=form, committee=committee)
+    return render_template('committee_tracker/edit_base_committee.html', form=form, committee=committee)
 
 @bp.route('/base_committee/<int:committee_id>/delete')
 @permission_required('committee+delete')
@@ -128,7 +129,7 @@ def ay_committees(academic_year_id:int=None):
     else:
         current_ay_committees = []
 
-    return render_template('committeetracker/ay_committees.html', ay_committees=current_ay_committees, current_year = current_year, academic_years = academic_years)
+    return render_template('committee_tracker/ay_committees.html', ay_committees=current_ay_committees, current_year = current_year, academic_years = academic_years)
 
 # Add a Committee    
 @bp.route('/ay_committee/new', methods=['GET', 'POST'])
@@ -168,12 +169,12 @@ def ay_committee():
                 return redirect(url_for('committee.members', ay_committee_id = aycom.id))
             else:
                 flash("ERROR: (%s)" % err_msg, 'danger')
-                return render_template('committeetracker/edit_ay_committee.html', form=form)
+                return render_template('committee_tracker/edit_ay_committee.html', form=form)
     
     form.academic_year_id.default = academic_year_id if academic_year_id else 0
     form.process()
 
-    return render_template('committeetracker/edit_ay_committee.html', form=form)
+    return render_template('committee_tracker/edit_ay_committee.html', form=form)
 
 @bp.route('/delete_ay_committee/<int:ay_committee_id>')
 @permission_required('ay_committee+delete')
@@ -191,96 +192,13 @@ def delete_ay_committee(ay_committee_id):
         flash(str(e), "danger")
         return redirect(url_for('committee.ay_committees'))
     
-# List Academic Year
-@bp.route('/academic_years', methods=['GET'])
-@permission_required('academic_year+view, academic_year+add, academic_year+edit, academic_year+delete')
-def academic_years():
-    form = AcademicYearForm()
-    ayears = get_academic_years()
-    ayears_data = [{"id": ay.id, "year": ay.year, "is_current": ay.is_current} for ay in ayears]
-    return render_template('committeetracker/academic_years.html', form=form, ayears = ayears_data)
-
-# Edit Academic Year
-@bp.route("/academic_year/new/", methods=["POST", "GET"])
-@bp.route("/academic_year/<int:academic_year_id>/", methods=["POST", "GET"])
-@permission_required('academic_year+add, academic_year+edit')
-def edit_academic_year(academic_year_id:int=None):
-    ayears = get_academic_years()
-    academic_year = AcademicYear.query.filter_by(id=academic_year_id, deleted=False).first() if academic_year_id else AcademicYear()
-    form = AcademicYearForm()
-    if request.method == "POST":
-        academic_year.year = request.form['year']
-        try:
-            db.session.add(academic_year)
-            db.session.commit()
-            return jsonify(success=True, academic_year={
-                "id": academic_year.id,
-                "year": academic_year.year,
-                "is_current": academic_year.is_current 
-            })
-        except IntegrityError as err:
-            db.session.rollback()
-            err_msg = err.args[0]
-            if "UNIQUE KEY constraint" in err_msg:
-                return jsonify(success=False, message="Academic Year already exists (%s)" % form.year.data)
-            else:
-                return jsonify(success=False, message="unknown error adding academic year.")
-        except Exception as e:
-            db.session.rollback()
-            return jsonify({"success": False, "message": str(e)})
-    return render_template('committeetracker/academic_years.html', form=form, ayears = ayears)
-
-# Delete Academic Year
-@bp.route('/academic_year/<int:academic_year_id>', methods=['DELETE'])
-@permission_required('academic_year+delete')
-def delete_academic_year(academic_year_id):
-    try:
-        academic_year = AcademicYear.query.filter_by(id=academic_year_id, deleted=False).first()
-        # Check if any committees are assigned to this ay
-        assigned_committees = AYCommittee.query.filter_by(academic_year_id=academic_year.id, deleted=False).count()
-        
-        if assigned_committees > 0:
-            return jsonify({"success": False, "message": "Cannot delete this academic year because it is currently assigned to one or more committees."})
-        
-        if not academic_year:
-            return jsonify({"success": False, "message": "Academic Year not found"})
-        
-        academic_year.deleted = True
-        academic_year.delete_date = datetime.now()
-        # db.session.delete(academic_year)
-        db.session.commit()
-
-        return jsonify({"success": True, "deleted_academic_year_id": academic_year_id})
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"success": False, "message": str(e)})
-
-@bp.route('/academic_year/<int:ay_id>/set_current', methods=['POST'])
-@permission_required("academic_year+add, academic_year+edit")
-# @csrf.exempt  # If CSRF is handled manually in AJAX
-def set_current_academic_year(ay_id):
-    ay = AcademicYear.query.filter_by(id=ay_id, deleted=False).first_or_404()
-    is_current = request.form.get('is_current') == 'true'
-
-    try:
-        # Optionally unset other current years
-        if is_current:
-            AcademicYear.query.update({AcademicYear.is_current: False})
-
-        ay.is_current = is_current
-        db.session.commit()
-        return jsonify(success=True)
-    except Exception as e:
-        db.session.rollback()
-        return jsonify(success=False, message=str(e))
-    
 # List Frequency Type
 @bp.route('/frequency_types')
 @permission_required("frequency_type+view,frequency_type+add,frequency_type+edit,frequency_type+delete")
 def frequency_types():
     form = FrequencyTypeForm()
     ftypes = get_frequency_types()
-    return render_template('committeetracker/frequency_types.html', form=form, ftypes = ftypes)
+    return render_template('committee_tracker/frequency_types.html', form=form, ftypes = ftypes)
 
 # Add/Edit Frequency Type
 @bp.route("/frequency_type/new/", methods=["POST", "GET"])
@@ -314,7 +232,7 @@ def edit_frequency_type(frequency_type_id:int=None):
             print(str(e))
             return jsonify({"success": False, "message": str(e)})
     
-    return render_template('committeetracker/frequency_types.html', form=form, ftypes = ftypes)
+    return render_template('committee_tracker/frequency_types.html', form=form, ftypes = ftypes)
 
 # Delete Frequency Type
 @bp.route('/frequency_type/<int:frequency_type_id>', methods=['DELETE'])
@@ -345,7 +263,7 @@ def delete_frequency_type(frequency_type_id):
 def committee_types():
     form = CommitteeTypeForm()
     ctypes = get_committee_types()
-    return render_template('committeetracker/committee_types.html', form=form, ctypes = ctypes)
+    return render_template('committee_tracker/committee_types.html', form=form, ctypes = ctypes)
 
 # Add/Edit Committee Type
 @bp.route("/committee_type/new/", methods=["POST", "GET"])    
@@ -378,7 +296,7 @@ def edit_committee_type(committee_type_id:int=None):
         except Exception as e:
             db.session.rollback()
             return jsonify({"success": False, "message": str(e)})
-    return render_template('committeetracker/committee_types.html', form=form, ctypes = ctypes)
+    return render_template('committee_tracker/committee_types.html', form=form, ctypes = ctypes)
 
 # Delete Committee Type
 @bp.route('/committee_type/<int:committee_type_id>', methods=['DELETE'])
@@ -411,7 +329,7 @@ def delete_committee_type(committee_type_id):
 def member_roles():
     form = MemberRoleForm()
     roles = MemberRole.query.filter_by(deleted=False).all()
-    return render_template('committeetracker/member_roles.html', form=form, roles = roles)
+    return render_template('committee_tracker/member_roles.html', form=form, roles = roles)
 
 # Edit Member Role
 @bp.route("/member_role/new/", methods=["POST", "GET"])
@@ -445,7 +363,7 @@ def edit_role(role_id:int=None):
         except Exception as e:
             db.session.rollback()
             return jsonify({"success": False, "message": str(e)})
-    return render_template('committeetracker/member_roles.html', form=form, roles = mroles)
+    return render_template('committee_tracker/member_roles.html', form=form, roles = mroles)
 
 # Delete Member Role
 @bp.route('/member_role/<int:role_id>', methods=['DELETE'])
@@ -463,7 +381,7 @@ def delete_role(role_id):
             # flash("Cannot delete this member role because it is currently assigned to one or more members.", "danger")
             # return redirect(url_for('committee.member_roles'))
             return jsonify({"success": False, "message": "Cannot delete this member role because it is currently assigned to one or more members."})
-            return render_template('committeetracker/member_roles.html', form=form, roles = mroles)
+            return render_template('committee_tracker/member_roles.html', form=form, roles = mroles)
         
         role.deleted = True
         role.delete_date = datetime.now()
@@ -511,7 +429,7 @@ def members(ay_committee_id:int):
 
     meetingForm = MeetingForm(ay_committee_id=ay_committee_id)
     uploadForm = FileUploadForm(ay_committee_id=ay_committee_id)
-    return render_template('committeetracker/members.html', memberForm = memberForm, meetingForm = meetingForm, uploadForm = uploadForm, aycommittee = aycommittee)
+    return render_template('committee_tracker/members.html', memberForm = memberForm, meetingForm = meetingForm, uploadForm = uploadForm, aycommittee = aycommittee)
 
 @bp.route('/add_member', methods=['POST'])
 @permission_required("member+add, member+edit")
@@ -815,12 +733,6 @@ def delete_meeting(meeting_id:int):
         db.session.rollback()
         return jsonify({"success": False, "message": str(e)})
 
-@permission_required("academic_year+view, academic_year+add, academic_year+edit, academic_year+delete")
-def get_academic_years():
-    # ayears = db.session.query(AcademicYear).order_by(AcademicYear.year.desc()).all()
-    ayears = AcademicYear.query.filter_by(deleted=False).order_by(AcademicYear.year.desc()).all()
-    return ayears
-
 @permission_required("frequency_type+view, frequency_type+add, frequency_type+edit, frequency_type+delete")
 def get_frequency_types():
     ftypes = FrequencyType.query.filter_by(deleted=False).order_by(FrequencyType.type).all()
@@ -839,13 +751,6 @@ def get_member_roles():
 @bp.route("/get_all_committees", methods=["GET"])
 @permission_required("committee_report+view")
 def get_all_committees():
-
-    # show_mission = request.args.get("mission", type=int)
-    # show_members = request.args.get("members", type=int)    
-    # show_meetings = request.args.get("meetings", type=int)
-    # show_documents = request.args.get("documents", type=int)
-
-    # sort_by_role = request.args.get("sortRole", type=int)
 
     query = AYCommittee.query.options(
         selectinload(AYCommittee.academic_year),
@@ -893,13 +798,6 @@ def get_all_committees():
     for committee in aycommittees:
             committee.members.sort(key=lambda m: m.member_role.default_order if m.member_role else "")
 
-    # if sort_by_role: # Sort members by role default_order
-    #     for committee in aycommittees:
-    #         committee.members.sort(key=lambda m: m.member_role.default_order if m.member_role else "")
-    # else: # Sort members by name
-    #     for committee in aycommittees:
-    #         committee.members.sort(key=lambda m: m.employee.employee_name)
-
     # Build results
     committees = []
     for com in aycommittees:
@@ -921,32 +819,6 @@ def get_all_committees():
         committees.append(committee_data)
 
     return jsonify(committees)
-
-    results = []
-    committees = []
-    for com in aycommittees:
-        committee_data = {
-            "academic_year": com.academic_year.year,
-            "id": com.id,
-            "name": com.committee.name + ( " (" + com.committee.short_name + ") " if com.committee.short_name else "" )
-        }
-        committee_data["mission"] = com.committee.mission
-        committee_data["members"] = [member.employee.employee_name+"("+member.member_role.role+")"+"("+member.employee.job_code_description+")" for member in com.members]
-        committee_data["meetings"] = [meeting.title+" ("+meeting.date.strftime('%Y-%m-%d')+")" for meeting in com.meetings]
-        committee_data["documents"] = [doc.filename for doc in com.fileuploads]
-        # if show_mission:
-        #     committee_data["mission"] = com.committee.mission
-        # if show_members:
-        #     committee_data["members"] = [member.employee.employee_name+"("+member.member_role.role+")"+"("+member.employee.job_code_description+")" for member in com.members]
-        # if show_meetings:
-        #     committee_data["meetings"] = [meeting.title+" ("+meeting.date.strftime('%Y-%m-%d')+")" for meeting in com.meetings]
-        # if show_documents:
-        #     committee_data["documents"] = [doc.filename for doc in com.fileuploads]
-            
-        committees.append(committee_data)
-    results.append(committees)
-
-    return jsonify(results)
 
 @bp.route("/get_committees_by_member", methods=["GET"])
 @permission_required("committee_report+view")
@@ -1189,7 +1061,7 @@ def report_all_committees():
     for row in get_employees():
         form.users.choices.append([row.employee_id, row.employee_last_name+', '+row.employee_first_name])
 
-    return render_template('committeetracker/report_all_committees.html', form=form)
+    return render_template('committee_tracker/report_all_committees.html', form=form)
 
 @bp.route('/member_report/')
 @permission_required("committee_report+view")
@@ -1212,7 +1084,7 @@ def member_report():
     for row in get_employees():
         form.users.choices.append([row.employee_id, row.employee_last_name+', '+row.employee_first_name])
 
-    return render_template('committeetracker/report_by_member.html', form=form)
+    return render_template('committee_tracker/report_by_member.html', form=form)
 
 @bp.route('/assignment_report/')
 @permission_required("committee_report+view")
@@ -1235,4 +1107,4 @@ def assignment_report():
     for row in get_employees():
         form.users.choices.append([row.employee_id, row.employee_last_name+', '+row.employee_first_name])
 
-    return render_template('committeetracker/report_by_assignment.html', form=form)
+    return render_template('committee_tracker/report_by_assignment.html', form=form)

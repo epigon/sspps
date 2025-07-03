@@ -156,3 +156,45 @@ function saveSelection() {
         });
     });
 }
+
+function refreshCalendars() {
+    const responseEl = document.getElementById("formResponseMessage");
+
+    // Disable only the clicked button
+    const buttons = document.querySelectorAll(".refresh-btn");
+    buttons.forEach(btn => {
+        btn.disabled = true;
+        btn.dataset.originalText = btn.textContent;
+        btn.textContent = "Updating...";
+    });
+
+    fetch("/calendars/generate_scheduled_ics", {
+        method: "POST",
+        headers: { 'Content-Type': 'application/json' }
+    }).then(res => res.json())
+        .then(msg => {
+            const responseEl = document.getElementById("formResponseMessage");
+            responseEl.classList.remove("d-none", "alert-success", "alert-danger");
+
+            if (msg.error) {
+                responseEl.classList.add("alert-danger");
+                responseEl.textContent = msg.error;
+            } else {
+                responseEl.classList.add("alert-success");
+                responseEl.textContent = msg.message;
+            }
+        })
+    .catch(err => {
+        responseEl.classList.remove("d-none", "alert-success");
+        responseEl.classList.add("alert-danger");
+        responseEl.textContent = "An unexpected error occurred.";
+        console.error(err);
+    })
+    .finally(() => {
+        // Re-enable buttons and restore text
+        buttons.forEach(btn => {
+            btn.disabled = false;
+            btn.textContent = btn.dataset.originalText || "Refresh Calendar Files";
+        });
+    });
+}

@@ -32,11 +32,11 @@
 {% block content %}
 
 <div class="container-fluid">
-    <h1 class="mb-4">Canvas Course Calendars</h1>
+    <h1 class="mb-4">Canvas Curriculum Calendars</h1>
     <div id="formResponseMessage" class="alert d-none mt-3" role="alert"></div>
     <div class="row">
         <div class="col-md-4">
-            <h4>Courses</h4>
+            <h4>Canvas Courses</h4>
             <input type="text" id="course-search" class="form-control mb-2" placeholder="Search courses...">
             <div id="course-list">
                 {% for course in courses %}
@@ -48,7 +48,7 @@
         </div>
         <div class="col-md-4">
             <button class="btn btn-primary btn-sm float-end save-selection-btn" onclick="saveSelection()">Save Selections</button>
-            <h4 class=" mb-2">Calendar Groups</h4>
+            <h4 class=" mb-2">Curriculum Calendars</h4>
             {% for group in groups %}
             <div class="calendar-group mb-3" id="calendar-group-{{ group.id }}">
                 <strong>{{ group.name }}</strong>
@@ -66,7 +66,7 @@
             </div>
         </div>
         <div class="col-md-4">
-            <!-- <div class="mt-3"> -->
+            <button class="btn btn-primary btn-sm float-end refresh-btn" onclick="refreshCalendars()">Refresh Calendar Files</button>
             <h4>Calendar Files</h4>
             <ul>
                 {% for group in groups %}

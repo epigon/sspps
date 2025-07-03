@@ -20,7 +20,7 @@
     {% endblock %}
 </head>
 
-<body>
+<body class="d-flex flex-column min-vh-100">
     {%- block header %}
     <header class="layout-header">
         <!-- <a class="sr-only" href="#main-content">Skip to main content</a> -->
@@ -75,7 +75,7 @@
                                     Committees</a></li>
                             {% endif %}
                             {% if has_permission('academic_year+view') %}
-                            <li><a class="dropdown-item" href="{{ url_for('committee.academic_years') }}">Academic
+                            <li><a class="dropdown-item" href="{{ url_for('academic_years.list') }}">Academic
                                     Years</a></li>
                             {% endif %}
                             {% if has_permission('committee_type+view') %}
@@ -118,10 +118,11 @@
                             <li><a class="dropdown-item" href="{{ url_for('users.list_users') }}">Users</a></li>
                             <li><a class="dropdown-item" href="{{ url_for('roles.list_roles') }}">Roles</a></li>
                             <li><a class="dropdown-item" href="{{ url_for('permissions.list_permissions') }}">Permissions</a></li>
-                            {% endif %}
                             <li>
                                 <hr class="dropdown-divider">
                             </li>
+                            {% endif %}
+                            
                             {% if has_permission('panopto_scheduler+view') or has_permission('panopto_scheduler+add')
                             or has_permission('panopto_scheduler+edit') %}
                             <li>
@@ -137,12 +138,12 @@
                             </li>
                             {% endif %}
 
-                            {% if has_permission('adsearch+view') %}
+                            {% if has_permission('ad_lookup+view') %}
                             <li>
                                 <hr class="dropdown-divider">
                             </li>
                             <li>
-                                <a class="dropdown-item" href="{{ url_for('adsearch.search') }}">Active Directory
+                                <a class="dropdown-item" href="{{ url_for('ad_lookup.search') }}">Active Directory
                                     Search</a>
                             </li>
                             {% endif %}
@@ -212,11 +213,12 @@
         {% endif %}
         {% endwith %}
     </div>
-    <main>
+
+    <main class="flex-grow-1">
         {% block content %}{% endblock %}
         <img src="https://a5.ucsd.edu/tritON/imagebug">
     </main>
-
+    
     {% block footer -%}
     <footer class="footer" style="background-color: #00629B;">
         <div class="container">

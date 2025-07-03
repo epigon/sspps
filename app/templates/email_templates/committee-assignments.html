@@ -1,0 +1,25 @@
+<p>Dear {{ last_name }},</p>
+
+<p>Committee Assignments for the {{ committee_year }} year are complete and have been published on our secure website:<br>
+<a href="{{ assignments_link }}">{{ committee_year }} Committee Assignments</a></p>
+
+{% for type, committees in committee_types.items() %}
+<p>For your reference, your {{ type }} committee assignment(s) for the Academic Year ending {{ year_end }} were:<br>
+<a href="{{ members_link }}">Committee Members Page</a></p>
+<ul>
+  {% for name in committees %}
+    <li>{{ name }}</li>
+  {% endfor %}
+</ul>
+{% endfor %}
+
+<p>The committee(s) listed above represent the committee service you may have accepted.</p>
+
+<p>The Academic Senate committee service period is October through September.</p>
+
+<p>If you have any questions about an AS Committee Assignment, please contact the Senate offices directly.</p>
+
+<p>Questions regarding your committee assignment(s) should be directed to your Section Chair.</p>
+
+<p>Thank you,<br>
+Committee chairman {{ chair_firstname }} {{ chair_lastname }}</p>

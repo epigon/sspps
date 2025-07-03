@@ -69,9 +69,11 @@ def save_selections():
                 course_name=course["name"]
             ))
     db.session.commit()
-    generate_scheduled_ics()
-    return jsonify({"message": "Selections saved and calendar ICS file updated."})
+    # generate_scheduled_ics()
+    return jsonify({"message": "Selections saved."})
 
+@permission_required('calendar+add, calendar+edit')
+@bp.route("/generate_scheduled_ics", methods=["POST"])
 def generate_scheduled_ics():
     print(f"[{datetime.now()}] Running scheduled ICS generation job...")
 
@@ -148,6 +150,7 @@ def generate_scheduled_ics():
             f.write(calendar.to_ical())
             
     print(f"[{datetime.now()}] ICS files generated.")
+    return jsonify({"message": "Calendar files updated."})
 
 def html_to_text(html):
     if not html:

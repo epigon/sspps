@@ -6,7 +6,7 @@ from flask import render_template, request, Blueprint
 from flask_login import login_required
 from ldap3 import Server, Connection, ALL, SUBTREE
 
-bp = Blueprint('adsearch', __name__, url_prefix='/adsearch')
+bp = Blueprint('ad_lookup', __name__, url_prefix='/ad_lookup')
 
 LDAP_SERVER = 'ldap.ad.ucsd.edu'
 BASE_DN = 'DC=AD,DC=UCSD,DC=EDU'
@@ -39,11 +39,19 @@ def extract_ou(distinguished_name, keyword):
     return ''
 
 @bp.route('/search', methods=['GET', 'POST'])
-@permission_required('adsearch+view')
+@permission_required('ad_lookup+view')
 def search():
 
+    searchterms = '+'.join(filter(None, [
+        request.form.get('username', '').strip(),
+        request.form.get('partialusername', '').strip(),
+        request.form.get('firstname', '').strip(),
+        request.form.get('lastname', '').strip()
+    ]))
+
     custom_breadcrumbs = [
-        {'name': 'Active Directory Search', 'url': '/adsearch/search'}
+        {'name': 'Active Directory Search', 'url': '/ad_lookup/search'},
+        {'name': f'Search Results for: {searchterms}', 'url': '/ad_lookup/search'}
     ]
 
     results = []
@@ -109,7 +117,7 @@ def search():
             error = str(e)
 
     # print(results)
-    return render_template('adsearch/search.html', results=results, error=error, searched=searched, breadcrumbs=custom_breadcrumbs)
+    return render_template('ad_lookup/search.html', results=results, error=error, searched=searched, breadcrumbs=custom_breadcrumbs)
 
 #"""Using ADSI LDAP Linked Server"""
 # def search():
@@ -187,4 +195,4 @@ def search():
 
 #     print(results)
 
-#     return render_template('adsearch/search.html', results=results, searched=searched)
+#     return render_template('ad_lookup/search.html', results=results, searched=searched)

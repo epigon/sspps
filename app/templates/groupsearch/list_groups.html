@@ -7,7 +7,7 @@
     href="https://cdn.datatables.net/v/dt/jszip-3.10.1/dt-2.2.2/af-2.7.0/b-3.2.2/b-colvis-3.2.2/b-html5-3.2.2/b-print-3.2.2/cr-2.0.4/date-1.5.5/fc-5.0.4/fh-4.0.1/kt-2.12.1/r-3.0.4/rg-1.5.1/rr-1.5.0/sc-2.4.3/sb-1.8.2/sp-2.3.3/sl-3.0.0/sr-1.4.1/datatables.min.css"
     rel="stylesheet" integrity="sha384-Ds1Vklai96R25BXbTa08O+OjpAevmakmGFQNAQECNryYdQ0qbN4CJSMwUSFT+NYe"
     crossorigin="anonymous">
-    
+
 <!-- DataTables JS -->
 <script
     src="https://cdn.datatables.net/v/dt/jszip-3.10.1/dt-2.2.2/af-2.7.0/b-3.2.2/b-colvis-3.2.2/b-html5-3.2.2/b-print-3.2.2/cr-2.0.4/date-1.5.5/fc-5.0.4/fh-4.0.1/kt-2.12.1/r-3.0.4/rg-1.5.1/rr-1.5.0/sc-2.4.3/sb-1.8.2/sp-2.3.3/sl-3.0.0/sr-1.4.1/datatables.min.js"
@@ -19,18 +19,19 @@
 
 <div class="container">
     <h1>Add Google Group/Listserv:</h1>
+    <div class="card p-4 mb-3 bg-light" id="addCard">
+        <div class="row">
+            {% if has_permission('listserv+add') or has_permission('listserv+edit') %}
+            <form method="POST" class="d-flex align-items-center gap-2">
+                {{ form.hidden_tag() }}
+                <label for="{{ form.group_name.id }}" class="form-label mb-0 text-nowrap">{{ form.group_name.label.text }}</label>
+                {{ form.group_name(class="form-control", style="width: 50ch;") }}
 
-    {% if has_permission('listserv+add') or has_permission('listserv+edit') %}                            
-    <form method="POST" class="mb-4">
-        {{ form.hidden_tag() }}
-        <div class="mb-3">
-            {{ form.group_name.label(class="form-label") }}
-            {{ form.group_name(class="form-control") }}
+                <button type="submit" class="btn btn-primary">Submit</button>
+            </form>
+            {% endif %}
         </div>
-        <button type="submit" class="btn btn-primary">Submit</button>
-    </form>
-    {% endif %}
-
+    </div>
     <h2>Existing Groups</h2>
     <table id="groups-table" class="table table-bordered align-middle table-striped border rounded table-sm">
         <thead>
@@ -46,13 +47,13 @@
                     <small class="text-muted">Added: {{ group.create_date.strftime('%Y-%m-%d %H:%M') }}</small>
                 </td>
                 <form method="POST" action="{{ url_for('groupsearch.delete_group', group_id=group.id) }}">
-                <td>
-                    <a href="{{ url_for('groupsearch.list_members', group_email=group.group_name) }}"
-                        class="btn btn-primary btn-sm">Members</a>
-                    {% if has_permission('listserv+delete') %}
-                    <button class="btn btn-sm btn-danger" onclick="return confirm('Are you sure?')">Delete</button>
-                    {% endif %}
-                </td>
+                    <td>
+                        <a href="{{ url_for('groupsearch.list_members', group_email=group.group_name) }}"
+                            class="btn btn-primary btn-sm">Members</a>
+                        {% if has_permission('listserv+delete') %}
+                        <button class="btn btn-sm btn-danger" onclick="return confirm('Are you sure?')">Delete</button>
+                        {% endif %}
+                    </td>
                 </form>
                 {% endfor %}
         </tbody>
