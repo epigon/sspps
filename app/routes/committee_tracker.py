@@ -42,6 +42,7 @@ def before_request():
 # List Committees
 @bp.route('/dashboard')
 @bp.route('/base_committees')
+@bp.route('/')
 @permission_required('committee+view, committee+add, committee+edit, committee+delete')
 def base_committees():    
     form = CommitteeForm()
