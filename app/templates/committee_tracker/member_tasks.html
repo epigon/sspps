@@ -106,7 +106,7 @@ Member Tasks
             // Send updated data to server via AJAX
             $.ajax({
                 type: 'POST',
-                url: '/committeetracker/member_task/' + taskId,
+                url: 'member_task/' + taskId,
                 data: {
                     task: updatedTaskName,
                     description: updatedTaskDescription,
@@ -144,7 +144,7 @@ Member Tasks
             // Send the form data via AJAX
             $.ajax({
                 type: 'POST',
-                url: '/committeetracker/member_task',
+                url: 'member_task',
                 data: $(this).serialize(),  // Serialize form data
                 success: function (response) {
                     // Handle the response from the server
@@ -205,7 +205,7 @@ Member Tasks
 
             $.ajax({
                 type: 'DELETE',
-                url: '/committeetracker/member_task/' + taskId,
+                url: 'member_task/' + taskId,
                 success: function (response) {
                     if (response.success) {
                         $('#formResponseMessage').html('<div class="alert alert-success">Task deleted successfully!</div>');

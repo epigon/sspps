@@ -46,7 +46,7 @@ $(document).ready(function () {
         let meetingId = $('#meeting-id').val(); // Get the member ID
         $.ajax({
             type: "POST",
-            url: "/committeetracker/save_meeting",
+            url: "/committee_tracker/save_meeting",
             data: new FormData(this),
             processData: false,
             contentType: false,
@@ -87,7 +87,7 @@ $(document).ready(function () {
         if (confirm("Are you sure you want to delete this meeting?")) {
             $.ajax({
                 type: "POST",
-                url: `/committeetracker/delete_meeting/${meetingId}`,
+                url: `/committee_tracker/delete_meeting/${meetingId}`,
                 contentType: "application/json",
                 success: function (response) {
                     meetingsTable

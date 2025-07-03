@@ -130,7 +130,7 @@ Member Roles
             // Send updated data to server via AJAX
             $.ajax({
                 type: 'POST',
-                url: '/committeetracker/member_role/' + roleId,
+                url: 'member_role/' + roleId,
                 data: {
                     role: updatedRoleName,
                     description: updatedRoleDescription,
@@ -169,7 +169,7 @@ Member Roles
             // Send the form data via AJAX
             $.ajax({
                 type: 'POST',
-                url: '/committeetracker/member_role/new',
+                url: 'member_role/new',
                 data: $(this).serialize(),  // Serialize form data
                 success: function (response) {
                     // Handle the response from the server
@@ -228,7 +228,7 @@ Member Roles
 
             $.ajax({
                 type: 'DELETE',
-                url: '/committeetracker/member_role/' + roleId,
+                url: 'member_role/' + roleId,
                 success: function (response) {
                     if (response.success) {
                         $('#formResponseMessage').html('<div class="alert alert-success">Role deleted successfully!</div>');

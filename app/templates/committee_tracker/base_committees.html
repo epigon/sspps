@@ -49,7 +49,7 @@ Committees
                         <ul class="dropdown-menu">
                             {% for ay in com.ay_committee|sort(attribute="academic_year.year", reverse=true) %}
                             <li>
-                                <a class="dropdown-item" href="/committeetracker/{{ ay.id }}/members">
+                                <a class="dropdown-item" href="/committee_tracker/{{ ay.id }}/members">
                                     {{ ay.academic_year.year }}
                                 </a>
                             </li>
@@ -60,10 +60,10 @@ Committees
                 {% if has_permission('committee_type+add,committee_type+edit,committee_type+delete')%}
                 <td class="col-2">
                     {% if has_permission('committee+edit') %}
-                    <a href="/committeetracker/base_committee/{{com.id}}/edit">Edit</a>
+                    <a href="/committee_tracker/base_committee/{{com.id}}/edit">Edit</a>
                     {% endif %}
                     {% if has_permission('committee+delete') %}
-                    | <a href="/committeetracker/base_committee/{{com.id}}/delete">Delete</a>
+                    | <a href="/committee_tracker/base_committee/{{com.id}}/delete">Delete</a>
                     {% endif %}
                 </td>
                 {% endif %}
@@ -75,7 +75,7 @@ Committees
             {% endfor %}
         </table>
         {% if has_permission('committee+add,committee+edit') %}
-        <a href="/committeetracker/base_committee/new" class="btn btn-primary">Add New</a>
+        <a href="/committee_tracker/base_committee/new" class="btn btn-primary">Add New</a>
         {% endif %}
     </div>
 
@@ -111,7 +111,7 @@ Committees
             // Send updated data to server via AJAX
             $.ajax({
                 type: 'POST',
-                url: '/committeetracker/academic_year/' + ayId,
+                url: '/committee_tracker/academic_year/' + ayId,
                 data: {
                     year: updatedAcadYear,
                     csrf_token: csrfToken // CSRF protection
@@ -146,7 +146,7 @@ Committees
             // Send the form data via AJAX
             $.ajax({
                 type: 'POST',
-                url: '/committeetracker/academic_year',
+                url: '/committee_tracker/academic_year',
                 data: $(this).serialize(),  // Serialize form data
                 success: function (response) {
                     // Handle the response from the server
@@ -202,7 +202,7 @@ Committees
 
             $.ajax({
                 type: 'DELETE',
-                url: '/committeetracker/academic_year/' + ayId,
+                url: '/committee_tracker/academic_year/' + ayId,
                 success: function (response) {
                     if (response.success) {
                         $('#formResponseMessage').html('<div class="alert alert-success">Academic Year deleted successfully!</div>');

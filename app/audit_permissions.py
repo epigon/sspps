@@ -37,10 +37,10 @@ def check_file(filepath):
 
 if __name__ == "__main__":
 
-    for path in ['routes.py', 'committeetracker/routes.py']:
+    for path in ['routes.py', 'committee_tracker/routes.py']:
         # path = "routes.py"  # Replace with your path
         # path = "admin/routes.py"  # Replace with your path
-        # path = "committeetracker/routes.py"  # Replace with your path
+        # path = "committee_tracker/routes.py"  # Replace with your path
         if os.path.exists(path):
             missing = check_file(path)
             if missing:

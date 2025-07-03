@@ -103,7 +103,7 @@ Frequency Types
             // Send updated data to server via AJAX
             $.ajax({
                 type: 'POST',
-                url: '/committeetracker/frequency_type/' + ftypeId,
+                url: 'frequency_type/' + ftypeId,
                 data: {
                     type: updatedType,
                     csrf_token: csrfToken // CSRF protection
@@ -139,7 +139,7 @@ Frequency Types
             // Send the form data via AJAX
             $.ajax({
                 type: 'POST',
-                url: '/committeetracker/frequency_type/new',
+                url: 'frequency_type/new',
                 data: $(this).serialize(),  // Serialize form data
                 success: function (response) {
                     // Handle the response from the server
@@ -196,7 +196,7 @@ Frequency Types
 
             $.ajax({
                 type: 'DELETE',
-                url: '/committeetracker/frequency_type/' + ftypeId,
+                url: 'frequency_type/' + ftypeId,
                 success: function (response) {
                     if (response.success) {
                         $('#formResponseMessage').html('<div class="alert alert-success">Frequency Type deleted successfully!</div>');

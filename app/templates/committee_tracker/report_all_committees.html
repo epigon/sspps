@@ -318,7 +318,7 @@ Each Summer, SSPPS Committee Chairs will be contacted to reconfirm faculty commi
                                     action: function (e, dt, node, config) {
                                         var htmlContent = formatPDF(committees);
 
-                                        $.post('/committeetracker/generate_pdf', { html_data: htmlContent, filename: "SSPPS-Committees" }, function (response) {
+                                        $.post('generate_pdf', { html_data: htmlContent, filename: "SSPPS-Committees" }, function (response) {
                                             var blob = new Blob([response], { type: "application/pdf" });
                                             var link = document.createElement("a");
                                             link.href = window.URL.createObjectURL(blob);
@@ -369,7 +369,7 @@ Each Summer, SSPPS Committee Chairs will be contacted to reconfirm faculty commi
 
         // Fetch filtered data
         $.ajax({
-            url: `/committeetracker/get_all_committees?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}&sortRole=${sortRole ? 1 : 0}&mission=${showMission ? 1 : 0}&members=${showMembers ? 1 : 0}&meetings=${showMeetings ? 1 : 0}&documents=${showDocuments ? 1 : 0}`,
+            url: `get_all_committees?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}&sortRole=${sortRole ? 1 : 0}&mission=${showMission ? 1 : 0}&members=${showMembers ? 1 : 0}&meetings=${showMeetings ? 1 : 0}&documents=${showDocuments ? 1 : 0}`,
             method: 'GET',
             success: function (data) {
                 // Clear any previous tables
@@ -405,7 +405,7 @@ Each Summer, SSPPS Committee Chairs will be contacted to reconfirm faculty commi
 
             // Fetch filtered data
             $.ajax({
-                url: `/committeetracker/get_all_committees?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}&sortRole=${sortRole ? 1 : 0}&mission=${showMission ? 1 : 0}&members=${showMembers ? 1 : 0}&meetings=${showMeetings ? 1 : 0}&documents=${showDocuments ? 1 : 0}`,
+                url: `get_all_committees?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}&sortRole=${sortRole ? 1 : 0}&mission=${showMission ? 1 : 0}&members=${showMembers ? 1 : 0}&meetings=${showMeetings ? 1 : 0}&documents=${showDocuments ? 1 : 0}`,
                 method: 'GET',
                 success: function (data) {
                     // Clear any previous tables

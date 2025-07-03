@@ -76,7 +76,7 @@ $(document).ready(function () {
         $(".table-success").removeClass("table-success");
         let memberId = $('#member-id').val(); // Get the member ID
 
-        let url = memberId ? `/committeetracker/edit_member/${memberId}` : "/committeetracker/add_member";
+        let url = memberId ? `/committee_tracker/edit_member/${memberId}` : "/committee_tracker/add_member";
         let method = "POST";
 
         $.ajax({
@@ -167,7 +167,7 @@ $(document).ready(function () {
         event.preventDefault();
         let memberId = $('#delete-member-id').val();
         $.ajax({
-            url: `/committeetracker/delete_member/${memberId}`,
+            url: `/committee_tracker/delete_member/${memberId}`,
             type: "POST",
             data: new FormData(this),
             processData: false,

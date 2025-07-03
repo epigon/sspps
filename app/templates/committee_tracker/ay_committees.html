@@ -68,7 +68,7 @@ Dashboard
                     {% endfor %}
                 </table>
                 {% if has_permission('ay_committee+add,ay_committee+edit') %}
-                <a href="/committeetracker/ay_committee/new?academic_year_id={{current_year.id}}" class="btn btn-primary">Add New</a>
+                <a href="/committee_tracker/ay_committee/new?academic_year_id={{current_year.id}}" class="btn btn-primary">Add New</a>
                 {% endif %}
             </div>
         </div>

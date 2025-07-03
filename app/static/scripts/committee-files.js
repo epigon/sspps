@@ -16,7 +16,7 @@ $(document).ready(function () {
         $('.dt-input').addClass("me-1"); //add spacing to dt-input select
         let ay_committee_id = uploadForm.find('[name="ay_committee_id"]').val();
         $.ajax({
-            url: `/committeetracker/${ay_committee_id}/uploaded_files`,
+            url: `/committee_tracker/${ay_committee_id}/uploaded_files`,
             type: "GET",
             success: function (response) {
                 filesTable.clear();
@@ -85,7 +85,7 @@ $(document).ready(function () {
         });
 
         $.ajax({
-            url: "/committeetracker/upload",
+            url: "/committee_tracker/upload",
             type: "POST",
             data: formData,
             contentType: false,
@@ -138,7 +138,7 @@ $(document).ready(function () {
         let confirmed = confirm("Are you sure you want to delete " + file_name + "?")
         if (!confirmed) return;
         $.ajax({
-            url: `/committeetracker/delete_file/${file_id}`,
+            url: `/committee_tracker/delete_file/${file_id}`,
             type: "POST",
             contentType: "application/json",
             success: function (response) {
