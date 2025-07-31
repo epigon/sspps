@@ -1,4 +1,4 @@
-from app.cred import server, user, pwd, database, secret  # ensure `database` is defined in cred.py
+from app.cred import server, user, pwd, database, secret, odbcdriver  # ensure `database` is defined in cred.py
 from app.logger import setup_logger
 from flask import Flask
 from flask_login import LoginManager
@@ -14,18 +14,27 @@ login_manager.login_view = 'main.sso_redirect'
 def create_app():
 
     app = Flask(__name__)
-
     app.config['SECRET_KEY'] = secret
 
     # pyodbc connection string
-    params = urllib.parse.quote_plus(
-        "DRIVER={ODBC Driver 17 for SQL Server};" 
-        "SERVER="+server+";"
-        "DATABASE="+database+";"
-        "UID="+user+";"
-        "PWD="+pwd+";"
+    # params = urllib.parse.quote_plus(
+    #     "DRIVER="+odbcdriver+";" 
+    #     "SERVER="+server+";"
+    #     "DATABASE="+database+";"
+    #     "UID="+user+";"
+    #     "PWD="+pwd+";"
+    #     "TrustServerCertificate=yes;"
+    # )
+
+    connection_str = (
+        f"DRIVER={odbcdriver};"
+        f"SERVER={server};"
+        f"DATABASE={database};"
+        f"UID={user};"
+        f"PWD={pwd};"
         "TrustServerCertificate=yes;"
     )
+    params = urllib.parse.quote_plus(connection_str)
     
     app.config['SQLALCHEMY_DATABASE_URI'] = f"mssql+pyodbc:///?odbc_connect={params}"
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -53,10 +62,11 @@ def create_app():
         return dict(has_permission=has_permission, is_admin=is_admin)
     
     # Register Blueprints
-    from app.routes import main, users, roles, permissions, students, academic_years, calendars, canvas, committee_tracker, ad_lookup, groupsearch, scheduler
+    from app.routes import main, users, roles, permissions, students, employees, academic_years, calendars, canvas, committee_tracker, ad_lookup, groupsearch, scheduler
     app.register_blueprint(main.bp)
     app.register_blueprint(ad_lookup.bp)
     app.register_blueprint(students.bp)
+    app.register_blueprint(employees.bp)
     app.register_blueprint(academic_years.bp)
     app.register_blueprint(calendars.bp)
     app.register_blueprint(canvas.bp)
