@@ -1,20 +1,13 @@
-from app.cred import CANVAS_API_BASE, CANVAS_API_TOKEN, PANOPTO_API_BASE, PANOPTO_CLIENT_ID, PANOPTO_CLIENT_SECRET
-from app.models import db, ScheduledRecording, CalendarGroup, CalendarGroupSelection
+from app.cred import CANVAS_API_BASE, CANVAS_API_TOKEN
 from app.utils import permission_required
-from bs4 import BeautifulSoup
 from datetime import datetime, timezone, timedelta
 from flask import render_template, request, Blueprint, jsonify
 from flask_login import login_required
-from icalendar import Calendar, Event, vText
 from os.path import dirname, join, abspath
-from .panopto_oauth2 import PanoptoOAuth2
-import argparse
 import os
 import pytz
-import re
 import requests
 import sys
-import urllib3
 
 sys.path.insert(0, abspath(join(dirname(__file__), '..', 'common')))
 
@@ -32,10 +25,10 @@ SOMAccountID = 445
 SSPPSAccountID = 50 
 
 # Routes to Webpages
-@bp.before_request
-@login_required
-def before_request():
-    pass
+# @bp.before_request
+# @login_required
+# def before_request():
+#     pass
 
 def get_canvas_courses(account="SSPPS", blueprint=False, state=None):
     """
@@ -83,6 +76,8 @@ def get_canvas_courses(account="SSPPS", blueprint=False, state=None):
         url = next_url
         params = None  # After the first request, pagination is handled by the link
 
+    all_courses = sorted(all_courses, key=lambda d: d['name'])
+
     return all_courses
 
 @bp.route("/api/courses")
@@ -99,6 +94,51 @@ def get_courses_api():
                 'name': course['name']
             })
     return jsonify({"courses": filtered_courses})
+
+from collections import defaultdict
+
+def get_terms_with_courses(account="SSPPS"):
+    """
+    Builds a list of terms with their associated Canvas courses for dropdown filtering.
+    This assumes get_canvas_courses() returns all courses in the account.
+    
+    Returns:
+        List of dicts with keys: id, name, courses (list of dicts)
+    """
+    all_courses = get_canvas_courses(account=account)
+
+    # Group courses by enrollment_term_id
+    terms_dict = defaultdict(list)
+    for course in all_courses:
+        term_id = course.get("enrollment_term_id")
+        if not term_id:
+            continue
+        terms_dict[term_id].append({
+            "id": course.get("id"),
+            "name": course.get("name"),
+            "course_code": course.get("course_code") or ""
+        })
+
+    # Get term names — fallback to raw ID if name unavailable
+    # You may want to replace this with a lookup from a Term model/table
+    term_names = {
+        str(t.get("id")): t.get("name", f"Term {t.get('id')}")
+        for t in get_enrollment_terms()
+    }
+
+    # Assemble final list
+    terms_with_courses = []
+    for term_id, courses in terms_dict.items():
+        terms_with_courses.append({
+            "id": term_id,
+            "name": term_names.get(str(term_id), f"Term {term_id}"),
+            "courses": sorted(courses, key=lambda c: c["name"])
+        })
+
+    # Sort terms by name or ID
+    terms_with_courses.sort(key=lambda t: t["name"])
+
+    return terms_with_courses
 
 def get_canvas_courses_by_term(term_id, account="SSPPS"):
     """
@@ -175,24 +215,14 @@ def chunked_list(lst, n):
         yield lst[i:i + n]
 
 # @bp.route('/terms')
-def get_enrollment_terms(account=""):
+def get_enrollment_terms():
     """
     Fetches all enrollment terms for a given Canvas account using pagination.
-
-    Args:
-        account (str): Short code for account ("SSPPS", "HS", "SOM", etc.)
 
     Returns:
         list: List of term dictionaries.
     """
-    if account == "HS":
-        accountID = HSAccountID
-    elif account == "SSPPS":
-        accountID = SSPPSAccountID
-    elif account == "SOM":
-        accountID = SOMAccountID
-    else:
-        accountID = mainAccountID
+    accountID = mainAccountID
 
     headers = {'Authorization': f'Bearer {CANVAS_API_TOKEN}'}
     params = {'per_page': 100}
@@ -253,3 +283,164 @@ def get_enrollments(course_id, enrollment_type="StudentEnrollment"):
         params = None  # Handled via next URL
 
     return all_enrollments
+
+@bp.route("/api/sections/<int:course_id>")
+def get_canvas_sections(course_id):
+    """
+    Returns all sections for a given Canvas course.
+    """
+    headers = {'Authorization': f'Bearer {CANVAS_API_TOKEN}'}
+    url = f"{CANVAS_API_BASE}/courses/{course_id}/sections?per_page=100"
+
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
+    return jsonify(response.json())
+
+def enroll_user(course_id, user_id, enrollment_type="StudentEnrollment", enrollment_state="active", section_id="", notify=False):
+    """
+    Enrolls a user in a Canvas course.
+
+    Args:
+        course_id (int): Canvas course ID.
+        user_id (int or str): Canvas user ID or SIS ID (e.g., 'sis_user_id:1234').
+        enrollment_type (str): Type of enrollment (e.g., StudentEnrollment, TeacherEnrollment, TaEnrollment, ObserverEnrollment, DesignerEnrollment.).
+        enrollment_state (str): State of the enrollment (e.g., active, invited, inactive).
+        section_id (int): (optional)
+        notify (bool): Whether to notify the user by email (default is False).
+
+    Returns:
+        dict: Enrollment response from Canvas.
+    """
+    headers = {'Authorization': f'Bearer {CANVAS_API_TOKEN}'}
+    url = f"{CANVAS_API_BASE}/courses/{course_id}/enrollments"
+
+    payload = {
+        'enrollment[user_id]': user_id,
+        'enrollment[type]': enrollment_type,
+        'enrollment[enrollment_state]': enrollment_state,
+        'enrollment[notify]': 'true' if notify else 'false'
+        # 'enrollment[notify]': 'false'
+    }
+
+    if section_id:
+        payload['enrollment[course_section_id]'] = section_id
+
+    # print("payload",payload)
+    # return payload.json()
+    response = requests.post(url, headers=headers, data=payload)
+    response.raise_for_status()
+    return response.json()
+
+def enroll_multiple_users(course_id, users, enrollment_type="StudentEnrollment", enrollment_state="active", section_id="", notify=False):
+    """
+    Enroll multiple users into a Canvas course.
+
+    Args:
+        course_id (int): Canvas course ID.
+        users (list): List of user IDs or SIS IDs.
+        enrollment_type (str): Type of enrollment (default: "StudentEnrollment").
+        enrollment_state (str): Enrollment state (default: "active").
+        section_id (int): (optional)
+        notify (bool): Whether to notify the user by email (default is False).
+
+    Returns:
+        list: List of enrollment results or errors.
+    """
+    results = []
+    for user_id in users:
+        try:
+            result = enroll_user(
+                course_id=course_id,
+                user_id=user_id,
+                enrollment_type=enrollment_type,
+                enrollment_state=enrollment_state,
+                section_id=section_id,
+                notify=notify
+            )
+            results.append({"user_id": user_id, "status": "success", "result": result})
+        except requests.exceptions.HTTPError as e:
+            results.append({
+                "user_id": user_id,
+                "status": "error",
+                "message": str(e),
+                "details": e.response.text
+            })
+    return results
+
+@bp.route("/api/enroll", methods=["POST"])
+def enroll_user_api():
+    """
+    Enroll a user into a Canvas course.
+    Expects JSON payload with:
+        - course_id (int)
+        - user_id (int or str)
+        - enrollment_type (optional, default "StudentEnrollment")
+        - enrollment_state (optional, default "active")
+        - section_id (int|optional)
+        - notify (optional, default true)
+
+    Returns:
+        JSON response with enrollment result or error.
+    """
+    data = request.get_json()
+
+    course_id = data.get("course_id")
+    user_id = data.get("user_id")
+    enrollment_type = data.get("enrollment_type", "StudentEnrollment")
+    enrollment_state = data.get("enrollment_state", "active")
+    section_id = data.get("section_id", "")
+    notify = data.get("notify", True)
+
+    if not course_id or not user_id:
+        return jsonify({"error": "Missing course_id or user_id"}), 400
+
+    try:
+        result = enroll_user(
+            course_id=course_id,
+            user_id=user_id,
+            enrollment_type=enrollment_type,
+            enrollment_state=enrollment_state,
+            section_id=section_id,
+            notify=notify
+        )
+        return jsonify(result)
+    except requests.exceptions.HTTPError as e:
+        return jsonify({"error": str(e), "details": e.response.text}), e.response.status_code
+
+@bp.route("/api/enroll/bulk", methods=["POST"])
+def enroll_users_bulk_api():
+    """
+    Bulk enroll users into a Canvas course.
+    Expects JSON with:
+        - course_id (int)
+        - users (list of user IDs or SIS IDs)
+        - enrollment_type (optional)
+        - enrollment_state (optional)
+        - section_id (int|optional)
+        - notify (optional)
+
+    Returns:
+        JSON list of enrollment results per user.
+    """
+    data = request.get_json()
+    course_id = data.get("course_id")
+    users = data.get("users")
+
+    if not course_id or not users:
+        return jsonify({"error": "Missing course_id or users[]"}), 400
+
+    enrollment_type = data.get("enrollment_type", "StudentEnrollment")
+    enrollment_state = data.get("enrollment_state", "active")
+    section_id = data.get("section_id", "")
+    notify = data.get("notify", False)
+
+    results = enroll_multiple_users(
+        course_id=course_id,
+        users=users,
+        enrollment_type=enrollment_type,
+        enrollment_state=enrollment_state,
+        section_id=section_id,
+        notify=notify
+    )
+
+    return jsonify(results)

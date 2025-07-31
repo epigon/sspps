@@ -15,6 +15,13 @@ pwd = '###'
 database = '###'
 secret = '###'
 
+Copy
+run_generate_scheduled_ics.bat
+run_import_employees.bat
+- edit line 4 > cd /d "E:\WWW\sspps-dev\" to project folder
+- add run_generate_scheduled_ics.bat to Task Scheduler, schedule every hour 7am to 7pm
+- add run_import_employees.bat to Task Scheduler, schedule every day 5am
+
 To run in server, install WFastCGI
 -   wfastcgi.py file needs to be in root folder
 -   activate venv venv\Scripts\activate

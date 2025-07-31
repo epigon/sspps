@@ -3,9 +3,12 @@ app/cred.py
 **/static/uploads/
 **/static/calendars/
 **/static/photos/
+**/static/files/
 **/logs/
 **/unused/
 app/test-email.py
+run_generate_scheduled_ics.bat
+run_import_employees.bat
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

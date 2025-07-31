@@ -27,62 +27,8 @@
 {% block content %}
 <div class="container">
     <h2>All Students</h2>
-    <div class="card p-3 mb-3 bg-light" id="filterCard">
-        <div class="row mb-2">
-            <div class="col-1">
-                <h5 class="mb-0">Filters:</h5>
-            </div>
-            <div class="col">
-                {% if selected_class or selected_term or selected_course %}
-                <a href="{{ url_for('students.list_students') }}" class="btn btn-outline-secondary btn-sm">Clear
-                    Filters</a>
-                {% endif %}
-            </div>
-        </div>
-        <form method="get" action="{{ url_for('students.list_students') }}" class="mb-3 row g-3 align-items-center"
-            id="filter-form">
-            <!-- Class Of filter -->
-            <div class="col-auto">
-                <label for="class_of" class="col-form-label">Class Of:</label>
-                <select name="class_of" id="class_of" class="form-select">
-                    <!-- <select name="class_of" id="class_of" class="form-select" onchange="this.form.submit()"> -->
-                    <option value="">-- All --</option>
-                    {% for year in class_years %}
-                    <option value="{{ year }}" {% if selected_class==year %}selected{% endif %}>{{ year }}</option>
-                    {% endfor %}
-                </select>
-            </div>
 
-            <!-- Term filter -->
-            <div class="col-auto">
-                <label for="term" class="col-form-label">Canvas Term:</label>
-                <select name="term" id="term" class="form-select">
-                    <option value="">-- All --</option>
-                    {% for t in terms %}
-                    <option value="{{ t.id }}" {% if selected_term==t.id|string %}selected{% endif %}>{{ t.name }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <!-- Course filter -->
-            <div class="col-auto">
-                <label for="course_id" class="col-form-label">Course:</label>
-                <select id="course_id" name="course_id" class="form-select">
-                    <option value="">-- All --</option>
-                    {% for course in courses %}
-                    <option value="{{ course.id }}" data-course-code="{{ course.course_code }}" {% if
-                        selected_course==course.id|string %}selected{% endif %}>
-                        {{ course.name }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <!-- Hidden submit -->
-            <input type="submit" style="display:none;">
-        </form>
-    </div>
+    {% include "/students/_filter_section.html" %}
 
     <div id="client-alert" class="alert alert-warning d-none" role="alert">
         Please select at least one student.
@@ -144,95 +90,67 @@
         <div class="mt-4" id="resultArea"></div>
     </div>
 
-    <form method="POST" action="{{ url_for('students.generate_photo_cards') }}" id="photo-card-form" target="_blank">
-        {{ form.hidden_tag() }}
-        <input type="hidden" name="class_of" value="{{ selected_class or '' }}">
-        <input type="hidden" name="term" value="{{ selected_term or '' }}">
-        <input type="hidden" name="course_id" value="{{ selected_course or '' }}">
-
-        <div class="card p-3 mb-3 bg-secondary-subtle">
-            <div class="row mb-2">
-                <h5 class="mb-0">Photo Cards:</h5>
-                <div class="mb-2 form-group row">
-                    <label for="pdf_title" class="col-sm-2 col-form-label">Header Title:</label>
-                    <div class="col-sm-5">
-                        <input type="text" id="pdf_title" name="pdf_title" class="form-control"
-                            placeholder="e.g., SPPS 201 Fall 2025 Class Roster" value="{{ pdf_title or '' }}">
-                    </div>
-                </div>
-                <div class="mb-2 form-group row">
-                    <label for="pdf_filename" class="col-sm-2 col-form-label">Filename:</label>
-                    <div class="col-sm-5">
-                        <input type="text" id="pdf_filename" name="pdf_filename" class="form-control"
-                            placeholder="e.g., spps_201_fa25" value="{{ pdf_filename or '' }}">
-                    </div>
-                </div>
-                <div class="col-auto align-self-end">
-                    <button type="submit" class="btn btn-primary btn-sm">Generate Photo Cards PDF</button>
-                </div>
-            </div>
-        </div>
-
-        <table id="students-table" class="display table table-bordered table-striped">
-            <thead>
-                <tr>
-                    <th><input type="checkbox" id="check-all" /></th>
-                    <th>Photo</th>
-                    <th>Name</th>
-                    <th>PID</th>
-                    <th>Class</th>
-                    <th>Email</th>
-                    {% if has_permission('students+add') or has_permission('students+edit') or
-                    has_permission('students+delete') %}
-                    <th>Actions</th>
+    <table id="students-table" class="display table table-bordered table-striped">
+        <thead>
+            <tr>
+                <th><input type="checkbox" id="check-all" /></th>
+                <th>Photo</th>
+                <th>Name</th>
+                <th>PID</th>
+                <th>Class</th>
+                <th>Email</th>
+                {% if has_permission('students+add') or has_permission('students+edit') or
+                has_permission('students+delete') %}
+                <th>Actions</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in students %}
+            <tr data-class="{{ s.class_of }}">
+                <td><input type="checkbox" name="student_ids" value="{{ s.id }}" data-pid="{{ s.pid }}" /></td>
+                <td>
+                    {% if s.photo_url %}
+                    <img src="{{ url_for('static', filename='photos/' ~ s.photo_url) }}" width="60"
+                        class="rounded-circle">
                     {% endif %}
-                </tr>
-            </thead>
-            <tbody>
-                {% for s in students %}
-                <tr data-class="{{ s.class_of }}">
-                    <td><input type="checkbox" name="student_ids" value="{{ s.id }}" data-pid="{{ s.pid }}" /></td>
-                    <td>
-                        {% if s.photo_url %}
-                        <img src="{{ url_for('static', filename='photos/' ~ s.photo_url) }}" width="60"
-                            class="rounded-circle">
-                        {% endif %}
-                    </td>
-                    <td>
-                        {{ s.last_name }}, {{ s.first_name }}
-                        {% if s.phonetic_last_name or s.phonetic_first_name %}<br />
-                        <span class="fst-italic fw-light">{{ s.phonetic_last_name }}, {{ s.phonetic_first_name }}</span>
-                        {% endif %}
-                        {% if s.pronoun %}<br /><span class="fw-light">{{ s.pronoun }}</span>{% endif %}
-                    </td>
-                    <td>{{ s.pid }}</td>
-                    <td>{{ s.class_of }}</td>
-                    <td><a href="mailto:{{ s.email }}">{{ s.email }}</a></td>
-                    {% if has_permission('students+add') or has_permission('students+edit') or
-                    has_permission('students+delete') %}
-                    <td>
-                        {% if has_permission('students+add') or has_permission('students+edit') %}
-                        <a href="{{ url_for('students.edit_student', student_id=s.id) }}"
-                            class="btn btn-sm btn-primary">Edit</a>
-                        {% endif %}
-                        {% if has_permission('students+delete') %}
-                        <button type="button" class="btn btn-sm btn-danger delete-btn" data-student-id="{{ s.id }}">
-                            Delete
-                        </button>
-                        {% endif %}
-                    </td>
+                </td>
+                <td>
+                    {{ s.last_name }}, {{ s.first_name }}
+                    {% if s.phonetic_last_name or s.phonetic_first_name %}<br>
+                    <span class="fst-italic fw-light">{{ s.phonetic_last_name }}, {{ s.phonetic_first_name }}</span>
                     {% endif %}
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </form>
+                    {% if s.pronoun %}<br><span class="fw-light">{{ s.pronoun }}</span>{% endif %}
+                </td>
+                <td>{{ s.pid }}</td>
+                <td>{{ s.class_of }}</td>
+                <td><a href="mailto:{{ s.email }}">{{ s.email }}</a></td>
+                {% if has_permission('students+add') or has_permission('students+edit') or
+                has_permission('students+delete') %}
+                <td>
+                    {% if has_permission('students+add') or has_permission('students+edit') %}
+                    <a href="{{ url_for('students.edit_student', student_id=s.id) }}"
+                        class="btn btn-sm btn-primary">Edit</a>
+                    {% endif %}
+                    {% if has_permission('students+delete') %}
+                    <button type="button" class="btn btn-sm btn-danger delete-btn" data-student-id="{{ s.id }}">
+                        Delete
+                    </button>
+                    {% endif %}
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 {% endblock %}
 
 {% block scripts %}
 {{ super() }}
+
 <script type="module" src="{{ url_for('static', filename='scripts/students.js') }}"></script>
+{% endblock %}
 <!-- <script>
     $(document).ready(function () {
         // Initialize DataTable
@@ -518,5 +436,3 @@
         });
     });
 </script> -->
-
-{% endblock %}

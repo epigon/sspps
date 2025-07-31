@@ -1,7 +1,7 @@
 from app.forms import StudentForm, CSRFOnlyForm
 from app.models import db, Student
 from app.utils import permission_required
-from .canvas import get_enrollment_terms, get_canvas_courses, get_enrollments, get_canvas_courses_by_term
+from .canvas import get_enrollment_terms, get_canvas_courses, get_enrollments, get_canvas_courses_by_term, get_terms_with_courses
 from datetime import datetime
 from flask import render_template, redirect, url_for, request, flash, jsonify, Blueprint, send_file, abort, make_response, Response
 from flask_login import login_required, current_user
@@ -243,6 +243,16 @@ def list_students():
     # Fetch terms from Canvas API
     terms = get_enrollment_terms()  # or as appropriate
 
+    terms_with_courses = get_terms_with_courses()  # should return a list of dicts
+
+    # Ensure data is serializable
+    for term in terms_with_courses:
+        term['id'] = str(term['id'])  # Optional: stringify if needed
+        for course in term.get('courses', []):
+            course['id'] = str(course['id'])
+            course['course_code'] = course.get('course_code') or ""
+
+
     # Fetch courses filtered by term if term selected
     if selected_term:
         courses = get_canvas_courses_by_term(selected_term)  # your function to fetch courses by term
@@ -265,7 +275,8 @@ def list_students():
     return render_template('students/list_students.html',
                            students=students,
                            class_years=[c[0] for c in class_years],
-                           selected_class=selected_class,
+                           selected_class=selected_class, 
+                           terms_with_courses=terms_with_courses,
                            terms=terms,
                            selected_term=selected_term,
                            courses=courses,
@@ -464,3 +475,66 @@ def generate_photo_cards():
         download_name=f"{pdf_filename}.pdf",
         mimetype='application/pdf'
     )
+
+@bp.route('/enroll')
+@permission_required('students+view, students+add, students+edit, students+delete')
+def enroll_students():
+    context = get_filtered_students_context()
+    return render_template('students/enroll.html', **context)
+
+@bp.route('/photo_cards')
+@permission_required('students+view, students+add, students+edit, students+delete')
+def photo_cards():
+    context = get_filtered_students_context()
+    return render_template('students/photo_cards.html', **context)
+
+
+def get_filtered_students_context():
+    form = CSRFOnlyForm()
+    selected_class = request.args.get('class_of', '')
+    selected_term = request.args.get('term', '')
+    selected_course = request.args.get('course_id', '')
+    pdf_title = request.args.get('pdf_title', '')
+
+    class_years = db.session.query(Student.class_of).distinct().filter(Student.class_of != '').order_by(Student.class_of).all()
+    terms = get_enrollment_terms()
+    terms_with_courses = get_terms_with_courses()
+
+    for term in terms_with_courses:
+        term['id'] = str(term['id'])
+        for course in term.get('courses', []):
+            course['id'] = str(course['id'])
+            course['course_code'] = course.get('course_code') or ""
+
+    if selected_term:
+        courses = get_canvas_courses_by_term(selected_term)
+    else:
+        courses = get_canvas_courses(account="SSPPS")
+
+    print("courses",courses)
+    # print("terms_with_courses",terms_with_courses)
+
+    students = Student.query
+
+    if selected_class:
+        students = students.filter(Student.class_of == selected_class)
+
+    if selected_course:
+        enrollments = get_enrollments(course_id=int(selected_course))
+        enrolled_student_ids = [e['user']['sis_user_id'] for e in enrollments if 'user' in e and 'id' in e['user']]
+        students = students.filter(Student.pid.in_(enrolled_student_ids))
+
+    students = students.filter(Student.deleted == False).order_by(Student.last_name, Student.first_name).all()
+
+    return {
+        'form': form,
+        'students': students,
+        'class_years': [c[0] for c in class_years],
+        'selected_class': selected_class,
+        'terms': terms,
+        'terms_with_courses': terms_with_courses,
+        'selected_term': selected_term,
+        'courses': courses,
+        'selected_course': selected_course,
+        'pdf_title': pdf_title,
+    }

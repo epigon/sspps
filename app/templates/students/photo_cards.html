@@ -27,123 +27,9 @@
 {% block content %}
 <div class="container">
     <h2>All Students</h2>
-    <div class="card p-3 mb-3 bg-light" id="filterCard">
-        <div class="row mb-2">
-            <div class="col-1">
-                <h5 class="mb-0">Filters:</h5>
-            </div>
-            <div class="col">
-                {% if selected_class or selected_term or selected_course %}
-                <a href="{{ url_for('students.list_students') }}" class="btn btn-outline-secondary btn-sm">Clear
-                    Filters</a>
-                {% endif %}
-            </div>
-        </div>
-        <form method="get" action="{{ url_for('students.list_students') }}" class="mb-3 row g-3 align-items-center"
-            id="filter-form">
-            <!-- Class Of filter -->
-            <div class="col-auto">
-                <label for="class_of" class="col-form-label">Class Of:</label>
-                <select name="class_of" id="class_of" class="form-select">
-                    <!-- <select name="class_of" id="class_of" class="form-select" onchange="this.form.submit()"> -->
-                    <option value="">-- All --</option>
-                    {% for year in class_years %}
-                    <option value="{{ year }}" {% if selected_class==year %}selected{% endif %}>{{ year }}</option>
-                    {% endfor %}
-                </select>
-            </div>
 
-            <!-- Term filter -->
-            <div class="col-auto">
-                <label for="term" class="col-form-label">Canvas Term:</label>
-                <select name="term" id="term" class="form-select">
-                    <option value="">-- All --</option>
-                    {% for t in terms %}
-                    <option value="{{ t.id }}" {% if selected_term==t.id|string %}selected{% endif %}>{{ t.name }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <!-- Course filter -->
-            <div class="col-auto">
-                <label for="course_id" class="col-form-label">Course:</label>
-                <select id="course_id" name="course_id" class="form-select">
-                    <option value="">-- All --</option>
-                    {% for course in courses %}
-                    <option value="{{ course.id }}" data-course-code="{{ course.course_code }}" {% if
-                        selected_course==course.id|string %}selected{% endif %}>
-                        {{ course.name }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <!-- Hidden submit -->
-            <input type="submit" style="display:none;">
-        </form>
-    </div>
-
-    <div id="client-alert" class="alert alert-warning d-none" role="alert">
-        Please select at least one student.
-    </div>
-
-    <!-- Enroll Canvas Course Selection -->
-
-    <div class="card p-3 mb-3 bg-info-subtle">
-        <div class="row mb-2">
-            <div class="col">
-                <h5 class="mb-0">Bulk Enroll Users in Canvas Course:</h5>
-            </div>
-        </div>
-        <form id="enrollForm">
-            <div class="row mb-2 align-items-end">
-                <!-- Enrollment Term Dropdown -->
-                <div class="col-auto">
-                    <label for="enroll_term_id" class="form-label">Term:</label>
-                    <select id="enroll_term_id" class="form-select">
-                        <option value="">-- Select Term --</option>
-                        {% for t in terms %}
-                        <option value="{{ t.id }}">{{ t.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <!-- Enrollment Course Dropdown -->
-                <div class="col-auto">
-                    <label for="enroll_course_id" class="form-label">Course:</label>
-                    <select id="enroll_course_id" class="form-select">
-                        <option value="">-- Select Course --</option>
-                        <!-- Filled dynamically based on selected term -->
-                    </select>
-                </div>
-
-                <!-- Section Dropdown -->
-                <div class="col-auto">
-                    <label for="enroll_section_id" class="form-label">Section (optional):</label>
-                    <select id="enroll_section_id" class="form-select">
-                        <option value="">-- Entire Course --</option>
-                        <!-- Options will load dynamically -->
-                    </select>
-                </div>
-            </div>
-            <div class="form-check mb-3">
-                <input class="form-check-input" type="checkbox" id="notify">
-                <label class="form-check-label" for="notify">Notify users by email</label>
-            </div>
-            <!-- <button type="submit" class="btn btn-primary">Enroll Users</button> -->
-            <div class="row align-items-end">
-                <!-- Enroll Button -->
-                <div class="col-auto">
-                    <button type="button" class="btn btn-success btn-sm" id="enroll-button">
-                        Enroll Selected Students
-                    </button>
-                </div>
-            </div>
-        </form>
-        <div class="mt-4" id="resultArea"></div>
-    </div>
-
+    {% include "/students/_filter_section.html" %}
+    
     <form method="POST" action="{{ url_for('students.generate_photo_cards') }}" id="photo-card-form" target="_blank">
         {{ form.hidden_tag() }}
         <input type="hidden" name="class_of" value="{{ selected_class or '' }}">
@@ -232,7 +118,9 @@
 
 {% block scripts %}
 {{ super() }}
+
 <script type="module" src="{{ url_for('static', filename='scripts/students.js') }}"></script>
+{% endblock %}
 <!-- <script>
     $(document).ready(function () {
         // Initialize DataTable
@@ -519,4 +407,3 @@
     });
 </script> -->
 
-{% endblock %}

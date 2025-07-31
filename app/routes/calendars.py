@@ -28,11 +28,12 @@ HSAccountID = 9
 SOMAccountID = 445	
 SSPPSAccountID = 50 
 
-# Routes to Webpages
 @bp.before_request
-@login_required
 def before_request():
-    pass
+    excluded_endpoints = ['bp.generate_scheduled_ics']  # full endpoint name: blueprint_name.view_function_name
+    if request.endpoint in excluded_endpoints:
+        return  # Skip login_required check
+    return login_required(lambda: None)()  # Call login_required manually
 
 @permission_required('calendar+add, calendar+edit')
 @bp.route("/calendar_groups")

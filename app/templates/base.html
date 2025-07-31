@@ -147,13 +147,20 @@
                                     Search</a>
                             </li>
                             {% endif %}
-                            {% if has_permission('students+view') %}
+                            {% if has_permission('canvas_enrollments+view') or has_permission('canvas_enrollments+add') %}
                             <li>
                                 <hr class="dropdown-divider">
                             </li>
                             <li>
-                                <a class="dropdown-item" href="{{ url_for('students.list_students') }}">View
-                                    Students</a>
+                                <a class="dropdown-item" href="{{ url_for('students.enroll_students') }}">Canvas Student Enrollments</a>
+                            </li>                            
+                            <!-- <li>
+                                <a class="dropdown-item" href="{{ url_for('employees.enroll_employees') }}">Canvas Teacher/TA Enrollments</a>
+                            </li> -->
+                            {% endif %}
+                            {% if has_permission('students+view') %}
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('students.photo_cards') }}">Photo Cards</a>
                             </li>
                             {% endif %}
                             {% if has_permission('students+add') or has_permission('student+edit') %}
