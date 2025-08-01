@@ -255,14 +255,13 @@ class Member(db.Model):
     member_role_id = Column(Integer, ForeignKey('MEMBER_ROLES.id'), nullable=False)
     start_date = Column(Date)
     end_date = Column(Date)
-    ay_committee_id = Column(Integer, ForeignKey('AY_COMMITTEES.id'), nullable=False)
-    ay_committee = relationship("AYCommittee", back_populates="members")
+    ay_committee_id = Column(Integer, ForeignKey('AY_COMMITTEES.id'), nullable=False)    
     voting = Column(Boolean, default=True)
     create_date = Column(DateTime, default=datetime.now)
     notes = Column(String(255))
     delete_date = Column(DateTime)
     deleted = Column(Boolean, default=False)
-    # delete_by = Column(Integer, ForeignKey('ADUsers.employee_id'))
+    ay_committee = relationship("AYCommittee", back_populates="members")
     employee = relationship("Employee", backref="members")  # Link to Employee
     member_role = relationship("MemberRole", backref="members")  # Link to MemberRole
 

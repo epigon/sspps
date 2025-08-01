@@ -152,8 +152,6 @@ def ay_committee():
         short_name = " ("+row.short_name+")" if row.short_name else ""
         form.committee_id.choices.append([row.id, row.name + short_name])
     
-    # print(form.academic_year_id.data)
-    # print(form.committee_id.data)
     if form.validate_on_submit():
         new_committee = AYCommittee(
                                 academic_year_id=form.academic_year_id.data,
@@ -405,13 +403,24 @@ def delete_role(role_id):
 def members(ay_committee_id:int):
     memberForm = MemberForm()
     memberForm.ay_committee_id.data = ay_committee_id
-    memberForm.employee_id.choices = [(['', 'Select one'])]
-    memberForm.member_role_id.choices = [(['', 'Select one'])]
-    for row in get_employees():
-        memberForm.employee_id.choices.append([row.employee_id, row.employee_last_name+', '+row.employee_first_name])
-    for row in get_member_roles():
-        memberForm.member_role_id.choices.append([row.id, row.role])
+    memberForm.employee_id.choices = [('', 'Select one')]
+    memberForm.member_role_id.choices = [('', 'Select one')]
+    # for row in get_employees():
+    #     memberForm.employee_id.choices.append([row.employee_id, row.employee_last_name+', '+row.employee_first_name+' ('+row.username+')'])
+    # for row in get_member_roles():
+    #     memberForm.member_role_id.choices.append([row.id, row.role])
     
+    memberForm.employee_id.choices = [('', 'Select one')]
+    memberForm.member_role_id.choices = [('', 'Select one')]
+
+    for row in get_employees():
+        memberForm.employee_id.choices.append(
+            (row.employee_id, f"{row.employee_last_name}, {row.employee_first_name} ({row.username})")
+        )
+
+    for row in get_member_roles():
+        memberForm.member_role_id.choices.append((row.id, row.role))
+
     aycommittee = (
         AYCommittee.query
         .filter_by(id=ay_committee_id, deleted=False)
@@ -461,8 +470,6 @@ def add_member():
         try:
             db.session.add(new_member)
             db.session.commit()       
-            # new_member.user = db.session.query(Employee).filter_by(employee_id=new_member.employee_id).first()
-            # new_member.member_role = db.session.query(MemberRole).filter_by(id=new_member.member_role_id).first()
             new_member.user = Employee.query.filter_by(employee_id=new_member.employee_id).first()
             new_member.member_role = MemberRole.query.filter_by(id=new_member.member_role_id, deleted=False).first()
             add_member_as_user(employee_id=new_member.employee_id)

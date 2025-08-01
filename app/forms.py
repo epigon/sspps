@@ -210,7 +210,7 @@ class MemberForm(FlaskForm):
     member_role_id = SelectField('Select Role', choices=[], validators=[DataRequired()])
     start_date = DateField('Start Date', format='%Y-%m-%d', validators=[Optional()])
     end_date = DateField('End Date', format='%Y-%m-%d', validators=[Optional()])    
-    voting = BooleanField('Voting Member')
+    voting = BooleanField('Voting Member', default=True)
     notes = TextAreaField('Notes', validators=[Length(max=255)])
     submit = SubmitField('Submit')    
 

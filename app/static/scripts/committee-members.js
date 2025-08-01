@@ -38,9 +38,19 @@ $(document).ready(function () {
     $('#addMemberButton').on('click', function () {
         resetForm();
         $('#memberForm')[0].reset();
+
         $('#member-id').val(''); // Clear ID for new member
         $('#memberModalTitle').text("Add Member");
         $('#memberFormSubmitBtn').text("Add Member");
+
+        // ✅ Preselect "Member" in member_role_id dropdown
+        let roleSelect = $('#memberForm').find('[name="member_role_id"]');
+        roleSelect.find('option').each(function () {
+            if ($(this).text().trim().toLowerCase() === 'member') {
+                $(this).prop('selected', true);
+            }
+        });
+        
         $('#memberModal').modal('show');
     });
 
