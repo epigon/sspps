@@ -1043,7 +1043,7 @@ def get_committees():
 
 # @permission_required("member+view, member+add, member+edit, member+delete")
 def get_employees():
-    data = Employee.query.order_by(Employee.employee_last_name,Employee.employee_first_name).all()
+    data = Employee.query.filter(Employee.username.isnot(None),Employee.employee_status == 'Active').order_by(Employee.employee_last_name,Employee.employee_first_name).all()
     return data
 
 @bp.route('/report_all_committees/')
