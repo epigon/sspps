@@ -32,7 +32,7 @@ Committees
 
             {% for com in committees %}
             <tr>
-                <td>{{ com.name }} {% if com.description %}({{ com.short_name }}){% endif %}<br />
+                <td>{{ com.name }} {% if com.short_name %}({{ com.short_name }}){% endif %}<br />
                     {% if com.description %}
                     {{ com.description }}<br />
                     {% endif %}
