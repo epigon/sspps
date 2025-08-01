@@ -130,7 +130,12 @@ def ay_committees(academic_year_id:int=None):
     else:
         current_ay_committees = []
 
-    return render_template('committee_tracker/ay_committees.html', ay_committees=current_ay_committees, current_year = current_year, academic_years = academic_years)
+    custom_breadcrumbs = [
+        {'name': 'Committees Home', 'url': '/committee_tracker'},
+        {'name': f'Committess for {current_year.year}', 'url': f'/committee_tracker/{academic_year_id}/ay_committees/'}
+    ]
+
+    return render_template('committee_tracker/ay_committees.html', ay_committees=current_ay_committees, current_year=current_year, academic_years=academic_years, breadcrumbs=custom_breadcrumbs)
 
 # Add a Committee    
 @bp.route('/ay_committee/new', methods=['GET', 'POST'])
