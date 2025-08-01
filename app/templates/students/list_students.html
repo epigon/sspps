@@ -232,7 +232,9 @@
 
 {% block scripts %}
 {{ super() }}
+
 <script type="module" src="{{ url_for('static', filename='scripts/students.js') }}"></script>
+{% endblock %}
 <!-- <script>
     $(document).ready(function () {
         // Initialize DataTable
@@ -519,4 +521,3 @@
     });
 </script> -->
 
-{% endblock %}
