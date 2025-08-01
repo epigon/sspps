@@ -369,7 +369,7 @@ Each Summer, SSPPS Committee Chairs will be contacted to reconfirm faculty commi
 
         // Fetch filtered data
         $.ajax({
-            url: `get_all_committees?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}&sortRole=${sortRole ? 1 : 0}&mission=${showMission ? 1 : 0}&members=${showMembers ? 1 : 0}&meetings=${showMeetings ? 1 : 0}&documents=${showDocuments ? 1 : 0}`,
+            url: `/committee_tracker/get_all_committees?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}&sortRole=${sortRole ? 1 : 0}&mission=${showMission ? 1 : 0}&members=${showMembers ? 1 : 0}&meetings=${showMeetings ? 1 : 0}&documents=${showDocuments ? 1 : 0}`,
             method: 'GET',
             success: function (data) {
                 // Clear any previous tables
@@ -405,7 +405,7 @@ Each Summer, SSPPS Committee Chairs will be contacted to reconfirm faculty commi
 
             // Fetch filtered data
             $.ajax({
-                url: `get_all_committees?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}&sortRole=${sortRole ? 1 : 0}&mission=${showMission ? 1 : 0}&members=${showMembers ? 1 : 0}&meetings=${showMeetings ? 1 : 0}&documents=${showDocuments ? 1 : 0}`,
+                url: `/committee_tracker/get_all_committees?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}&sortRole=${sortRole ? 1 : 0}&mission=${showMission ? 1 : 0}&members=${showMembers ? 1 : 0}&meetings=${showMeetings ? 1 : 0}&documents=${showDocuments ? 1 : 0}`,
                 method: 'GET',
                 success: function (data) {
                     // Clear any previous tables

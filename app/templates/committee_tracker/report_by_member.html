@@ -328,7 +328,7 @@ Dashboard
 
         // Fetch filtered data
         $.ajax({
-            url: `get_committees_by_member?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}`,
+            url: `/committee_tracker/get_committees_by_member?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}`,
             method: 'GET',
             success: function (data) {
                 // Clear any previous tables
@@ -347,7 +347,7 @@ Dashboard
 
             // Fetch filtered data
             $.ajax({
-                url: `get_committees_by_member?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}`,
+                url: `/committee_tracker/get_committees_by_member?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}`,
                 method: 'GET',
                 success: function (data) {
                     // Clear any previous tables

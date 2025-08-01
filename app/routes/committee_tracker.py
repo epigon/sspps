@@ -809,7 +809,8 @@ def get_all_committees():
 
     # Sort members by role default_order
     for committee in aycommittees:
-            committee.members.sort(key=lambda m: m.member_role.default_order if m.member_role else "")
+            # committee.members.sort(key=lambda m: m.member_role.default_order if m.member_role else "")
+            committee.members.sort(key=lambda m: m.member_role.default_order if m.member_role and m.member_role.default_order is not None else 999)
 
     # Build results
     committees = []
