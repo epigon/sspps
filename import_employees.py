@@ -1,9 +1,8 @@
-from app.cred import server, user, pwd, database  # ensure `database` is defined in cred.py
+from app.cred import server, user, pwd, database, odbcdriver  # ensure `database` is defined in cred.py
 from sqlalchemy import create_engine, text
 import pandas as pd
 
-driver="ODBC Driver 17 for SQL Server" 
-connection_string = f'mssql+pyodbc://{user}:{pwd}@{server}/{database}?driver={driver}'
+connection_string = f'mssql+pyodbc://{user}:{pwd}@{server}/{database}?driver={odbcdriver}&TrustServerCertificate=yes'
 engine = create_engine(connection_string)
 
 def import_employees():
