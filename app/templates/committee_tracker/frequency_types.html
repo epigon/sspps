@@ -9,7 +9,7 @@ Frequency Types
 {% block styles %}
 {{super()}}
 <style>
-    label {
+    #ftypeTable label {
         display: None;
     }
 </style>
@@ -24,9 +24,20 @@ Frequency Types
         <h2>Add New</h2>
         <form id="ftypeForm">
             {{ form.hidden_tag() }}
-            <div class="row g-3 align-items-center">
-                <div class="col-auto">
-                    {{ render_field(form.type, class="form-control ml-2") }}
+            <div class="row d-flex align-items-center g-2 flex-wrap">
+                <div class="col-auto d-flex align-items-center">
+                    <label class="form-label me-2 mb-0 text-end col-form-label-sm"
+                        style="min-width: 100px; white-space: nowrap;" for="role">{{ form.type.label }}</label>
+                    <div class="col-auto">
+                        {{ form.type(class="form-control form-control-sm ml-2") }}
+                    </div>
+                </div>
+                <div class="col-auto d-flex align-items-center">
+                    <label class="form-label me-2 mb-0 text-end col-form-label-sm"
+                        style="min-width: 100px; white-space: nowrap;">{{ form.multiplier.label }}</label>
+                    <div class="col-auto">
+                        {{ form.multiplier(class="form-control form-control-sm ml-2") }}
+                    </div>
                 </div>
                 <div class="col-auto">
                     <button class="btn btn-primary mb-2" type="submit">Save</button>
@@ -42,6 +53,7 @@ Frequency Types
             <thead>
                 <tr>
                     <th>Frequency Type</th>
+                    <th>Occurrences Per Year</th>
                     {% if has_permission('frequency_type+edit,frequency_type+delete') %}
                     <th>Manage</th>
                     {% endif %}
@@ -54,6 +66,12 @@ Frequency Types
                         <span class="ftype-text" id="ftype-type-{{ ftype.id }}">{{ ftype.type }}</span>
                         {{ render_field(form.type, class="form-control ftype-input", id="ftype-edit-type-" ~ ftype.id,
                         value=ftype.type, style="display:none;", label=False) }}
+                    </td>
+                    <td class="col-auto">
+                        <span class="ftype-text" id="ftype-multiplier-{{ ftype.id }}">{{ ftype.multiplier }}</span>
+                        {{ render_field(form.multiplier, class="form-control ftype-input", id="ftype-edit-multiplier-" ~
+                        ftype.id,
+                        value=ftype.multiplier, style="display:none;", label=False) }}
                     </td>
                     {% if has_permission('frequency_type+edit,frequency_type+delete') %}
                     <td class="col-2">
@@ -87,6 +105,8 @@ Frequency Types
             // Show input fields, hide the ftype text
             $('#ftype-type-' + ftypeId).hide();
             $('#ftype-edit-type-' + ftypeId).show();
+            $('#ftype-multiplier-' + ftypeId).hide();
+            $('#ftype-edit-multiplier-' + ftypeId).show();
 
             // Show Save button, hide Edit button
             $(this).hide();
@@ -97,6 +117,8 @@ Frequency Types
         $(document).on('click', '.save-ftype', function () {
             var ftypeId = $(this).data('ftype-id');
             var updatedType = $('#ftype-edit-type-' + ftypeId).val();
+            var updatedMultiplier = $('#ftype-edit-multiplier-' + ftypeId).val();
+
             // Get CSRF token from the form or hidden field
             var csrfToken = $('input[name="csrf_token"]').val();  // Adjust the selector based on where the CSRF token is located
 
@@ -106,6 +128,7 @@ Frequency Types
                 url: 'frequency_type/' + ftypeId,
                 data: {
                     type: updatedType,
+                    multiplier: updatedMultiplier,
                     csrf_token: csrfToken // CSRF protection
                 },
                 success: function (response) {
@@ -114,6 +137,8 @@ Frequency Types
                         // Update the table row with the new values
                         $('#ftype-type-' + ftypeId).text(updatedType).show();
                         $('#ftype-edit-type-' + ftypeId).hide();
+                        $('#ftype-multiplier-' + ftypeId).text(updatedMultiplier).show();
+                        $('#ftype-edit-multiplier-' + ftypeId).hide();
 
                         // Hide Save button and show Edit button again
                         $('#ftype-' + ftypeId + ' .save-ftype').hide();
@@ -169,6 +194,10 @@ Frequency Types
                 <td>
                     <span class="ftype-text" id="ftype-type-${ftype.id}">${ftype.type}</span>
                     <input type="text" id="ftype-edit-type-${ftype.id}" value="${ftype.type}" class="form-control ftype-input" style="display:none;">
+                </td>
+                <td>
+                    <span class="ftype-text" id="ftype-multiplier-${ftype.id}">${ftype.multiplier}</span>
+                    <input type="text" id="ftype-edit-multiplier-${ftype.id}" value="${ftype.multiplier}" class="form-control ftype-input" style="display:none;">
                 </td>
                 <td>
                     <button class="btn btn-primary edit-ftype" data-ftype-id="${ftype.id}">Edit</button>

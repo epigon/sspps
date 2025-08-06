@@ -104,10 +104,24 @@
                         </ul>
                     </li>
                     {% endif %}
-                    {% if is_admin() or has_permission('panopto_scheduler+view') or
-                    has_permission('panopto_scheduler+add')
-                    or has_permission('panopto_scheduler+edit') or has_permission('calendar+view') or
-                    has_permission('calendar+add') %}
+                    {% if is_admin() 
+                        or has_permission('panopto_scheduler+view') 
+                        or has_permission('panopto_scheduler+add')
+                        or has_permission('panopto_scheduler+edit') 
+                        or has_permission('calendar+view') 
+                        or has_permission('calendar+add')
+                        or has_permission('calendar+edit')
+                        or has_permission('ad_lookup+view')
+                        or has_permission('canvas_enrollments+view') 
+                        or has_permission('canvas_enrollments+add')
+                        or has_permission('students+view')
+                        or has_permission('students+add') 
+                        or has_permission('student+edit')
+                        or has_permission('listserv+view') 
+                        or has_permission('listserv+add') 
+                        or has_permission('listserv+edit') 
+                        or has_permission('listserv+delete')
+                    %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown"
                             aria-expanded="false">
@@ -118,13 +132,13 @@
                             <li><a class="dropdown-item" href="{{ url_for('users.list_users') }}">Users</a></li>
                             <li><a class="dropdown-item" href="{{ url_for('roles.list_roles') }}">Roles</a></li>
                             <li><a class="dropdown-item" href="{{ url_for('permissions.list_permissions') }}">Permissions</a></li>
-                            <li>
-                                <hr class="dropdown-divider">
-                            </li>
                             {% endif %}
                             
                             {% if has_permission('panopto_scheduler+view') or has_permission('panopto_scheduler+add')
                             or has_permission('panopto_scheduler+edit') %}
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
                             <li>
                                 <a class="dropdown-item" href="{{ url_for('scheduler.list_canvas_events') }}">Panopto
                                     Scheduler</a>
@@ -133,8 +147,13 @@
                             {% if has_permission('calendar+view') or has_permission('calendar+add') or
                             has_permission('calendar+edit') %}
                             <li>
-                                <a class="dropdown-item" href="{{ url_for('calendars.calendar_groups') }}">Curriculum
-                                    Calendars</a>
+                                <hr class="dropdown-divider">
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('calendars.edit_calendar_groups') }}">Calendar Groups</a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('calendars.calendar_groups') }}">Canvas Calendars</a>
                             </li>
                             {% endif %}
 
@@ -154,7 +173,7 @@
                             <li>
                                 <a class="dropdown-item" href="{{ url_for('students.enroll_students') }}">Canvas Student Enrollments</a>
                             </li>                            
-
+                            
                             {% endif %}
                             {% if has_permission('students+view') %}
                             <li>

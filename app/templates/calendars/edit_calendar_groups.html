@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-7">
+            <h2>Calendar Groups</h2>
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>ICS Filename</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for group in groups %}
+                    <tr>
+                        <td>{{ group.name }}</td>
+                        <td>{{ group.ics_filename }}</td>
+                        <td>
+                            <a href="{{ url_for('calendars.edit_calendar_groups', group_id=group.id) }}" class="btn btn-sm btn-warning">Edit</a>
+                            <form action="{{ url_for('calendars.delete_calendar_groups', group_id=group.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Delete this group?');">
+                                <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="col-md-5">
+            <h2>{{ title }}</h2>
+            <form method="POST">
+                {{ form.hidden_tag() }}
+                <div class="mb-3">
+                    {{ form.name.label(class="form-label") }}
+                    {{ form.name(class="form-control") }}
+                </div>
+                <div class="mb-3">
+                    {{ form.ics_filename.label(class="form-label") }}
+                    {{ form.ics_filename(class="form-control") }}
+                </div>
+                <button type="submit" class="btn btn-success">{{ form.submit.label.text }}</button>
+                {% if group_id %}
+                    <a href="{{ url_for('calendars.edit_calendar_groups') }}" class="btn btn-secondary">Cancel</a>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
