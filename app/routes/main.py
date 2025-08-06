@@ -84,7 +84,7 @@ def logout():
 
 @bp.route('/calendars/<path:filename>')
 def serve_calendar_file(filename):
-    return send_from_directory('static/calendars', filename)
+    return send_from_directory('static/calendars', filename, mimetype='text/calendar')
 
 @bp.route('/favicon.ico')
 def favicon():
