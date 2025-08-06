@@ -70,10 +70,9 @@ def save_selections():
                 course_name=course["name"]
             ))
     db.session.commit()
-    # generate_scheduled_ics()
     return jsonify({"message": "Selections saved."})
 
-@permission_required('calendar+add, calendar+edit')
+# @permission_required('calendar+add, calendar+edit')
 @bp.route("/generate_scheduled_ics", methods=["POST"])
 def generate_scheduled_ics():
     print(f"[{datetime.now()}] Running scheduled ICS generation job...")
