@@ -50,7 +50,7 @@ def edit_calendar_groups(group_id=None):
             group.name = form.name.data
             group.ics_filename = form.ics_filename.data
             db.session.commit()
-            flash('Calendar group updated.')
+            flash('Calendar group updated.', 'success')
             return redirect(url_for('calendars.edit_calendar_groups'))
         title = "Edit Calendar Group"
     else:
@@ -61,7 +61,7 @@ def edit_calendar_groups(group_id=None):
             )
             db.session.add(new_group)
             db.session.commit()
-            flash('Calendar group added.')
+            flash('Calendar group added.', 'success')
             return redirect(url_for('calendars.edit_calendar_groups'))
         title = "Add Calendar Group"
 
@@ -72,7 +72,7 @@ def delete_calendar_groups(group_id):
     group = CalendarGroup.query.get_or_404(group_id)
     db.session.delete(group)
     db.session.commit()
-    flash('Calendar group deleted.')
+    flash('Calendar group deleted.', 'success')
     return redirect(url_for('calendars.edit_calendar_groups'))
 
 @permission_required('calendar+add, calendar+edit')
@@ -154,12 +154,17 @@ def generate_scheduled_ics():
     filename_map = {group.name: group.ics_filename for group in groups}
     for group_name, courses in group_data.items():
         calendar = Calendar()
+        calendar.add('prodid', f'-//Canvas Calendars//{group_name}//EN')
+        calendar.add('version', '2.0')
+        calendar.add('calscale', 'GREGORIAN')  # Optional but recommended
         for course in courses:            
             course_info = course_map.get(course['id'])
             if course_info:
                 course_events = get_canvas_events(context_codes=f"course_{course_info['course_id']}", start_date = course_info['start_at'], end_date = course_info['end_at'])
                 for item in course_events:
                     event = Event()
+                    event.add('uid', f"canvas-eventid-{item['id']}")
+                    event.add('dtstamp', datetime.now().replace(tzinfo=timezone.utc))
                     event.add('summary', course_info['course_name'] + " " + item["title"])
                     
                     # Remove 'Z' and replace with '+00:00' to make it ISO compliant for fromisoformat
