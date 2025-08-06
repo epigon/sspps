@@ -1,10 +1,10 @@
 app/cred.py
 *.bak
-**/static/uploads/
-**/static/calendars/
-**/static/photos/
-**/static/files/
-**/logs/
+app/static/uploads/
+app/static/calendars/
+app/static/photos/
+app/static/files/
+app/logs/
 **/unused/
 app/test-email.py
 run_generate_scheduled_ics.bat
