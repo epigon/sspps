@@ -214,6 +214,7 @@ def edit_frequency_type(frequency_type_id:int=None):
     form = FrequencyTypeForm()
     if request.method == "POST":
         ftype.type = request.form['type']
+        ftype.multiplier = request.form['multiplier']
         try:
             db.session.add(ftype)
             db.session.commit()
@@ -221,7 +222,8 @@ def edit_frequency_type(frequency_type_id:int=None):
                 'success': True,
                 'ftype': {
                     'id': ftype.id,
-                    'type': ftype.type
+                    'type': ftype.type,
+                    'multiplier': ftype.multiplier
                 }
             })
         except IntegrityError as err:

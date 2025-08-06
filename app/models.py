@@ -100,7 +100,8 @@ class CommitteeType(db.Model):
 class FrequencyType(db.Model):
     __tablename__ = 'FREQUENCY_TYPES'
     id = Column(Integer, primary_key=True)
-    type = Column(String(50), nullable=False)  
+    type = Column(String(50), nullable=False)
+    multiplier = Column(Integer, nullable=False)
     committees = relationship('Committee', backref='frequency_type', lazy=True)
     create_date = Column(DateTime, default=datetime.now)
     deleted = Column(Boolean, default=False)
@@ -122,7 +123,6 @@ class Committee(db.Model):
     create_date = Column(DateTime, default=datetime.now)
     deleted = Column(Boolean, default=False)
     delete_date = Column(DateTime)
-
 
     def __str__(self):
         return f'ID: {self.id}\nCommittee: {self.name}\nShort name: {self.short_name}\nDescription: {self.description}\nMission: {self.mission} \

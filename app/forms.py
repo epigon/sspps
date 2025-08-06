@@ -133,15 +133,13 @@ class AcademicYearForm(FlaskForm):
 
 class CommitteeTypeForm(FlaskForm):
     type = StringField('Committee Type', validators=[InputRequired(), Length(max=50)], render_kw={'autofocus': True})
-    # active = BooleanField('Default')
 
 class FrequencyTypeForm(FlaskForm):
     type = StringField('Frequency', validators=[InputRequired(), Length(max=50)], render_kw={'autofocus': True})
-    # active = BooleanField('Default')
+    multiplier =  IntegerField('Occurrences per year', validators=[InputRequired()], render_kw={'autofocus': True})
 
 class MemberTypeForm(FlaskForm):
     type = StringField('Member Type', validators=[InputRequired(), Length(max=50)], render_kw={'autofocus': True})
-    # active = BooleanField('Default')
 
 class MemberRoleForm(FlaskForm):
     role = StringField('Role', validators=[InputRequired(), Length(max=50)], render_kw={'autofocus': True})
@@ -237,6 +235,11 @@ class FileUploadForm(FlaskForm):
     ay_committee_id = HiddenField('AYCommittee', validators=[DataRequired()])
     files = FileField('Files', render_kw={'accept': "image/*"})
 
+class CalendarGroupForm(FlaskForm):
+    name = StringField('Name', validators=[DataRequired()])
+    ics_filename = StringField('ICS Filename', validators=[DataRequired()])
+    submit = SubmitField('Save')
+    
 class StudentForm(FlaskForm):
     pid = StringField("PID", validators=[DataRequired()])
     username = StringField("Username", validators=[DataRequired()])

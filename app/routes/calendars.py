@@ -1,10 +1,11 @@
 from app.cred import CANVAS_API_BASE, CANVAS_API_TOKEN, PANOPTO_API_BASE, PANOPTO_CLIENT_ID, PANOPTO_CLIENT_SECRET
+from app.forms import CalendarGroupForm
 from app.models import db, CalendarGroup, CalendarGroupSelection
 from app.utils import permission_required
 from .canvas import get_canvas_courses, get_canvas_events
 from bs4 import BeautifulSoup
 from datetime import datetime, timezone
-from flask import render_template, request, Blueprint, jsonify
+from flask import render_template, request, Blueprint, jsonify, redirect, url_for, flash
 from flask_login import login_required
 from icalendar import Calendar, Event, vText
 from os.path import dirname, join, abspath
@@ -34,6 +35,45 @@ def before_request():
     if request.endpoint in excluded_endpoints:
         return  # Skip login_required check
     return login_required(lambda: None)()  # Call login_required manually
+
+@bp.route('/calendar_groups/new', methods=['GET', 'POST'])
+@bp.route('/calendar_groups/<int:group_id>', methods=['GET', 'POST'])
+def edit_calendar_groups(group_id=None):
+    form = CalendarGroupForm()
+    groups = CalendarGroup.query.all()
+
+    if group_id:
+        group = CalendarGroup.query.get_or_404(group_id)
+        if request.method == 'GET':
+            form = CalendarGroupForm(obj=group)
+        if form.validate_on_submit():
+            group.name = form.name.data
+            group.ics_filename = form.ics_filename.data
+            db.session.commit()
+            flash('Calendar group updated.')
+            return redirect(url_for('calendars.edit_calendar_groups'))
+        title = "Edit Calendar Group"
+    else:
+        if form.validate_on_submit():
+            new_group = CalendarGroup(
+                name=form.name.data,
+                ics_filename=form.ics_filename.data
+            )
+            db.session.add(new_group)
+            db.session.commit()
+            flash('Calendar group added.')
+            return redirect(url_for('calendars.edit_calendar_groups'))
+        title = "Add Calendar Group"
+
+    return render_template('calendars/edit_calendar_groups.html', groups=groups, form=form, group_id=group_id, title=title)
+
+@bp.route('/calendar_groups/delete/<int:group_id>', methods=['POST'])
+def delete_calendar_groups(group_id):
+    group = CalendarGroup.query.get_or_404(group_id)
+    db.session.delete(group)
+    db.session.commit()
+    flash('Calendar group deleted.')
+    return redirect(url_for('calendars.edit_calendar_groups'))
 
 @permission_required('calendar+add, calendar+edit')
 @bp.route("/calendar_groups")
