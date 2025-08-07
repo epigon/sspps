@@ -43,57 +43,40 @@ Dashboard
                             <h5 class="mb-0">Filters:</h5>
                         </div>
                     </div>
-                    <div class="row d-flex align-items-center g-2 flex-wrap">
-                        <div class="col-auto d-flex align-items-center">
+                    <div class="row d-flex align-items-start g-2 flex-wrap">
+                        <div class="col-auto d-flex align-items-start">
                             <label class="form-label me-2 mb-0 text-end col-form-label-sm"
-                                style="min-width: 100px; white-space: nowrap;">{{ form.academic_year.label }}</label>
-                            <div class="col-auto">
-                                {{ form.academic_year(class="form-select form-select-sm") }}
-                            </div>
+                                style="min-width: 100px; white-space: nowrap;">{{
+                                form.academic_year.label }}</label>
+                            {{ form.academic_year(class="form-select form-select-sm",size=5, multiple=True,
+                            id="academic_year") }}
                         </div>
-                        <div class="col-auto d-flex align-items-center">
+
+                        <div class="col-auto d-flex align-items-start">
                             <label class="form-label me-2 mb-0 text-end col-form-label-sm"
-                                style="min-width: 100px; white-space: nowrap;">{{ form.committee.label }}</label>
-                            <div class="col-auto">
-                                {{ form.committee(class="form-select form-select-sm") }}
-                            </div>
+                                style="min-width: 100px; white-space: nowrap;">{{
+                                form.committee.label }}</label>
+                            {{ form.committee(class="form-select form-select-sm",size=5, multiple=True, 
+                            id="committee") }}
                         </div>
-                        <div class="col-auto d-flex align-items-center">
+
+                        <div class="col-auto d-flex align-items-start">
                             <label class="form-label me-2 mb-0 text-end col-form-label-sm"
                                 style="min-width: 100px; white-space: nowrap;">{{
                                 form.committee_type.label }}</label>
-                            {{ form.committee_type(class="form-select form-select-sm") }}
+                            {{ form.committee_type(class="form-select form-select-sm",size=5, multiple=True, id="committee_type")
+                            }}
                         </div>
-                        <div class="col-auto d-flex align-items-center">
+
+                        <div class="col-auto d-flex align-items-start">
                             <label class="form-label me-2 mb-0 text-end col-form-label-sm"
-                                style="min-width: 100px; white-space: nowrap;">{{ form.users.label }}</label>
-                            <div class="col-auto">
-                                {{ form.users(class="form-select form-select-sm") }}
-                            </div>
+                                style="min-width: 100px; white-space: nowrap;">{{
+                                form.users.label }}</label>
+                            {{ form.users(class="form-select form-select-sm",size=5, multiple=True, id="users")
+                            }}
                         </div>
-                        <!-- <div class="col-5">
-                            <div class="mb-3 form-check">
-                                {{ form.show_mission(class="form-check-input") }}
-                                <label class="form-check-label">{{ form.show_mission.label }}</label>
-                            </div>
-                            <div class="mb-3 form-check">
-                                {{ form.show_members(class="form-check-input") }}
-                                <label class="form-check-label">{{ form.show_members.label }}</label>
-                            </div>
-                            <div class="mb-3 form-check">
-                                {{ form.sort_by_role(class="form-check-input") }}
-                                <label class="form-check-label">{{ form.sort_by_role.label }}</label>
-                            </div>
-                            <div class="mb-3 form-check">
-                                {{ form.show_meetings(class="form-check-input") }}
-                                <label class="form-check-label">{{ form.show_meetings.label }}</label>
-                            </div>
-                            <div class="mb-3 form-check">
-                                {{ form.show_documents(class="form-check-input") }}
-                                <label class="form-check-label">{{ form.show_documents.label }}</label>
-                            </div>
-                        </div> -->
-                        <div class="col-auto">
+
+                        <div class="col-auto d-flex align-items-start pt-1">
                             <button type="submit" class="btn btn-primary btn-sm">Apply</button>
                         </div>
                     </div>
@@ -417,6 +400,30 @@ Each Summer, SSPPS Committee Chairs will be contacted to reconfirm faculty commi
                     // });
                 }
             });
+        });
+    });
+    document.addEventListener("DOMContentLoaded", function () {
+        const multiSelects = ["academic_year", "committee", "committee_type", "users"];
+
+        multiSelects.forEach(id => {
+            const select = document.getElementById(id);
+
+            if (select) {
+                select.addEventListener("change", function () {
+                    const selectedOptions = Array.from(select.selectedOptions).map(opt => parseInt(opt.value));
+                    const allOption = select.querySelector('option[value="0"]');
+
+                    // If "All" is selected and others are selected, deselect "All"
+                    if (selectedOptions.includes(0) && selectedOptions.length > 1) {
+                        allOption.selected = false;
+                    }
+
+                    // If no other options selected, reselect "All"
+                    if (!selectedOptions.includes(0) && selectedOptions.length === 0) {
+                        allOption.selected = true;
+                    }
+                });
+            }
         });
     });
 </script>

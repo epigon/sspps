@@ -175,22 +175,22 @@ class AYCommitteeForm(FlaskForm):
     academic_year_id = SelectField('Academic Year', validators=[InputRequired()], choices=[])
 
 class CommitteeReportForm(FlaskForm):
-    academic_year = SelectField('Academic Year', 
+    academic_year = SelectMultipleField('Academic Year', 
                             validators=[DataRequired()], 
                             coerce=int, 
                             choices=[], 
                             )  
-    committee = SelectField('Committee', 
+    committee = SelectMultipleField('Committee', 
                             validators=[DataRequired()], 
                             coerce=int, 
                             choices=[]
                             )  
-    users = SelectField('Employee', 
+    users = SelectMultipleField('Employee', 
                             validators=[DataRequired()], 
                             coerce=int, 
                             choices=[]
                             ) 
-    committee_type = SelectField('Committee Type', 
+    committee_type = SelectMultipleField('Committee Type', 
                             validators=[DataRequired()], 
                             coerce=int, 
                             choices=[]
@@ -239,7 +239,7 @@ class CalendarGroupForm(FlaskForm):
     name = StringField('Name', validators=[DataRequired()])
     ics_filename = StringField('ICS Filename', validators=[DataRequired()])
     submit = SubmitField('Save')
-    
+
 class StudentForm(FlaskForm):
     pid = StringField("PID", validators=[DataRequired()])
     username = StringField("Username", validators=[DataRequired()])

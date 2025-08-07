@@ -766,7 +766,7 @@ def get_member_roles():
 @bp.route("/get_all_committees", methods=["GET"])
 @permission_required("committee_report+view")
 def get_all_committees():
-
+    
     query = AYCommittee.query.options(
         selectinload(AYCommittee.academic_year),
         selectinload(AYCommittee.committee).joinedload(Committee.committee_type),
@@ -785,34 +785,43 @@ def get_all_committees():
     query = query.join(AYCommittee.academic_year).filter(AcademicYear.deleted == False)
     query = query.join(AYCommittee.committee).filter(Committee.deleted == False)
     query = query.join(Committee.committee_type).filter(CommitteeType.deleted == False)
+    query = query.join(AYCommittee.members).filter(Member.deleted == False).join(Member.employee)
 
-    # Apply filters only if the lists are not empty
+    # Filter by employee_id if provided
     filter_user = request.args.get("users", "")
-    if filter_user != "0":
-        query = query.filter(Member.employee_id == int(filter_user))
+    if filter_user and filter_user != "0":
+        employee_ids = [int(id) for id in filter_user.split(",")]
+        query = query.filter(Member.employee_id.in_(employee_ids))
 
+    # Filter by academic_year_ids if provided
     filter_year_ids = request.args.get("years", "")
-    if filter_year_ids != "0":
+    if filter_year_ids and filter_year_ids != "0":
         year_ids = [int(y) for y in filter_year_ids.split(",")]
         query = query.filter(AYCommittee.academic_year_id.in_(year_ids))
-    
-    filter_committees = request.args.get("committees", "")
-    if filter_committees != "0":
-        committee_ids = [int(c) for c in filter_committees.split(",")]
+
+    # Filter by committee_ids if provided
+    filter_committee_ids = request.args.get("committees", "")
+    if filter_committee_ids and filter_committee_ids != "0":
+        committee_ids = [int(c) for c in filter_committee_ids.split(",")]
         query = query.filter(AYCommittee.committee_id.in_(committee_ids))
 
-    filter_types = request.args.get("types")
-    if filter_types and filter_types != "0":
-        type_ids = [int(t) for t in filter_types.split(",")]
-        query = query.join(AYCommittee.committee).filter(Committee.committee_type_id.in_(type_ids))
+    # Filter by committee_type_ids if provided
+    filter_committee_type = request.args.get("types", "")
+    if filter_committee_type and filter_committee_type != "0":
+        type_ids = [int(ct) for ct in filter_committee_type.split(",")]
+        query = query.filter(Committee.committee_type_id.in_(type_ids))
 
     # Fetch results    
     aycommittees = query.all()
 
+    # Only show filtered members
+    if filter_user and filter_user != "0":
+        for committee in aycommittees:
+            committee.members = [m for m in committee.members if m.employee_id in employee_ids]
+
     # Sort members by role default_order
     for committee in aycommittees:
-            # committee.members.sort(key=lambda m: m.member_role.default_order if m.member_role else "")
-            committee.members.sort(key=lambda m: m.member_role.default_order if m.member_role and m.member_role.default_order is not None else 999)
+        committee.members.sort(key=lambda m: m.member_role.default_order if m.member_role and m.member_role.default_order is not None else 999)
 
     # Build results
     committees = []
@@ -855,7 +864,8 @@ def get_committees_by_member():
     # Filter by employee_id if provided
     filter_user = request.args.get("users", "")
     if filter_user and filter_user != "0":
-        query = query.filter(Member.employee_id == int(filter_user))
+        employee_ids = [int(id) for id in filter_user.split(",")]
+        query = query.filter(Member.employee_id.in_(employee_ids))
 
     # Filter by academic_year_ids if provided
     filter_year_ids = request.args.get("years", "")
@@ -871,8 +881,9 @@ def get_committees_by_member():
 
     # Filter by committee_type_ids if provided
     filter_committee_type = request.args.get("types", "")
-    if filter_committee_type != "0":
-        query = query.filter(Committee.committee_type_id == int(filter_committee_type))
+    if filter_committee_type and filter_committee_type != "0":
+        type_ids = [int(ct) for ct in filter_committee_type.split(",")]
+        query = query.filter(Committee.committee_type_id.in_(type_ids))
 
     # Fetch results
     members = query.all()
@@ -941,24 +952,29 @@ def get_committees_by_assignment():
         AcademicYear.deleted == False
     )
 
-    # Apply filters only if the lists are not empty
+    # Filter by employee_id if provided
     filter_user = request.args.get("users", "")
-    if filter_user != "0":
-        query = query.filter(Member.employee_id == int(filter_user))
+    if filter_user and filter_user != "0":
+        employee_ids = [int(id) for id in filter_user.split(",")]
+        query = query.filter(Member.employee_id.in_(employee_ids))
 
+    # Filter by academic_year_ids if provided
     filter_year_ids = request.args.get("years", "")
-    if filter_year_ids != "0":
+    if filter_year_ids and filter_year_ids != "0":
         year_ids = [int(y) for y in filter_year_ids.split(",")]
         query = query.filter(AYCommittee.academic_year_id.in_(year_ids))
-    
-    filter_committees = request.args.get("committees", "")
-    if filter_committees != "0":
-        committee_ids = [int(c) for c in filter_committees.split(",")]
+
+    # Filter by committee_ids if provided
+    filter_committee_ids = request.args.get("committees", "")
+    if filter_committee_ids and filter_committee_ids != "0":
+        committee_ids = [int(c) for c in filter_committee_ids.split(",")]
         query = query.filter(AYCommittee.committee_id.in_(committee_ids))
 
+    # Filter by committee_type_ids if provided
     filter_committee_type = request.args.get("types", "")
-    if filter_committee_type != "0":
-        query = query.filter(Committee.committee_type_id == int(filter_committee_type))
+    if filter_committee_type and filter_committee_type != "0":
+        type_ids = [int(ct) for ct in filter_committee_type.split(",")]
+        query = query.filter(Committee.committee_type_id.in_(type_ids))
 
     # Fetch results
     members = query.all()
@@ -1061,21 +1077,25 @@ def get_employees():
 def report_all_committees():
     form=CommitteeReportForm()
 
-    form.academic_year.choices = [[0, "All"]]
-    for row in get_academic_years():
-        form.academic_year.choices.append([row.id, row.year])   
+    # Academic Year choices
+    form.academic_year.choices = [(0, "All")]
+    form.academic_year.choices += [(row.id, row.year) for row in get_academic_years()]
+    form.academic_year.data = [0]  # Select "All" by default
 
-    form.committee.choices = [[0, "All"]]
-    for row in get_committees():
-        form.committee.choices.append([row.id, row.name]) 
-    
-    form.committee_type.choices = [[0, "All"]]
-    for row in get_committee_types():
-        form.committee_type.choices.append([row.id, row.type]) 
-    
-    form.users.choices = [[0, "All"]]
-    for row in get_employees():
-        form.users.choices.append([row.employee_id, row.employee_last_name+', '+row.employee_first_name])
+    # Committee choices
+    form.committee.choices = [(0, "All")]
+    form.committee.choices += [(row.id, row.name) for row in get_committees()]
+    form.committee.data = [0]
+
+    # Committee Type choices
+    form.committee_type.choices = [(0, "All")]
+    form.committee_type.choices += [(row.id, row.type) for row in get_committee_types()]
+    form.committee_type.data = [0]
+
+    # User choices
+    form.users.choices = [(0, "All")]
+    form.users.choices += [(row.employee_id, f"{row.employee_last_name}, {row.employee_first_name}") for row in get_employees()]
+    form.users.data = [0]
 
     return render_template('committee_tracker/report_all_committees.html', form=form)
 
@@ -1084,21 +1104,25 @@ def report_all_committees():
 def member_report():
     form=CommitteeReportForm()
 
-    form.academic_year.choices = [[0, "All"]]
-    for row in get_academic_years():
-        form.academic_year.choices.append([row.id, row.year])   
+    # Academic Year choices
+    form.academic_year.choices = [(0, "All")]
+    form.academic_year.choices += [(row.id, row.year) for row in get_academic_years()]
+    form.academic_year.data = [0]  # Select "All" by default
 
-    form.committee.choices = [[0, "All"]]
-    for row in get_committees():
-        form.committee.choices.append([row.id, row.name]) 
-    
-    form.committee_type.choices = [[0, "All"]]
-    for row in get_committee_types():
-        form.committee_type.choices.append([row.id, row.type]) 
-        
-    form.users.choices = [[0, "All"]]
-    for row in get_employees():
-        form.users.choices.append([row.employee_id, row.employee_last_name+', '+row.employee_first_name])
+    # Committee choices
+    form.committee.choices = [(0, "All")]
+    form.committee.choices += [(row.id, row.name) for row in get_committees()]
+    form.committee.data = [0]
+
+    # Committee Type choices
+    form.committee_type.choices = [(0, "All")]
+    form.committee_type.choices += [(row.id, row.type) for row in get_committee_types()]
+    form.committee_type.data = [0]
+
+    # User choices
+    form.users.choices = [(0, "All")]
+    form.users.choices += [(row.employee_id, f"{row.employee_last_name}, {row.employee_first_name}") for row in get_employees()]
+    form.users.data = [0]
 
     return render_template('committee_tracker/report_by_member.html', form=form)
 
@@ -1107,20 +1131,24 @@ def member_report():
 def assignment_report():
     form=CommitteeReportForm()
 
-    form.academic_year.choices = [[0, "All"]]
-    for row in get_academic_years():
-        form.academic_year.choices.append([row.id, row.year])   
+    # Academic Year choices
+    form.academic_year.choices = [(0, "All")]
+    form.academic_year.choices += [(row.id, row.year) for row in get_academic_years()]
+    form.academic_year.data = [0]  # Select "All" by default
 
-    form.committee.choices = [[0, "All"]]
-    for row in get_committees():
-        form.committee.choices.append([row.id, row.name]) 
+    # Committee choices
+    form.committee.choices = [(0, "All")]
+    form.committee.choices += [(row.id, row.name) for row in get_committees()]
+    form.committee.data = [0]
 
-    form.committee_type.choices = [[0, "All"]]
-    for row in get_committee_types():
-        form.committee_type.choices.append([row.id, row.type]) 
-    
-    form.users.choices = [[0, "All"]]
-    for row in get_employees():
-        form.users.choices.append([row.employee_id, row.employee_last_name+', '+row.employee_first_name])
+    # Committee Type choices
+    form.committee_type.choices = [(0, "All")]
+    form.committee_type.choices += [(row.id, row.type) for row in get_committee_types()]
+    form.committee_type.data = [0]
+
+    # User choices
+    form.users.choices = [(0, "All")]
+    form.users.choices += [(row.employee_id, f"{row.employee_last_name}, {row.employee_first_name}") for row in get_employees()]
+    form.users.data = [0]
 
     return render_template('committee_tracker/report_by_assignment.html', form=form)
