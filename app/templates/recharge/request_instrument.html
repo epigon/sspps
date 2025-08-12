@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <h2>Instrument Request Form</h2>
+    <form method="POST">
+        {{ form.hidden_tag() }}
+        {% for field in form if field.name != 'submit' and field.name != 'csrf_token' %}
+        <div class="row mb-3">
+
+            {% if field.type == 'BooleanField' %}
+            <!-- <div class="form-check">                     -->
+            <div class="col-2">{{ field.label(class="form-check-label") }}</div>
+            <div class="col-6">{{ field(class="form-check-input") }}</div>
+            <div class="col-4">
+                {% for error in field.errors %}
+                <div class="text-danger small">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <!-- </div> -->
+            {% elif field.type == 'SelectField' %}
+            <div class="col-2">{{ field.label(class="form-label") }}</div>
+            <div class="col-6">{{ field(class="form-select") }}</div>
+            <div class="col-4">
+                {% for error in field.errors %}
+                <div class="text-danger small">{{ error }}</div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="col-2">{{ field.label(class="form-label") }}</div>
+            <div class="col-6">{{ field(class="form-control") }}</div>
+            <div class="col-4">
+                {% for error in field.errors %}
+                <div class="text-danger small">{{ error }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+        {{ form.submit(class="btn btn-primary") }}
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    $('#department').select2({
+        matcher: function (params, data) {
+            // If there is no search term, return all results
+            if ($.trim(params.term) === '') {
+                return data;
+            }
+
+            // params.term = the search term entered by user
+            // data.text = option text (e.g. "CS - Computer Science")
+            // data.id = option value (e.g. "CS")
+
+            const term = params.term.toLowerCase();
+
+            // Match if term appears in the value or the text
+            if (data.id.toLowerCase().indexOf(term) > -1 || data.text.toLowerCase().indexOf(term) > -1) {
+                return data;
+            }
+
+            // Return null if no match
+            return null;
+        }
+    });
+
+
+    // document.getElementById('instrument').addEventListener('change', function () {
+    //     let selected = this.options[this.selectedIndex];
+    //     let minDuration = selected.getAttribute('data-minimum-duration');
+    //     const startField = document.getElementById('start_datetime');
+    //     const endField = document.getElementById('end_datetime');
+
+    //     if (startField.value && !isNaN(minDuration)) {
+    //         const start = new Date(startField.value);
+    //         const end = new Date(start.getTime() + minDuration * 60000);
+    //         endField.value = end.toISOString().slice(0, 16);
+    //     }
+    // });
+</script>
+{% endblock %}

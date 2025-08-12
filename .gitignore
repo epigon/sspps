@@ -9,6 +9,8 @@ app/logs/
 app/test-email.py
 run_generate_scheduled_ics.bat
 run_import_employees.bat
+app/static/files/vchs_sspps_employee.csv
+app/static/files/vchs_sspps_job_location.csv
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -190,3 +192,5 @@ token_ucsd-som.hosted.panopto.*
 
 # Google token
 app/nodal-album-464015-d4-e7b2f79666a6.json
+
+

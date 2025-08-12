@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2>Instrument Requests</h2>
+
+    <!-- Filter Form -->
+    <form method="get" class="d-flex align-items-center mb-3">
+        <label for="status" class="me-2 mb-0">Status:</label>
+        <select name="status" id="status" class="form-select form-select-sm w-auto" onchange="this.form.submit()">
+            <option value="">All</option>
+            <option value="Pending" {{ 'selected' if request.args.get('status')=='Pending' else '' }}>Pending</option>
+            <option value="Approved" {{ 'selected' if request.args.get('status')=='Approved' else '' }}>Approved
+            </option>
+        </select>
+    </form>
+
+    <table class="table table-bordered table-sm table-responsive">
+        <thead>
+            <tr>
+                <th>Request #</th>
+                <th>Instrument</th>
+                <th>Start Time</th>
+                <th>End Time</th>
+                <th>Duration in Minutes</th>
+                <th>PI Information</th>
+                <th>Requestor Information</th>
+                <th>Requires Training</th>
+                <th>Project / Task Code</th>
+                <th>Submitted On</th>
+                <th>Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for req in requests %}
+            <tr>
+                <td>{{ req.id }}</td>
+                <td>{{ req.instrument_name }}</td>
+                <td>{{ req.start_datetime.strftime('%m/%d/%Y %I:%M %p').lower() }}</td>
+                <td>{{ req.end_datetime.strftime('%m/%d/%Y %I:%M %p').lower() }}</td>
+                <td>{{ req.end_datetime - req.start_datetime }}</td>
+                {% set pi = [] %}
+                {% if req.pi_name %}
+                {% set _ = pi.append(req.pi_name) %}
+                {% endif %}
+                {% if req.pi_email %}
+                {% set _ = pi.append(req.pi_email) %}
+                {% endif %}
+                {% if req.pi_phone %}
+                {% set _ = pi.append(req.pi_phone) %}
+                {% endif %}
+                {% if req.department %}
+                {% set _ = pi.append(req.department.code+" - "+req.department.name) %}
+                {% endif %}
+                <td>{{ pi | join('<br />') | safe }}</td>
+                {% set requestor = [] %}
+                {% if req.ad_username %}
+                {% set _ = requestor.append(req.ad_username) %}
+                {% endif %}
+                {% if req.requestor_position %}
+                {% set _ = requestor.append(req.requestor_position) %}
+                {% endif %}
+                {% if req.requestor_email %}
+                {% set _ = requestor.append(req.requestor_email) %}
+                {% endif %}
+                {% if req.requestor_phone %}
+                {% set _ = requestor.append(req.requestor_phone) %}
+                {% endif %}
+                <td>{{ requestor | join('<br />') | safe }}</td>
+                <td>{{ 'Yes' if req.requires_training else 'No' }}</td>
+                <td>{{ req.project_number }}-{{ req.task_code }}</td>
+                <td>{{ req.created_at.strftime('%m/%d/%Y %I:%M %p').lower() if req.created_at else '' }}</td>
+                <td>
+                    {{ req.status }}
+                    {% if req.status == 'Approved' %}
+                    by {{ req.approver.employee_name or '' }}
+                    on {{ req.approved_at.strftime('%m/%d/%Y %I:%M %p').lower() if
+                    req.approved_at else ''
+                    }}
+                    {% endif %}
+                </td>
+                <td>
+                    {% if req.status == 'Pending' %}
+                    <a href="{{ url_for('recharge.approve_request', request_id=req.id) }}"
+                        class="btn btn-success btn-sm">Approve
+                        & Email</a>
+                    {% elif req.status == 'Approved' %}
+                    <a href="{{ url_for('recharge.resend_email', request_id=req.id) }}"
+                        class="btn btn-secondary btn-sm">
+                        Resend Email</a>
+                    {% else %}
+                    <span class="text-muted">—</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

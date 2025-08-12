@@ -1,9 +1,9 @@
 from flask_wtf import FlaskForm
-from wtforms.widgets import ListWidget, CheckboxInput
-from wtforms import widgets, SelectMultipleField, StringField, PasswordField, BooleanField, \
-    SelectField, HiddenField, TextAreaField, DateField, TimeField, SubmitField, FileField, IntegerField
-from wtforms.validators import InputRequired, Email, Length, DataRequired, ValidationError, Optional
-from app.models import User, Employee, Role, Permission, Committee
+from wtforms.widgets import CheckboxInput, ListWidget
+from wtforms import widgets, BooleanField, DateField, DateTimeLocalField, FileField, HiddenField, IntegerField, \
+    SelectField, SelectMultipleField, StringField, SubmitField, TelField, TextAreaField, TimeField, ValidationError
+from wtforms.validators import DataRequired, Email, InputRequired, Length, Optional, ValidationError
+from app.models import Committee, Department, Employee, Machine, Permission, ProjectTaskCode, Role, User
 
 MONTHS = [
     ('1', 'January'), ('2', 'February'), ('3', 'March'),
@@ -260,3 +260,53 @@ class StudentForm(FlaskForm):
 
 class GroupForm(FlaskForm):
     group_name = StringField('Google Group Name', validators=[DataRequired()])
+
+# RECHARGE APP
+class InstrumentRequestForm(FlaskForm):
+    instrument = SelectField("Instrument", coerce=int, validators=[DataRequired()])
+    department_code = SelectField('Department', validators=[DataRequired()])
+    pi_name = StringField("PI Name", validators=[DataRequired()])
+    pi_email = StringField("PI Email", validators=[DataRequired(), Email()])
+    pi_phone = TelField("PI Phone")
+    ad_username = StringField("Requestor AD Username", validators=[DataRequired()])
+    requestor_position = StringField("Requestor Position", validators=[DataRequired()])
+    requestor_email = StringField("Requestor Email", validators=[DataRequired(), Email()])
+    requestor_phone = TelField("Requestor Phone")
+    requires_training = BooleanField("Requires Training?")
+    project_number = StringField("Project Number", validators=[DataRequired()])
+    task_code = StringField("Task Code", validators=[DataRequired()])
+    start_datetime = DateTimeLocalField('Start Date and Time', format='%Y-%m-%dT%H:%M', validators=[DataRequired()])
+    end_datetime = DateTimeLocalField( 'End Date and Time', format='%Y-%m-%dT%H:%M', validators=[DataRequired()])
+    submit = SubmitField("Submit Request")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.instrument.choices = [
+            (0, '--- Select a Machine ---') 
+        ] + [
+            (m.MachineId, m.MachineName)
+            for m in Machine.query.filter_by(MachineStatus=True)
+                .order_by(Machine.MachineName)
+                .all()
+        ]
+        # Populate Department choices: value=department.code, label=department.name
+        departments = Department.query.order_by(Department.name).all()
+        dept_choices = [(d.code, d.code +" - "+ d.name) for d in departments]
+        self.department_code.choices = [('', '--- Select a Department ---')] + dept_choices
+
+    def validate(self, extra_validators=None):
+        rv = super().validate(extra_validators=extra_validators)
+        if not rv:
+            return False
+
+        task = ProjectTaskCode.query.filter_by(
+            project_code=self.project_number.data.strip(),
+            task_code=self.task_code.data.strip(),
+            status='Active'
+        ).first()
+
+        if not task:
+            self.project_number.errors.append("Invalid or inactive Project/Task combination.")
+            return False
+
+        return True

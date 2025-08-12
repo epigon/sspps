@@ -364,3 +364,67 @@ class Listserv(db.Model):
     delete_date = Column(db.DateTime, nullable=True)
     delete_by = Column(Integer)
     deleted = Column(db.Boolean, default=False)
+
+# RECHARGE APP
+class ProjectTaskCode(db.Model):
+    __bind_key__ = 'rechargedb' 
+    __tablename__ = 'ProjectTaskCodes'
+    project_code = Column(db.String(50), primary_key=True)
+    task_code = Column(db.String(50), primary_key=True)
+    status = Column(db.String(20), nullable=False)  # e.g., 'Active', 'Inactive'
+
+class InstrumentRequest(db.Model):
+    __bind_key__ = 'rechargedb' 
+    __tablename__ = 'InstrumentRequests'
+    id = Column(db.Integer, primary_key=True)
+    instrument_name = Column(db.String(255), nullable=False)
+    instrument_id = Column(db.String(50), nullable=False)
+    # department = Column(db.String(50), nullable=False)
+    department_code = Column( db.String(20), db.ForeignKey("DEPARTMENTS.code"), nullable=False )
+    department = db.relationship( "Department", back_populates="instrument_requests" )
+    pi_name = Column(db.String(100), nullable=False)
+    pi_email = Column(db.String(120), nullable=False)
+    pi_phone = Column(db.String(20))
+    ad_username = Column(db.String(50), nullable=False)
+    requestor_position = Column(db.String(100), nullable=False)
+    requestor_email = Column(db.String(120), nullable=False)
+    requestor_phone = Column(db.String(20))
+    requires_training = Column(db.Boolean, nullable=False, default=False)
+    project_number = Column(db.String(50), nullable=False)
+    task_code = Column(db.String(50), nullable=False)
+    start_datetime = db.Column(DateTime, nullable=False)
+    end_datetime = db.Column(DateTime, nullable=False)
+    status = Column(db.String(20), default="Pending")  # Pending, Approved, Rejected
+    created_at = Column(db.DateTime, default=datetime.now)
+    approved_at = Column(db.DateTime)
+    approved_by = Column(db.String(50))  # AD username of reviewer
+
+    # relationship to Employee (different bind)
+    approver = db.relationship(
+        "Employee",
+        primaryjoin="foreign(InstrumentRequest.approved_by) == Employee.username",
+        uselist=False,
+        viewonly=True,
+        # specify the remote side explicitly if needed:
+        # remote_side="Employee.ad_username"
+    )
+
+class Machine(db.Model):
+    __bind_key__ = 'rechargedb'
+    __tablename__ = 'Machines'
+    MachineId = db.Column(db.Numeric, primary_key=True)
+    MachineName = db.Column(db.String(255), nullable=False)
+    Charge = db.Column(db.Numeric)
+    MinimumDuration = db.Column(db.Numeric)
+    MachineStatus = db.Column(db.Boolean, nullable=False)  # True = active
+
+class Department(db.Model):
+    __bind_key__ = 'rechargedb'
+    __tablename__ = 'DEPARTMENTS'
+    code = db.Column(db.String(20), primary_key=True)
+    name = db.Column(db.String(50), nullable=False)
+    # Backref to instrument requests
+    instrument_requests = db.relationship(
+        "InstrumentRequest",
+        back_populates="department"
+    )

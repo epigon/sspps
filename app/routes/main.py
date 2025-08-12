@@ -1,6 +1,7 @@
 from app.models import User, Employee
 from flask import session, Blueprint, render_template, request, redirect, url_for, flash, send_from_directory
 from flask_login import login_user, logout_user, login_required, current_user
+from urllib.parse import urlparse, urljoin
 
 bp = Blueprint('main', __name__, template_folder='templates')
 
@@ -8,6 +9,12 @@ bp = Blueprint('main', __name__, template_folder='templates')
 @bp.route("/home/")
 def home():    
     return render_template("main/home.html")
+
+def is_safe_url(target):
+    """Make sure the redirect URL is local (avoid open redirects)."""
+    ref_url = urlparse(request.host_url)
+    test_url = urlparse(urljoin(request.host_url, target))
+    return test_url.scheme in ("http", "https") and ref_url.netloc == test_url.netloc
 
 @bp.route("/profile/")
 @login_required
@@ -21,9 +28,9 @@ def profile():
 
 @bp.route('/sso-redirect')
 def sso_redirect():
-    next_url = request.args.get('next')
+    next_url = request.args.get('next') or request.referrer
     secure_url = url_for('main.secure', _external=True)
-    if next_url:
+    if next_url and is_safe_url(next_url):
         secure_url += f'?next={next_url}'
     return redirect(secure_url)
 
@@ -49,6 +56,11 @@ def secure():
         if user:
                                     
             login_user(user)
+
+            next_url = request.args.get('next')
+            if next_url and is_safe_url(next_url):
+                return redirect(next_url)
+            
             # Print role and user permissions to debug -- only for testing permissions
             # print("== User Permissions ==")
             # if user.role:

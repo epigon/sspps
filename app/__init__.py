@@ -1,4 +1,4 @@
-from app.cred import server, user, pwd, database, secret, odbcdriver  # ensure `database` is defined in cred.py
+from app.cred import server, user, pwd, database, secret, odbcdriver, rechargedatabase  # ensure `database` is defined in cred.py
 from app.logger import setup_logger
 from flask import Flask
 from flask_login import LoginManager
@@ -8,6 +8,7 @@ import urllib.parse
 
 # Initialize extensions
 db = SQLAlchemy()
+
 login_manager = LoginManager()
 login_manager.login_view = 'main.sso_redirect'
 
@@ -17,15 +18,6 @@ def create_app():
     app.config['SECRET_KEY'] = secret
 
     # pyodbc connection string
-    # params = urllib.parse.quote_plus(
-    #     "DRIVER="+odbcdriver+";" 
-    #     "SERVER="+server+";"
-    #     "DATABASE="+database+";"
-    #     "UID="+user+";"
-    #     "PWD="+pwd+";"
-    #     "TrustServerCertificate=yes;"
-    # )
-
     connection_str = (
         f"DRIVER={odbcdriver};"
         f"SERVER={server};"
@@ -37,6 +29,19 @@ def create_app():
     params = urllib.parse.quote_plus(connection_str)
     
     app.config['SQLALCHEMY_DATABASE_URI'] = f"mssql+pyodbc:///?odbc_connect={params}"
+    
+    recharge_connection_str = (
+        f"DRIVER={odbcdriver};"
+        f"SERVER={server};"
+        f"DATABASE={rechargedatabase};"
+        f"UID={user};"
+        f"PWD={pwd};"
+        "TrustServerCertificate=yes;"
+    )
+
+    rechargeparams = urllib.parse.quote_plus(recharge_connection_str)
+    app.config['SQLALCHEMY_BINDS'] = {'rechargedb': f"mssql+pyodbc:///?odbc_connect={rechargeparams}"}
+
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
     # Set up error logging
@@ -62,20 +67,22 @@ def create_app():
         return dict(has_permission=has_permission, is_admin=is_admin)
     
     # Register Blueprints
-    from app.routes import main, users, roles, permissions, students, academic_years, calendars, canvas, committee_tracker, ad_lookup, groupsearch, scheduler #employees, 
+    from app.routes import main, users, roles, permissions, students, academic_years, calendars, canvas, committee_tracker, \
+        ad_lookup, groupsearch, scheduler, recharge #, employees 
     app.register_blueprint(main.bp)
-    app.register_blueprint(ad_lookup.bp)
-    app.register_blueprint(students.bp)
-    # app.register_blueprint(employees.bp)
     app.register_blueprint(academic_years.bp)
+    app.register_blueprint(ad_lookup.bp)
     app.register_blueprint(calendars.bp)
     app.register_blueprint(canvas.bp)
     app.register_blueprint(committee_tracker.bp)
-    app.register_blueprint(permissions.bp)
-    app.register_blueprint(roles.bp)
-    app.register_blueprint(users.bp)
-    app.register_blueprint(scheduler.bp)
+    # app.register_blueprint(employees.bp)
     app.register_blueprint(groupsearch.bp)
+    app.register_blueprint(permissions.bp)
+    app.register_blueprint(recharge.bp)
+    app.register_blueprint(roles.bp)
+    app.register_blueprint(scheduler.bp)
+    app.register_blueprint(students.bp)
+    app.register_blueprint(users.bp)
 
     # @app.route('/cause-error')
     # def error():
