@@ -13,7 +13,7 @@ bp = Blueprint('recharge', __name__, url_prefix='/recharge')
 
 @bp.before_request
 def before_request():
-    excluded_endpoints = ['bp.request_instrument']  # full endpoint name: blueprint_name.view_function_name
+    excluded_endpoints = ['recharge.request_instrument']  # full endpoint name: blueprint_name.view_function_name
     if request.endpoint in excluded_endpoints:
         return  # Skip login_required check
     return login_required(lambda: None)()  # Call login_required manually
