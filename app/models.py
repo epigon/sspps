@@ -3,6 +3,8 @@ from datetime import datetime
 from flask_login import UserMixin
 from sqlalchemy import event, Column, Integer, String, DateTime, UniqueConstraint, ForeignKey, Boolean, Date, Time, Text #create_engine, 
 from sqlalchemy.orm import relationship, object_session
+from sqlalchemy.dialects.mssql import UNIQUEIDENTIFIER
+import uuid
 
 ## ADMIN MODELS
 user_permissions = db.Table('USER_PERMISSIONS',
@@ -369,14 +371,23 @@ class Listserv(db.Model):
 class ProjectTaskCode(db.Model):
     __bind_key__ = 'rechargedb' 
     __tablename__ = 'ProjectTaskCodes'
-    project_code = Column(db.String(50), primary_key=True)
-    task_code = Column(db.String(50), primary_key=True)
+    entity_code = db.Column(db.String(20), primary_key=True)
+    project_task_code = db.Column(db.String(20), primary_key=True)
+    funding_source_code = db.Column(db.String(50), primary_key=True)
+    funding_source = db.Column(db.String(500), primary_key=True)
+    pi_email = db.Column(db.String(50), nullable=False)
+    pi_name = db.Column(db.String(50), nullable=False)
+    fund_manager_name = db.Column(db.String(50), nullable=False)
+    fund_manager_email = db.Column(db.String(50), nullable=False)
+    expenditure_type = db.Column(db.String(50), nullable=False)
     status = Column(db.String(20), nullable=False)  # e.g., 'Active', 'Inactive'
 
 class InstrumentRequest(db.Model):
     __bind_key__ = 'rechargedb' 
     __tablename__ = 'InstrumentRequests'
-    id = Column(db.Integer, primary_key=True)
+    # id = Column(db.Integer, primary_key=True)
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4())) # For general UUID handling
+   
     instrument_name = Column(db.String(255), nullable=False)
     instrument_id = Column(db.String(50), nullable=False)
     # department = Column(db.String(50), nullable=False)
@@ -390,10 +401,11 @@ class InstrumentRequest(db.Model):
     requestor_email = Column(db.String(120), nullable=False)
     requestor_phone = Column(db.String(20))
     requires_training = Column(db.Boolean, nullable=False, default=False)
-    project_number = Column(db.String(50), nullable=False)
-    task_code = Column(db.String(50), nullable=False)
-    start_datetime = db.Column(DateTime, nullable=False)
-    end_datetime = db.Column(DateTime, nullable=False)
+    project_task_code = Column(db.String(50), nullable=False)
+    funding_source_code = db.Column(db.String(50), nullable=False)
+    expenditure_type = db.Column(db.String(50), nullable=False)
+    # start_datetime = db.Column(DateTime, nullable=False)
+    # end_datetime = db.Column(DateTime, nullable=False)
     status = Column(db.String(20), default="Pending")  # Pending, Approved, Rejected
     created_at = Column(db.DateTime, default=datetime.now)
     approved_at = Column(db.DateTime)

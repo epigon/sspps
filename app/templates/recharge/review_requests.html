@@ -19,13 +19,12 @@
             <tr>
                 <th>Request #</th>
                 <th>Instrument</th>
-                <th>Start Time</th>
-                <th>End Time</th>
-                <th>Duration in Minutes</th>
                 <th>PI Information</th>
                 <th>Requestor Information</th>
                 <th>Requires Training</th>
                 <th>Project / Task Code</th>
+                <th>Funding Source</th>
+                <th>Expenditure Type</th>
                 <th>Submitted On</th>
                 <th>Status</th>
                 <th>Action</th>
@@ -36,9 +35,6 @@
             <tr>
                 <td>{{ req.id }}</td>
                 <td>{{ req.instrument_name }}</td>
-                <td>{{ req.start_datetime.strftime('%m/%d/%Y %I:%M %p').lower() }}</td>
-                <td>{{ req.end_datetime.strftime('%m/%d/%Y %I:%M %p').lower() }}</td>
-                <td>{{ req.end_datetime - req.start_datetime }}</td>
                 {% set pi = [] %}
                 {% if req.pi_name %}
                 {% set _ = pi.append(req.pi_name) %}
@@ -68,7 +64,9 @@
                 {% endif %}
                 <td>{{ requestor | join('<br />') | safe }}</td>
                 <td>{{ 'Yes' if req.requires_training else 'No' }}</td>
-                <td>{{ req.project_number }}-{{ req.task_code }}</td>
+                <td>{{ req.project_task_code }}</td>
+                <td>{{ req.funding_source_code }}</td>
+                <td>{{ req.expenditure_type }}</td>
                 <td>{{ req.created_at.strftime('%m/%d/%Y %I:%M %p').lower() if req.created_at else '' }}</td>
                 <td>
                     {{ req.status }}

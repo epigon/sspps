@@ -1,9 +1,10 @@
+from app.models import Committee, Department, Employee, Machine, Permission, ProjectTaskCode, Role, User
 from flask_wtf import FlaskForm
-from wtforms.widgets import CheckboxInput, ListWidget
+from markupsafe import Markup, escape
 from wtforms import widgets, BooleanField, DateField, DateTimeLocalField, FileField, HiddenField, IntegerField, \
     SelectField, SelectMultipleField, StringField, SubmitField, TelField, TextAreaField, TimeField, ValidationError
 from wtforms.validators import DataRequired, Email, InputRequired, Length, Optional, ValidationError
-from app.models import Committee, Department, Employee, Machine, Permission, ProjectTaskCode, Role, User
+from wtforms.widgets import CheckboxInput, ListWidget
 
 MONTHS = [
     ('1', 'January'), ('2', 'February'), ('3', 'March'),
@@ -14,6 +15,34 @@ MONTHS = [
 
 class CSRFOnlyForm(FlaskForm):
     pass
+
+class DataAttributeSelectField(SelectField):
+    """
+    Custom SelectField that supports data-* attributes in choices.
+    Each choice should be (value, label, data_attr_dict)
+    Example: ("P123", "Project 123", {"data-email": "pi@example.com"})
+    """
+    def __init__(self, *args, data_key_map=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.data_key_map = data_key_map or {}
+
+    def __call__(self, **kwargs):
+        html = [f'<select name="{escape(self.name)}" id="{escape(self.id)}"']
+        for k, v in kwargs.items():
+            html.append(f' {escape(k)}="{escape(v)}"')
+        html.append('>')
+
+        for value, label, attrs in self.choices:
+            selected = " selected" if str(self.data) == str(value) else ""
+            extra_attrs = "".join(
+                f' {escape(k)}="{escape(v)}"' for k, v in (attrs or {}).items()
+            )
+            html.append(
+                f'<option value="{escape(value)}"{selected}{extra_attrs}>{escape(label)}</option>'
+            )
+
+        html.append('</select>')
+        return Markup("".join(html))
 
 ## ADMIN FORMS
 class MultiCheckboxField(SelectMultipleField):
@@ -265,18 +294,20 @@ class GroupForm(FlaskForm):
 class InstrumentRequestForm(FlaskForm):
     instrument = SelectField("Instrument", coerce=int, validators=[DataRequired()])
     department_code = SelectField('Department', validators=[DataRequired()])
-    pi_name = StringField("PI Name", validators=[DataRequired()])
+    pi_name = DataAttributeSelectField("PI Name", validators=[DataRequired()])
     pi_email = StringField("PI Email", validators=[DataRequired(), Email()])
     pi_phone = TelField("PI Phone")
+    project_task_code = DataAttributeSelectField("Project-Task Code", validators=[DataRequired()])
+    funding_source = DataAttributeSelectField("Funding Source", validators=[DataRequired()])
+    expenditure_type = DataAttributeSelectField("Expenditure Type", validators=[DataRequired()])
     ad_username = StringField("Requestor AD Username", validators=[DataRequired()])
     requestor_position = StringField("Requestor Position", validators=[DataRequired()])
     requestor_email = StringField("Requestor Email", validators=[DataRequired(), Email()])
     requestor_phone = TelField("Requestor Phone")
     requires_training = BooleanField("Requires Training?")
-    project_number = StringField("Project Number", validators=[DataRequired()])
-    task_code = StringField("Task Code", validators=[DataRequired()])
-    start_datetime = DateTimeLocalField('Start Date and Time', format='%Y-%m-%dT%H:%M', validators=[DataRequired()])
-    end_datetime = DateTimeLocalField( 'End Date and Time', format='%Y-%m-%dT%H:%M', validators=[DataRequired()])
+
+    # start_datetime = DateTimeLocalField('Start Date and Time', format='%Y-%m-%dT%H:%M', validators=[DataRequired()])
+    # end_datetime = DateTimeLocalField( 'End Date and Time', format='%Y-%m-%dT%H:%M', validators=[DataRequired()])
     submit = SubmitField("Submit Request")
 
     def __init__(self, *args, **kwargs):
@@ -294,19 +325,63 @@ class InstrumentRequestForm(FlaskForm):
         dept_choices = [(d.code, d.code +" - "+ d.name) for d in departments]
         self.department_code.choices = [('', '--- Select a Department ---')] + dept_choices
 
+        # PI Names
+        rows = ProjectTaskCode.query.with_entities(
+            ProjectTaskCode.pi_email, ProjectTaskCode.pi_name, ProjectTaskCode.project_task_code, ProjectTaskCode.funding_source_code, 
+            ProjectTaskCode.funding_source, ProjectTaskCode.expenditure_type
+        ).distinct().all()
+
+        # Step 2: build distinct sets
+        # Distinct PI choices
+        pi_set = {(r.pi_email, r.pi_name) for r in rows}
+        # Distinct project/task codes
+        project_set = {(r.project_task_code, r.pi_email) for r in rows}
+        # Distinct funding sources
+        funding_set = {(r.funding_source_code, r.funding_source, r.project_task_code) for r in rows}
+        # Distinct expenditure types
+        expenditure_set = {(r.expenditure_type, r.project_task_code) for r in rows}
+
+        # Step 3: sort each list
+        pi_choices_sorted = sorted(pi_set, key=lambda x: x[1])  # sort by PI name
+        project_choices_sorted = sorted(project_set, key=lambda x: x[0])  # sort by code
+        funding_choices_sorted = sorted(funding_set, key=lambda x: x[1])  # sort by funding source name
+        expenditure_choices_sorted = sorted(expenditure_set, key=lambda x: x[0])  # sort by expenditure type
+
+        # Step 4: assign to form
+        self.pi_name.choices = [('', '--- Select a PI ---', {})] + [
+            (name, name, {"data-email": email}) for email, name in pi_choices_sorted
+        ]
+
+        self.project_task_code.choices = [('', '--- Select Project/Task Code ---', {})] + [
+            (code, code, {"data-email": email}) for code, email in project_choices_sorted
+        ]
+
+        self.funding_source.choices = [('', '--- Select Funding Source ---', {})] + [
+            (fs_code, fs_name, {"data-project-task": project_task_code})
+            for fs_code, fs_name, project_task_code in funding_choices_sorted
+        ]
+
+        self.expenditure_type.choices = [('', '--- Select Expenditure Type ---', {})] + [
+            (
+                expenditure_type or "Unknown",
+                expenditure_type or "Unknown",
+                {"data-project-task": project_task_code}
+            )
+            for expenditure_type, project_task_code in expenditure_choices_sorted
+        ]
+
     def validate(self, extra_validators=None):
         rv = super().validate(extra_validators=extra_validators)
         if not rv:
             return False
 
-        task = ProjectTaskCode.query.filter_by(
-            project_code=self.project_number.data.strip(),
-            task_code=self.task_code.data.strip(),
-            status='Active'
-        ).first()
+        # task = ProjectTaskCode.query.filter_by(
+        #     project_task_code=f"{self.project_number.data.strip()}-{self.task_code.data.strip()}",
+        #     status='Active'
+        # ).first()
 
-        if not task:
-            self.project_number.errors.append("Invalid or inactive Project/Task combination.")
-            return False
+        # if not task:
+        #     self.project_number.errors.append("Invalid or inactive Project/Task combination.")
+        #     return False
 
         return True

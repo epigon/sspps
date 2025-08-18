@@ -1,8 +1,8 @@
 from app import config, db
 from app.forms import InstrumentRequestForm
-from app.models import Department, Employee, InstrumentRequest, Machine, User
+from app.models import Department, Employee, InstrumentRequest, Machine, ProjectTaskCode, User
 from datetime import datetime, timedelta
-from flask import Blueprint, flash, redirect, render_template, request, send_file, url_for 
+from flask import Blueprint, flash, jsonify, redirect, render_template, request, send_file, url_for 
 from flask_login import login_required, current_user
 import io
 import os
@@ -26,19 +26,19 @@ def request_instrument():
     if form.validate_on_submit():
         machine = Machine.query.get(form.instrument.data)
 
-        start = form.start_datetime.data
-        end = form.end_datetime.data
+        # start = form.start_datetime.data
+        # end = form.end_datetime.data
 
-        # Validation: end must be later than start
-        if end <= start:
-            flash("End datetime must be later than start datetime.", "danger")
-            return render_template('instrument_request.html', form=form)
+        # # Validation: end must be later than start
+        # if end <= start:
+        #     flash("End datetime must be later than start datetime.", "danger")
+        #     return render_template('instrument_request.html', form=form)
 
-        # Validation: must meet minimum duration
-        min_delta = timedelta(minutes=machine.MinimumDuration)
-        if (end - start) < min_delta:
-            flash(f"End datetime must be at least {machine.MinimumDuration} minutes after start.", "danger")
-            return render_template('recharge/request_instrument.html', form=form)
+        # # Validation: must meet minimum duration
+        # min_delta = timedelta(minutes=machine.MinimumDuration)
+        # if (end - start) < min_delta:
+        #     flash(f"End datetime must be at least {machine.MinimumDuration} minutes after start.", "danger")
+        #     return render_template('recharge/request_instrument.html', form=form)
         
         req = InstrumentRequest(
             instrument_name=machine.MachineName,
@@ -52,10 +52,9 @@ def request_instrument():
             requestor_email=form.requestor_email.data,
             requestor_phone=form.requestor_phone.data,
             requires_training=form.requires_training.data,
-            project_number=form.project_number.data,
-            task_code=form.task_code.data,
-            start_datetime=form.start_datetime.data,
-            end_datetime=form.end_datetime.data
+            project_task_code=form.project_task_code.data,
+            funding_source_code=form.funding_source.data,
+            expenditure_type=form.expenditure_type.data
         )
         db.session.add(req)
         db.session.commit()
@@ -75,7 +74,7 @@ def review_requests():
     requests_list = query.order_by(InstrumentRequest.created_at.desc()).all()
     return render_template("recharge/review_requests.html", requests=requests_list)
 
-@bp.route("/approve-request/<int:request_id>")
+@bp.route("/approve-request/<string:request_id>")
 def approve_request(request_id):
 
     req = InstrumentRequest.query.get_or_404(request_id)
@@ -92,7 +91,7 @@ def approve_request(request_id):
     flash(f"Request #{req.id} approved and barcode emailed to {req.requestor_email}.", "success")
     return redirect(url_for("recharge.review_requests"))
 
-@bp.route("/email-request-barcode/<int:request_id>")
+@bp.route("/email-request-barcode/<string:request_id>")
 def email_request_barcode(request_id):
 
     """Generates barcode and sends it via email."""
@@ -101,8 +100,8 @@ def email_request_barcode(request_id):
     approver = Employee.query.filter_by(employee_id=user.employee_id).first()
 
     # Create barcode image in memory
-    payload = f"{req.ad_username}&{req.instrument_id}&{req.project_number}&{req.task_code}"
-    filename = f"{req.ad_username}.png"
+    payload = f"{req.id}"
+    filename = f"{req.id}.png"
     qrcode.make(payload).save(filename)
 
     # Send email with barcode
@@ -111,9 +110,7 @@ def email_request_barcode(request_id):
     cc = req.pi_email
     sender = approver.email
     body = (
-        f"Hello,\n\nYour instrument request for {req.instrument_name} on "
-        f"{req.start_datetime.strftime('%m/%d/%Y %I:%M %p').lower()} - "
-        f"{req.end_datetime.strftime('%m/%d/%Y %I:%M %p').lower()} has been approved.\n"
+        f"Hello,\n\nYour instrument request for {req.instrument_name} has been approved.\n"
         "Your barcode is attached. Please keep it for your records.\n\n"
         f"Regards,\n{approver.employee_first_name} {approver.employee_last_name}"
     )
@@ -128,7 +125,7 @@ def email_request_barcode(request_id):
 
     return req
 
-@bp.route("/resend-email/<int:request_id>")
+@bp.route("/resend-email/<string:request_id>")
 def resend_email(request_id):
     req = email_request_barcode(request_id)
     flash(f"Request #{req.id} barcode emailed to {req.requestor_email}.", "success")
