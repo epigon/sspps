@@ -156,7 +156,7 @@ def ay_committees_by_user(user_id:int):
     form.users.choices = [(row.employee_id, f"{row.employee_last_name}, {row.employee_first_name}") for row in get_employees() if row.employee_id == employee.employee_id]
     form.users.data = [employee.employee_id]
 
-    return render_template('committee_tracker/report_by_member.html', form=form)
+    return render_template('reports/report_by_member.html', form=form)
 
 # Add a Committee    
 @bp.route('/ay_committee/new', methods=['GET', 'POST'])
