@@ -308,6 +308,7 @@ def edit_student(student_id):
 
     return render_template('students/edit_student.html', form=form, student=student)
 
+@permission_required('students+delete')
 @bp.route('/<int:student_id>/delete', methods=['POST'])
 def delete_student(student_id):
     student = Student.query.get_or_404(student_id)

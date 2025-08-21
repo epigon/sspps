@@ -793,7 +793,7 @@ def delete_meeting(meeting_id:int):
         db.session.rollback()
         return jsonify({"success": False, "message": str(e)})
 
-# @bp.route("/<int:ay_committee_id>/attendance/save", methods=["POST"])
+@permission_required("meeting+add, meeting+edit")
 @bp.route("/save_attendance", methods=["POST"])
 def save_attendance():
     try:
@@ -836,6 +836,7 @@ def save_attendance():
         db.session.rollback()
         return jsonify({"success": False, "message": str(e)})
 
+@permission_required("meeting+view, meeting+add, meeting+edit, meeting+delete")
 @bp.route("/<int:ay_committee_id>/meetings/json")
 def meetings_json(ay_committee_id: int):
     print("meetings_json",jsonify(get_meetings_json(ay_committee_id)))

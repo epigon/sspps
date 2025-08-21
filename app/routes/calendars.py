@@ -36,6 +36,7 @@ def before_request():
         return  # Skip login_required check
     return login_required(lambda: None)()  # Call login_required manually
 
+@permission_required('calendar+add, calendar+edit')
 @bp.route('/calendar_groups/new', methods=['GET', 'POST'])
 @bp.route('/calendar_groups/<int:group_id>', methods=['GET', 'POST'])
 def edit_calendar_groups(group_id=None):
@@ -67,6 +68,7 @@ def edit_calendar_groups(group_id=None):
 
     return render_template('calendars/edit_calendar_groups.html', groups=groups, form=form, group_id=group_id, title=title)
 
+@permission_required('calendar+delete')
 @bp.route('/calendar_groups/delete/<int:group_id>', methods=['POST'])
 def delete_calendar_groups(group_id):
     group = CalendarGroup.query.get_or_404(group_id)
@@ -78,7 +80,6 @@ def delete_calendar_groups(group_id):
 @permission_required('calendar+add, calendar+edit')
 @bp.route("/calendar_groups")
 def calendar_groups():
-
     courses1 = get_canvas_courses(account="SSPPS")
     courses2= get_canvas_courses(account="SOM")
     courses = sorted(courses1 + courses2, key=lambda c: c["name"])

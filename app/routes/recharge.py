@@ -2,6 +2,7 @@ from app import db
 from app.email import send_email_via_powershell
 from app.forms import InstrumentRequestForm
 from app.models import Department, Employee, InstrumentRequest, Machine, ProjectTaskCode, User
+from app.utils import permission_required
 from datetime import datetime, timedelta
 from flask import Blueprint, flash, jsonify, redirect, render_template, request, send_file, url_for 
 from flask_login import login_required, current_user
@@ -48,6 +49,7 @@ def request_instrument():
     return render_template("recharge/request_instrument.html", form=form)
 
 # --- Reviewer list ---
+@permission_required('screeningcore_approve+add')
 @bp.route("/review_requests")
 def review_requests():
     status = request.args.get("status")
@@ -59,6 +61,7 @@ def review_requests():
     requests_list = query.order_by(InstrumentRequest.created_at.desc()).all()
     return render_template("recharge/review_requests.html", requests=requests_list)
 
+@permission_required('screeningcore_approve+add')
 @bp.route("/approve-request/<string:request_id>")
 def approve_request(request_id):
 
@@ -76,6 +79,7 @@ def approve_request(request_id):
     flash(f"Request #{req.id} approved and barcode emailed to {req.requestor_email}.", "success")
     return redirect(url_for("recharge.review_requests"))
 
+@permission_required('screeningcore_approve+add')
 @bp.route("/email-request-barcode/<string:request_id>")
 def email_request_barcode(request_id):
 
@@ -110,6 +114,7 @@ def email_request_barcode(request_id):
 
     return req
 
+@permission_required('screeningcore_approve+add')
 @bp.route("/resend-email/<string:request_id>")
 def resend_email(request_id):
     req = email_request_barcode(request_id)

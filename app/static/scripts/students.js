@@ -172,7 +172,7 @@ $(document).ready(() => {
         const studentPIDs = Array.from(selectedStudentPIDs.values()).map(pid => `sis_user_id:${pid}`);
         if (studentPIDs.length === 0) return alert('Please select at least one student.');
 
-        fetch("/canvas/api/enroll/bulk", {
+        fetch("/canvas/enroll_users_bulk_api", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ course_id: courseId, users: studentPIDs, enrollment_type: "StudentEnrollment", enrollment_state: "active", notify, section_id: sectionId || null })
@@ -212,7 +212,7 @@ $(document).ready(() => {
         const $sectionSelect = $('#enroll_section_id').empty().append($('<option>').val('').text('-- Entire Course --'));
 
         if (courseId) {
-            $.get(`/canvas/api/sections/${courseId}`, function (sections) {
+            $.get(`/canvas/get_canvas_sections_api/${courseId}`, function (sections) {
                 sections.forEach(section => $sectionSelect.append($('<option>').val(section.id).text(section.name)));
             }).fail(() => alert('Failed to load sections.'));
         }
