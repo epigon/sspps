@@ -100,7 +100,7 @@ def delete_academic_year(academic_year_id):
         
         academic_year.deleted = True
         academic_year.delete_date = datetime.now()
-        # db.session.delete(academic_year)
+
         db.session.commit()
 
         return jsonify({"success": True, "deleted_academic_year_id": academic_year_id})

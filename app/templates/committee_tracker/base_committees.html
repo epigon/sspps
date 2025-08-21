@@ -18,7 +18,7 @@ Committees
 <div class="container mt-3">
 
     <div class="table-responsive">
-        <h2 class="mt-4">Committees</h2>
+        <h2 class="mt-4">Committee Groups</h2>
         <table class="table table-striped mb-5">
             <thead>
                 <tr>
@@ -32,13 +32,13 @@ Committees
 
             {% for com in committees %}
             <tr>
-                <td>{{ com.name }} {% if com.short_name %}({{ com.short_name }}){% endif %}<br />
+                <td>{{ com.name }} {% if com.short_name %}({{ com.short_name }}){% endif %}
                     {% if com.description %}
-                    {{ com.description }}<br />
+                    <br />{{ com.description }}
                     {% endif %}
-                    {% if com.mission %}
-                    {{ com.mission }}<br />
-                    {% endif %}
+                    <!-- {% if com.mission %}
+                    <br />{{ com.mission }}
+                    {% endif %}-->
                 </td>
                 <td class="col-2">
                     <div class="dropdown">

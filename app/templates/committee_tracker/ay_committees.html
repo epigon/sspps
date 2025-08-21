@@ -48,12 +48,11 @@ Dashboard
 
                     {% for com in ay_committees %}
                     <tr>
-                        <td><a href="{{url_for('committee.members', ay_committee_id = com.id)}}">{{ com.committee.name
-                                }} ({{ com.committee.short_name }})</a></td>
+                        <td>{{ com.committee.name }} {% if com.committee.short_name %}({{ com.committee.short_name }}){% endif %}</td>
                         {% if has_permission('ay_committee+edit,ay_committee+delete') %}
                         <td>
                             {% if has_permission('ay_committee+edit') %}
-                            <a href="{{url_for('committee.members', ay_committee_id = com.id)}}">Edit</a> |
+                            <a href="{{url_for('committee.members', ay_committee_id = com.id)}}">Members</a> |
                             {% endif %}
                             {% if has_permission('ay_committee+delete') %}
                             <a href="{{url_for('committee.delete_ay_committee', ay_committee_id = com.id)}}">Delete</a>

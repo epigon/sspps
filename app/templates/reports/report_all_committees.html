@@ -33,7 +33,7 @@ Dashboard
 <div class="container-fluid">
     <div class="row">
         <div class="col">
-            {% include "/committee_tracker/_filter_reports.html" %}
+            {% include "/reports/_filter_reports.html" %}
             <div id="tablesContainer" class="mt-3">
                 <!-- Dynamically generated tables will go here -->
             </div>
@@ -99,24 +99,28 @@ Dashboard
 Each Summer, SSPPS Committee Chairs will be contacted to reconfirm faculty committee membership and will be responsible for creating or updating a committee mission statement and reviewing their committee policies.  Any revisions to faculty committee membership should be made in consultation between the SSPPS Committee Chair and the Division Heads.
 </p>
                     <h1>${dept} Committees</h1>`;
-            committees[0].forEach(function (committee) {
+            committees.forEach(function (committee) {
                 formatHtml += `<h2>${committee.name} ${committee.academic_year}</h2>`;
-                if (showMission == 1 && committee.mission) {
+                if (committee.mission) {
                     formatHtml += `<h3>Mission Statement</h3>
                     <p>${committee.mission ? committee.mission : ''}</p>`;
                 }
-                if (showMembers == 1 && committee.members && committee.members.length) {
+                if (committee.members && committee.members.length) {
                     formatHtml += `<h3>Members:</h3>
-                    <p>${committee.members ? committee.members.join('<br/> ') : ''}</p>`;
+                    <p>`;
+                        committee.members.forEach(member => {
+                            formatHtml += `${member.first_name} ${member.last_name} (${member.role})<br/>`;
+                        })
+                    formatHtml += `</p>`;
                 }
-                if (showMeetings == 1 && committee.meetings && committee.meetings.length) {
-                    formatHtml += `<h3>Meetings:</h3>
-                    <p>${committee.meetings ? committee.meetings.join('<br/> ') : ''}</p>`;
-                }
-                if (showDocuments == 1 && committee.documents && committee.documents.length) {
-                    formatHtml += `<h3>Documents:</h3>
-                    <p>${committee.documents ? committee.documents.join('<br/> ') : ''}</p>`;
-                }
+                // if (committee.meetings && committee.meetings.length) {
+                //     formatHtml += `<h3>Meetings:</h3>
+                //     <p>${committee.meetings ? committee.meetings.join('<br/> ') : ''}</p>`;
+                // }
+                // if (committee.documents && committee.documents.length) {
+                //     formatHtml += `<h3>Documents:</h3>
+                //     <p>${committee.documents ? committee.documents.join('<br/> ') : ''}</p>`;
+                // }
             });
             formatHtml += `</div>
     </body>
@@ -147,18 +151,11 @@ Each Summer, SSPPS Committee Chairs will be contacted to reconfirm faculty commi
                                 <tr>
                                     <th>Academic Year</th>
                                     <th>Committee Name</th>`;
-            // if (showMission == 1) {
-                tableHtml += `<th>Mission Statement</th>`;
-            // }
-            // if (showMembers == 1) {
-                tableHtml += `<th>Members</th>`;
-            // }
-            // if (showMeetings == 1) {
-                tableHtml += `<th>Meetings</th>`;
-            // }
-            // if (showDocuments == 1) {
-                tableHtml += `<th>Documents</th>`;
-            // }
+            tableHtml += `<th>Mission Statement</th>`;
+            tableHtml += `<th>Members</th>`;
+            tableHtml += `<th>Meetings</th>`;
+            tableHtml += `<th>Documents</th>`;
+            tableHtml += `<th>Expected Annual Commitment Hours</th>`;
             tableHtml += `</tr>
                         </thead>
                         <tbody>`;
@@ -167,18 +164,16 @@ Each Summer, SSPPS Committee Chairs will be contacted to reconfirm faculty commi
                 tableHtml += `<tr>
                                 <td class="ay">${committee.academic_year}</td>
                                 <td class="committee">${committee.name}</td>`;
-                // if (showMission == 1) {
-                    tableHtml += `<td class="mission">${committee.mission ? committee.mission : ''}</td>`;
-                // }
-                // if (showMembers == 1) {
-                    tableHtml += `<td class="members">${committee.members ? committee.members.join('<br/> ') : ''}</td>`;
-                // }
-                // if (showMeetings == 1) {
-                    tableHtml += `<td class="meetings">${committee.meetings ? committee.meetings.join('<br/> ') : ''}</td>`;
-                // }
-                // if (showDocuments == 1) {
-                    tableHtml += `<td class="documents">${committee.documents ? committee.documents.join('<br/> ') : ''}</td>`;
-                // }
+                tableHtml += `<td class="mission">${committee.mission ? committee.mission : ''}</td>`;
+                // tableHtml += `<td class="members">${committee.members ? committee.members.join('<br/> ') : ''}</td>`;
+                tableHtml += `<td class="members">`;
+                committee.members.forEach(member => {
+                    tableHtml += `${member.first_name} ${member.last_name} (${member.role})<br/>`;
+                })
+                tableHtml += `</td>`;
+                tableHtml += `<td class="meetings">${committee.meetings ? committee.meetings.join('<br/> ') : ''}</td>`;
+                tableHtml += `<td class="documents">${committee.documents ? committee.documents.join('<br/> ') : ''}</td>`;
+                tableHtml += `<td class="hours">${committee.total_expected_hours}</td>`;
                 tableHtml += `</tr>`;
             });
 
@@ -251,8 +246,9 @@ Each Summer, SSPPS Committee Chairs will be contacted to reconfirm faculty commi
                                     text: 'Formatted PDF',
                                     action: function (e, dt, node, config) {
                                         var htmlContent = formatPDF(committees);
+                                        console.log(htmlContent);
 
-                                        $.post('generate_pdf', { html_data: htmlContent, filename: "SSPPS-Committees" }, function (response) {
+                                        $.post('/reports/generate_pdf', { html_data: htmlContent, filename: "SSPPS-Committees" }, function (response) {
                                             var blob = new Blob([response], { type: "application/pdf" });
                                             var link = document.createElement("a");
                                             link.href = window.URL.createObjectURL(blob);
@@ -294,7 +290,7 @@ Each Summer, SSPPS Committee Chairs will be contacted to reconfirm faculty commi
         let committee = $("#committee").val();
         let users = $("#users").val();
         let committeeTypes = $("#committee_type").val();
-        
+
         let showMission = $("#show_mission").prop("checked");
         let showMembers = $("#show_members").prop("checked");
         let showMeetings = $("#show_meetings").prop("checked");
@@ -303,7 +299,7 @@ Each Summer, SSPPS Committee Chairs will be contacted to reconfirm faculty commi
 
         // Fetch filtered data
         $.ajax({
-            url: `/committee_tracker/get_all_committees?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}&sortRole=${sortRole ? 1 : 0}&mission=${showMission ? 1 : 0}&members=${showMembers ? 1 : 0}&meetings=${showMeetings ? 1 : 0}&documents=${showDocuments ? 1 : 0}`,
+            url: `/reports/get_all_committees?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}&sortRole=${sortRole ? 1 : 0}&mission=${showMission ? 1 : 0}&members=${showMembers ? 1 : 0}&meetings=${showMeetings ? 1 : 0}&documents=${showDocuments ? 1 : 0}`,
             method: 'GET',
             success: function (data) {
                 // Clear any previous tables
@@ -339,7 +335,7 @@ Each Summer, SSPPS Committee Chairs will be contacted to reconfirm faculty commi
 
             // Fetch filtered data
             $.ajax({
-                url: `/committee_tracker/get_all_committees?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}&sortRole=${sortRole ? 1 : 0}&mission=${showMission ? 1 : 0}&members=${showMembers ? 1 : 0}&meetings=${showMeetings ? 1 : 0}&documents=${showDocuments ? 1 : 0}`,
+                url: `/reports/get_all_committees?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}&sortRole=${sortRole ? 1 : 0}&mission=${showMission ? 1 : 0}&members=${showMembers ? 1 : 0}&meetings=${showMeetings ? 1 : 0}&documents=${showDocuments ? 1 : 0}`,
                 method: 'GET',
                 success: function (data) {
                     // Clear any previous tables

@@ -5,7 +5,8 @@ $(document).ready(function () {
 
     // Initialize DataTable
     let table = new $('#memberTable').DataTable({
-        pageLength: 10
+        pageLength: 10,
+        responsive: true
     });
 
     $('.dt-input').addClass("me-1"); //add spacing to dt-input select
@@ -208,4 +209,40 @@ $(document).ready(function () {
             }
         });
     });
+
+    // Handle Commitment Hours form
+    $('#commitmentForm').on('submit', function (event) {
+        console.log("Commitment form submit intercepted ✅");
+        event.preventDefault();
+        let $form = $(this);
+        let $message = $('#commitmentMessage');
+        let aycommitteeID = $('#id').val(); 
+        console.log(`/committee_tracker/save_commitment/${aycommitteeID}`)
+        $.ajax({
+            url: `/committee_tracker/save_commitment/${aycommitteeID}`,
+            type: "POST",
+            data: new FormData(this),
+            processData: false,
+            contentType: false,
+            dataType: "json",
+            success: function (data) {
+                if (data.success) {
+                    $message.html(`<div class="alert alert-success">Commitment hours updated successfully!</div>`);
+                } else {
+                    $message.html(`<div class="alert alert-danger">Error: ${data.error || "Validation failed"}</div>`);
+                }
+            },
+            error: function (jqXHR) {
+                let msg = "Request failed.";
+                try {
+                    let response = JSON.parse(jqXHR.responseText);
+                    if (response.error) msg = response.error;
+                } catch (e) {
+                    console.error("Commitment form error response:", jqXHR.responseText);
+                }
+                $message.html(`<div class="alert alert-danger">${msg}</div>`);
+            }
+        });
+    });
+
 });

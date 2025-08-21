@@ -104,7 +104,9 @@ class FrequencyType(db.Model):
     id = Column(Integer, primary_key=True)
     type = Column(String(50), nullable=False)
     multiplier = Column(Integer, nullable=False)
-    committees = relationship('Committee', backref='frequency_type', lazy=True)
+    # aycommittees = relationship('AYCommittee', backref='frequency_type', lazy=True)
+    # ay_committee = relationship('AYCommittee', backref='meeting_frequency_type', lazy=True)
+    ay_committees = relationship("AYCommittee", back_populates="meeting_frequency_type")
     create_date = Column(DateTime, default=datetime.now)
     deleted = Column(Boolean, default=False)
     delete_date = Column(DateTime)
@@ -118,7 +120,6 @@ class Committee(db.Model):
     description = Column(String(255))
     reporting_start = Column(Integer)
     mission = Column(String(8000))
-    frequency_type_id = Column(Integer, ForeignKey('FREQUENCY_TYPES.id'))
     committee_type_id = Column(Integer, ForeignKey('COMMITTEE_TYPES.id'))    
     active = Column(Boolean, default=True)
     ay_committee = relationship('AYCommittee', back_populates='committee', lazy='dynamic')
@@ -128,23 +129,40 @@ class Committee(db.Model):
 
     def __str__(self):
         return f'ID: {self.id}\nCommittee: {self.name}\nShort name: {self.short_name}\nDescription: {self.description}\nMission: {self.mission} \
-        \nReporting start: {self.reporting_start}\nFrequency Type: {self.frequency_type_id}\nType: {self.committee_type_id}'
-    
+        \nReporting start: {self.reporting_start}\nType: {self.committee_type_id}'
+       
 class AYCommittee(db.Model):
-    __tablename__ = 'AY_COMMITTEES'
+    __tablename__ = 'AY_COMMITTEES'    
     id = Column(Integer, primary_key=True)
     committee_id = Column(Integer, ForeignKey('BASE_COMMITTEES.id', ondelete='RESTRICT'), nullable=False)
     academic_year_id = Column(Integer, ForeignKey('ACADEMIC_YEARS.id', ondelete='RESTRICT'), nullable=False)
-    members = relationship("Member", back_populates="ay_committee", cascade="all, delete-orphan")
-    fileuploads = relationship("FileUpload", back_populates="ay_committee", cascade="all, delete-orphan")
-    meetings = relationship("Meeting", back_populates="ay_committee", cascade="all, delete-orphan")
-    academic_year = relationship("AcademicYear", back_populates="ay_committee", cascade="all")
+    meeting_frequency_type_id = Column(Integer, ForeignKey('FREQUENCY_TYPES.id'))
+    meeting_duration_in_minutes = Column(Integer)
+    supplemental_minutes_per_frequency = Column(Integer)
     active = Column(Boolean, default=True)
-    __table_args__ = (UniqueConstraint('committee_id', 'academic_year_id', name='_committee_ay_uc'),)
-    committee = relationship('Committee', back_populates='ay_committee', lazy='joined')
     create_date = Column(DateTime, default=datetime.now)
     deleted = Column(Boolean, default=False)
     delete_date = Column(DateTime)
+    # Relationships
+    members = relationship(
+        "Member",
+        primaryjoin="and_(Member.ay_committee_id==AYCommittee.id, Member.deleted==False)",
+        back_populates="ay_committee"
+    )
+    fileuploads = relationship("FileUpload", back_populates="ay_committee", cascade="all, delete-orphan")
+    meetings = relationship("Meeting", back_populates="ay_committee", cascade="all, delete-orphan")
+    academic_year = relationship("AcademicYear", back_populates="ay_committee", cascade="all")
+    committee = relationship('Committee', back_populates='ay_committee', lazy='joined')
+    # meeting_frequency_type = relationship("FrequencyType", back_populates="ay_committee", cascade="all")
+    meeting_frequency_type = relationship("FrequencyType", back_populates="ay_committees")
+    # meeting_frequency_type = relationship(
+    #     "FrequencyType",
+    #     foreign_keys=[meeting_frequency_type_id],
+    #     overlaps="frequency_type"
+    # )
+    __table_args__ = (
+        UniqueConstraint('committee_id', 'academic_year_id', name='_committee_ay_uc'),
+    )
 
     def __str__(self):
         return f'Committee: {self.committee.name}\nAY: {self.academic_year.year}'
@@ -154,15 +172,34 @@ class Meeting(db.Model):
     id = Column(Integer, primary_key=True)
     title = Column(String(255), nullable=False)  
     date = Column(Date, nullable=False)
-    start_time = Column(Time, nullable=False)
-    end_time = Column(Time, nullable=False)
     location = Column(String(255), nullable=False)
     notes = Column(Text)    
     ay_committee_id = Column(Integer, ForeignKey("AY_COMMITTEES.id"), nullable=False)
     ay_committee = relationship("AYCommittee", back_populates="meetings")
+    attendance = relationship("Attendance", back_populates="meeting", cascade="all, delete-orphan")
     create_date = Column(DateTime, default=datetime.now)
     deleted = Column(Boolean, default=False)
-    delete_date = Column(DateTime)    
+    delete_date = Column(DateTime)
+
+class Attendance(db.Model):
+    __tablename__ = 'ATTENDANCE'
+    id = Column(Integer, primary_key=True)
+    meeting_id = Column(Integer, ForeignKey("MEETINGS.id"), nullable=False)
+    member_id = Column(db.Integer, db.ForeignKey("MEMBERS.id"), nullable=False)
+    status = Column(db.Enum("Present", "Absent", "Excused", name="attendance_status"))
+    meeting = db.relationship("Meeting", back_populates="attendance")
+    # member = db.relationship("Member", backref="attendance")
+    member = db.relationship(
+        "Member",
+        primaryjoin="and_(Attendance.member_id==Member.id, Member.deleted==False, Attendance.deleted==False)",
+        backref="attendance"
+    )
+    create_date = Column(DateTime, default=datetime.now)
+    deleted = Column(Boolean, default=False)
+    delete_date = Column(DateTime)   
+    # __table_args__ = (
+    #     db.UniqueConstraint("meeting_id", "member_id, delete_date", name="uq_meeting_member"),
+    # )
 
 class FileUpload(db.Model):
     __tablename__ = 'FILE_UPLOADS'
@@ -236,39 +273,24 @@ class Employee(db.Model):
                 result[key] = value
         return result
 
-    # def to_dict(self, readable=False):
-    #     """
-    #     Returns dictionary of field names and values.
-    #     If readable=True, use human-readable keys.
-    #     """
-    #     if readable:
-    #         return {
-    #             self.display_labels.get(c.name, c.name): getattr(self, c.name)
-    #             for c in self.__table__.columns
-    #         }
-    #     else:
-    #         return {c.name: getattr(self, c.name) for c in self.__table__.columns}
-        
-
 class Member(db.Model):
-    __tablename__ = 'MEMBERS'
+    __tablename__ = 'MEMBERS'    
     id = Column(Integer, primary_key=True)
     employee_id = Column(Integer, ForeignKey('EMPLOYEES.employee_id'), nullable=False)
     member_role_id = Column(Integer, ForeignKey('MEMBER_ROLES.id'), nullable=False)
+    ay_committee_id = Column(Integer, ForeignKey('AY_COMMITTEES.id'), nullable=False)
     start_date = Column(Date)
     end_date = Column(Date)
-    ay_committee_id = Column(Integer, ForeignKey('AY_COMMITTEES.id'), nullable=False)    
     voting = Column(Boolean, default=True)
     create_date = Column(DateTime, default=datetime.now)
     notes = Column(String(255))
-    delete_date = Column(DateTime)
     deleted = Column(Boolean, default=False)
-    ay_committee = relationship("AYCommittee", back_populates="members")
-    employee = relationship("Employee", backref="members")  # Link to Employee
-    member_role = relationship("MemberRole", backref="members")  # Link to MemberRole
+    delete_date = Column(DateTime)
 
-    # def __str__(self):
-    #     return f'Member: {self.member}\nType: {self.member_type_id}\nRole: {self.member_role_id}'
+    # Relationships
+    ay_committee = relationship("AYCommittee", back_populates="members")
+    employee = relationship("Employee", backref="members")
+    member_role = relationship("MemberRole", backref="members")
 
 class MemberType(db.Model):
     __tablename__ = 'MEMBER_TYPES'

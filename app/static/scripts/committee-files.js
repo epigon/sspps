@@ -9,7 +9,7 @@ $(document).ready(function () {
     let fileList = $("#file-list");
     let uploadForm = $("#upload-form");
     let uploadStatus = $("#upload-status");
-    let filesTable = new $("#files-table").DataTable();
+    let filesTable = $("#files-table").DataTable({responsive: true});
 
     // Load existing files
     function loadFiles() {
@@ -135,6 +135,7 @@ $(document).ready(function () {
     $(document).on("click", ".delete-file-btn", function () {
         let file_id = $(this).data("file-id");
         let file_name = $(this).data("file-name");
+        let row = $(this).closest('tr'); // get the row to remove
         let confirmed = confirm("Are you sure you want to delete " + file_name + "?")
         if (!confirmed) return;
         $.ajax({
@@ -143,7 +144,8 @@ $(document).ready(function () {
             contentType: "application/json",
             success: function (response) {
                 $('#upload-status').text(response.message).removeClass('alert-danger').addClass('alert alert-success');
-                loadFiles(); // Refresh DataTable
+                filesTable.row(row).remove().draw(false); 
+                // loadFiles(); // Refresh DataTable
             },
             error: function (response) {
                 uploadStatus.text(response.responseJSON.error).css("color", "red");

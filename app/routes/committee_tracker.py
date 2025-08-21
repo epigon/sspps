@@ -1,24 +1,14 @@
 from app.utils import admin_required, permission_required, has_permission
-from app.models import db, AcademicYear, AYCommittee, Committee, Member, MemberRole, FrequencyType, CommitteeType, Employee, Meeting, FileUpload, MemberTask, MemberType, User, Role, Permission
-from app.forms import AcademicYearForm, AYCommitteeForm, CommitteeForm, CommitteeReportForm, MemberForm, MemberRoleForm, MemberTaskForm, MemberTypeForm, MeetingForm, FileUploadForm, FrequencyTypeForm, CommitteeTypeForm
-from bs4 import BeautifulSoup
-from collections import defaultdict
+from app.models import db, AcademicYear, Attendance, AYCommittee, Committee, Member, MemberRole, FrequencyType, CommitteeType, Employee, Meeting, FileUpload, User, Role, Permission
+from app.forms import AYCommitteeForm, CommitteeForm, CommitteeReportForm, MemberForm, MemberRoleForm, MeetingForm, FileUploadForm, FrequencyTypeForm, CommitteeTypeForm
 from datetime import datetime
-from flask import render_template, redirect, url_for, request, flash, jsonify, Blueprint, send_file, abort, make_response
+from flask import render_template, redirect, url_for, request, flash, jsonify, Blueprint
 from flask_login import login_required
 from .academic_years import get_academic_years
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import joinedload, selectinload, with_loader_criteria
-from sqlalchemy.sql import func
-from urllib.parse import urljoin, urlparse, parse_qs
+from sqlalchemy.orm import joinedload, with_loader_criteria
 from werkzeug.utils import secure_filename
-from xhtml2pdf import pisa
-import io
 import os
-import pandas as pd
-import re
-import sys
-import traceback
 
 bp = Blueprint('committee', __name__, url_prefix='/committee_tracker')
 
@@ -57,10 +47,10 @@ def base_committees():
 def edit_committee(committee_id:int=None):
     committee = Committee.query.filter_by(id=committee_id, deleted=False).first() if committee_id else Committee()
     form = CommitteeForm(original_name=committee.name if committee.id else None, obj=committee)
-    form.frequency_type_id.choices = []
+    # form.frequency_type_id.choices = []
+    # for row in get_frequency_types():
+    #     form.frequency_type_id.choices.append([row.id, row.type])
     form.committee_type_id.choices = []
-    for row in get_frequency_types():
-        form.frequency_type_id.choices.append([row.id, row.type])
     for row in get_committee_types():
         form.committee_type_id.choices.append([row.id, row.type])
 
@@ -70,7 +60,6 @@ def edit_committee(committee_id:int=None):
         committee.description=form.description.data
         committee.reporting_start=form.reporting_start.data
         committee.mission = form.mission.data
-        committee.frequency_type_id=form.frequency_type_id.data
         committee.committee_type_id=form.committee_type_id.data
         try:
             db.session.add(committee)
@@ -137,37 +126,81 @@ def ay_committees(academic_year_id:int=None):
 
     return render_template('committee_tracker/ay_committees.html', ay_committees=current_ay_committees, current_year=current_year, academic_years=academic_years, breadcrumbs=custom_breadcrumbs)
 
+@bp.route('/ay_committees_by_user/<int:user_id>')
+@permission_required('ay_committee+view, ay_committee+add, ay_committee+edit, ay_committee+delete')
+def ay_committees_by_user(user_id:int):
+
+    user = User.query.filter_by(id=user_id, deleted=False).first() 
+
+    if user.id:
+        employee = Employee.query.filter_by(employee_id=user.employee_id).first()
+
+    form=CommitteeReportForm()
+
+    # Academic Year choices
+    form.academic_year.choices = [(0, "All")]
+    form.academic_year.choices += [(row.id, row.year) for row in get_academic_years()]
+    form.academic_year.data = [0]  # Select "All" by default
+
+    # Committee choices
+    form.committee.choices = [(0, "All")]
+    form.committee.choices += [(row.id, row.name) for row in get_committees()]
+    form.committee.data = [0]
+
+    # Committee Type choices
+    form.committee_type.choices = [(0, "All")]
+    form.committee_type.choices += [(row.id, row.type) for row in get_committee_types()]
+    form.committee_type.data = [0]
+
+    # User choices
+    form.users.choices = [(row.employee_id, f"{row.employee_last_name}, {row.employee_first_name}") for row in get_employees() if row.employee_id == employee.employee_id]
+    form.users.data = [employee.employee_id]
+
+    return render_template('committee_tracker/report_by_member.html', form=form)
+
 # Add a Committee    
 @bp.route('/ay_committee/new', methods=['GET', 'POST'])
 @permission_required('ay_committee+add, ay_committee+edit')
-def ay_committee():
-    academic_year_id = request.args.get('academic_year_id', type=int)
-    form = AYCommitteeForm()
-    form.academic_year_id.choices = [(0, 'Select Academic Year')]
-    for row in get_academic_years():
-        form.academic_year_id.choices.append([row.id, row.year])
-    
-    form.committee_id.choices = [(0, 'Select Committee')]
-    for row in get_committees():
-        short_name = " ("+row.short_name+")" if row.short_name else ""
-        form.committee_id.choices.append([row.id, row.name + short_name])
-    
+def ay_committee(ay_committee_id:int=None):
+
+    form = AYCommitteeForm(academic_year_id = request.args.get('academic_year_id', type=int))
+
+    # build select field choices
+    form.academic_year_id.choices = [(0, 'Select Academic Year')] + [
+        (row.id, row.year) for row in get_academic_years()
+    ]
+
+    form.committee_id.choices = [(0, 'Select Committee')] + [
+        (row.id, f"{row.name} ({row.short_name})" if row.short_name else row.name)
+        for row in get_committees()
+    ]
+
+    form.meeting_frequency_type_id.choices = [
+        (row.id, row.type) for row in get_frequency_types()
+    ]
+
+    if request.method == "GET":
+        form.process()
+
+
     if form.validate_on_submit():
-        new_committee = AYCommittee(
-                                academic_year_id=form.academic_year_id.data,
-                                committee_id=form.committee_id.data
-                                )
+        aycommittee = AYCommittee()
+        aycommittee.academic_year_id=form.academic_year_id.data
+        aycommittee.committee_id=form.committee_id.data                     
+        aycommittee.meeting_frequency_type_id=form.meeting_frequency_type_id.data
+        aycommittee.meeting_duration_in_minutes=form.meeting_duration_in_minutes.data
+        aycommittee.supplemental_minutes_per_frequency=form.supplemental_minutes_per_frequency.data
+
         try:
-            db.session.add(new_committee)
+            db.session.add(aycommittee)
             db.session.commit()
-            flash("New committee has been created!", 'success')   
-            return redirect(url_for('committee.members', ay_committee_id = new_committee.id))
+            flash("Committee has been saved!", 'success')   
+            return redirect(url_for('committee.members', ay_committee_id = aycommittee.id))
 
         except IntegrityError as err:
             db.session.rollback()
             err_msg = err.args[0]
             if "UNIQUE KEY constraint" in err_msg:
-                # aycom = db.session.query(AYCommittee).filter_by(academic_year_id=form.academic_year_id.data, committee_id=form.committee_id.data).first()
                 aycom = AYCommittee.query.filter_by(academic_year_id=form.academic_year_id.data, committee_id=form.committee_id.data, deleted=False).first()
                 flash(f"Warning: Committee name already exists {aycom.committee.name} for {aycom.academic_year.year}. \n You can edit it here.", 'warning')
                 return redirect(url_for('committee.members', ay_committee_id = aycom.id))
@@ -175,10 +208,26 @@ def ay_committee():
                 flash("ERROR: (%s)" % err_msg, 'danger')
                 return render_template('committee_tracker/edit_ay_committee.html', form=form)
     
-    form.academic_year_id.default = academic_year_id if academic_year_id else 0
-    form.process()
-
     return render_template('committee_tracker/edit_ay_committee.html', form=form)
+
+@bp.route("/save_commitment/<int:ay_committee_id>", methods=["POST"])
+@permission_required('ay_committee+add, ay_committee+edit')
+def save_commitment(ay_committee_id):
+    form = AYCommitteeForm()
+
+    # Populate choices before validation
+    form.academic_year_id.choices = [(ay.id, ay.year) for ay in get_academic_years()]
+    form.committee_id.choices = [(c.id, f"{c.name} ({c.short_name})" if c.short_name else c.name) for c in get_committees()]
+    form.meeting_frequency_type_id.choices = [(f.id, f.type) for f in get_frequency_types()]
+    
+    if form.validate_on_submit():
+        aycommittee = AYCommittee.query.get_or_404(ay_committee_id)
+        aycommittee.meeting_frequency_type_id = form.meeting_frequency_type_id.data
+        aycommittee.meeting_duration_in_minutes = form.meeting_duration_in_minutes.data
+        aycommittee.supplemental_minutes_per_frequency = form.supplemental_minutes_per_frequency.data
+        db.session.commit()
+        return jsonify(success=True, message="Commitment hours updated")
+    return jsonify(success=False, error=form.errors)
 
 @bp.route('/delete_ay_committee/<int:ay_committee_id>')
 @permission_required('ay_committee+delete')
@@ -407,13 +456,6 @@ def members(ay_committee_id:int):
     memberForm.ay_committee_id.data = ay_committee_id
     memberForm.employee_id.choices = [('', 'Select one')]
     memberForm.member_role_id.choices = [('', 'Select one')]
-    # for row in get_employees():
-    #     memberForm.employee_id.choices.append([row.employee_id, row.employee_last_name+', '+row.employee_first_name+' ('+row.username+')'])
-    # for row in get_member_roles():
-    #     memberForm.member_role_id.choices.append([row.id, row.role])
-    
-    memberForm.employee_id.choices = [('', 'Select one')]
-    memberForm.member_role_id.choices = [('', 'Select one')]
 
     for row in get_employees():
         memberForm.employee_id.choices.append(
@@ -423,30 +465,39 @@ def members(ay_committee_id:int):
     for row in get_member_roles():
         memberForm.member_role_id.choices.append((row.id, row.role))
 
-    aycommittee = (
-        AYCommittee.query
-        .filter_by(id=ay_committee_id, deleted=False)
-        .options(
+    aycommittee = AYCommittee.query.filter_by(id=ay_committee_id, deleted=False).options(
             joinedload(AYCommittee.members),
             joinedload(AYCommittee.fileuploads),
             joinedload(AYCommittee.meetings),
-            # with_loader_criteria(Member, lambda m: m.deleted == False),
+            with_loader_criteria(Member, lambda m: m.deleted == False),
             with_loader_criteria(FileUpload, lambda f: f.deleted == False),
             with_loader_criteria(Meeting, lambda m: m.deleted == False),
-        )
-        .all()
-    )
-
-    for com in aycommittee:
-        for member in com.members:
-            # member.user = db.session.query(Employee).filter_by(employee_id=member.employee_id).first()
-            # member.member_role = db.session.query(MemberRole).filter_by(id=member.member_role_id, deleted=False).first()
-            member.user = Employee.query.filter_by(employee_id=member.employee_id).first()
-            member.member_role = MemberRole.query.filter_by(id=member.member_role_id, deleted=False).first()
-
+        ).first() if ay_committee_id else AYCommittee()
+    
     meetingForm = MeetingForm(ay_committee_id=ay_committee_id)
     uploadForm = FileUploadForm(ay_committee_id=ay_committee_id)
-    return render_template('committee_tracker/members.html', memberForm = memberForm, meetingForm = meetingForm, uploadForm = uploadForm, aycommittee = aycommittee)
+
+    aycommitteeForm = AYCommitteeForm(obj=aycommittee)
+
+    # build select field choices
+    aycommitteeForm.academic_year_id.choices = [(0, 'Select Academic Year')] + [
+        (row.id, row.year) for row in get_academic_years()
+    ]
+
+    aycommitteeForm.committee_id.choices = [(0, 'Select Committee')] + [
+        (row.id, f"{row.name} ({row.short_name})" if row.short_name else row.name)
+        for row in get_committees()
+    ]
+
+    aycommitteeForm.meeting_frequency_type_id.choices = [
+        (row.id, f"{row.type} ({row.multiplier}x/year)") for row in get_frequency_types()
+    ]
+
+    if request.method == "GET":
+        aycommitteeForm.process(obj=aycommittee)
+
+    return render_template('committee_tracker/members.html', aycommitteeForm=aycommitteeForm, memberForm=memberForm, meetingForm=meetingForm, 
+                           uploadForm=uploadForm, aycommittee=aycommittee)
 
 @bp.route('/add_member', methods=['POST'])
 @permission_required("member+add, member+edit")
@@ -691,7 +742,7 @@ def delete_file(file_id:int):
 @permission_required("meeting+view, meeting+add, meeting+edit, meeting+delete")
 def meetings(ay_committee_id:int):
     allMeetings = Meeting.query.filter_by(ay_committee_id=ay_committee_id, deleted=False).all()
-    meetings = [{"title": row.title, "date": row.data, "start_time": row.start_time, "end_time": row.end_time, "location": row.location, \
+    meetings = [{"title": row.title, "date": row.data, "location": row.location, \
                 "notes": row.notes, "id": row.id} for row in allMeetings]
     return jsonify({"meetings": meetings})
 
@@ -712,19 +763,13 @@ def save_meeting():
         meeting.ay_committee_id = request.form["ay_committee_id"]
         meeting.title = request.form["title"]
         meeting.date = request.form["date"]
-        meeting.start_time = request.form["start_time"]
-        meeting.end_time = request.form["end_time"]
         meeting.location = request.form["location"]
         meeting.notes = request.form["notes"]
 
         db.session.add(meeting)
         db.session.commit()
 
-        # allMeetings = db.session.query(Meeting).filter_by(ay_committee_id=meeting.ay_committee_id).all()
-        allMeetings = Meeting.query.filter_by(ay_committee_id=meeting.ay_committee_id, deleted=False).all()
-        meetings = [{"title": row.title, "date": row.date.strftime('%Y-%m-%d'), "start_time": row.start_time.strftime('%H:%M'), "end_time": row.end_time.strftime('%H:%M'), "location": row.location, \
-                "notes": row.notes, "id": row.id} for row in allMeetings]
-        return jsonify({"meetings": meetings})
+        return jsonify({"success": True, "meetings": get_meetings_json(meeting.ay_committee_id)})
     else:
         print("error")
         return jsonify({"error": "Invalid data"}), 400
@@ -734,19 +779,110 @@ def save_meeting():
 def delete_meeting(meeting_id:int):
     try:
         meeting = Meeting.query.filter_by(id=meeting_id, deleted=False).first()
+        ay_committee_id = meeting.ay_committee_id
 
         if not meeting:
             return jsonify({"error": "Meeting not found"}), 404
 
         meeting.delete_date = datetime.now()
         meeting.deleted = True
-        # db.session.delete(meeting)
         db.session.commit()
 
-        return jsonify({"success": True})
+        return jsonify({"success": True, "meetings": get_meetings_json(ay_committee_id)})
     except Exception as e:
         db.session.rollback()
         return jsonify({"success": False, "message": str(e)})
+
+# @bp.route("/<int:ay_committee_id>/attendance/save", methods=["POST"])
+@bp.route("/save_attendance", methods=["POST"])
+def save_attendance():
+    try:
+        meeting_id = request.form.get("meeting_id")
+        meeting = Meeting.query.get_or_404(meeting_id)
+
+        if not meeting_id:
+            print("No meeting specified.")
+            flash("No meeting specified.", "danger")
+            return redirect(request.referrer)
+
+        # Loop through all form keys starting with 'status_'
+        for key, value in request.form.items():
+            if key.startswith("status_"):
+                print(key, value)
+                member_id = key.replace("status_", "")
+                status = value.strip()  # Can be '', "Present", "Absent", or "Excused"
+
+                # Find existing attendance record or create a new one
+                attendance = Attendance.query.filter_by(
+                    meeting_id=meeting_id,
+                    member_id=member_id
+                ).first()
+
+                if attendance:
+                    # Update existing record
+                    attendance.status = status if status else None
+                else:
+                    # Create new record
+                    new_attendance = Attendance(
+                        meeting_id=meeting_id,
+                        member_id=member_id,
+                        status=status if status else None
+                    )
+                    db.session.add(new_attendance)
+
+        db.session.commit()
+        return jsonify({"success": True, "meetings": get_meetings_json(meeting.ay_committee_id)})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)})
+
+@bp.route("/<int:ay_committee_id>/meetings/json")
+def meetings_json(ay_committee_id: int):
+    print("meetings_json",jsonify(get_meetings_json(ay_committee_id)))
+    return jsonify(get_meetings_json(ay_committee_id))
+
+def get_meetings_json(ay_committee_id):
+    meetings = Meeting.query.filter_by(ay_committee_id=ay_committee_id, deleted=False).all()
+    data = []
+    for m in meetings:
+        member_statuses = []
+        for member in m.ay_committee.members:
+            if member.deleted:
+                continue
+            record = next((a for a in m.attendance if a.member_id == member.id), None)
+            status = record.status if record else "—"
+            member_statuses.append({
+                "name": f"{member.employee.employee_last_name}, {member.employee.employee_first_name}",
+                "status": status
+            })
+
+        data.append({
+            "id": m.id,
+            "title": m.title,
+            "date": m.date.strftime("%Y-%m-%d"),
+            "location": m.location or "",
+            "notes": m.notes or "",
+            "attendance": member_statuses
+        })
+    return data
+
+@bp.route("/<int:ay_committee_id>/meeting/<int:meeting_id>/attendance/json")
+@permission_required("meeting+view")
+def meeting_attendance_json(ay_committee_id, meeting_id):
+    meeting = Meeting.query.filter_by(id=meeting_id, ay_committee_id=ay_committee_id, deleted=False).first()
+    if not meeting:
+        return jsonify({"members": [], "attendance": {}})
+
+    # Build members list
+    members = [
+        {"id": m.id, "first_name": m.employee.employee_first_name, "last_name": m.employee.employee_last_name}
+        for m in meeting.ay_committee.members if not m.deleted
+    ]
+
+    # Build existing attendance dict
+    attendance = {a.member_id: a.status for a in meeting.attendance if not a.deleted}
+
+    return jsonify({"members": members, "attendance": attendance})
 
 @permission_required("frequency_type+view, frequency_type+add, frequency_type+edit, frequency_type+delete")
 def get_frequency_types():
@@ -763,306 +899,6 @@ def get_member_roles():
     mroles = MemberRole.query.filter_by(deleted=False).order_by(MemberRole.role).all()
     return mroles
 
-@bp.route("/get_all_committees", methods=["GET"])
-@permission_required("committee_report+view")
-def get_all_committees():
-    
-    query = AYCommittee.query.options(
-        selectinload(AYCommittee.academic_year),
-        selectinload(AYCommittee.committee).joinedload(Committee.committee_type),
-        selectinload(AYCommittee.members).joinedload(Member.employee),
-        selectinload(AYCommittee.members).joinedload(Member.member_role),
-        selectinload(AYCommittee.meetings),
-        selectinload(AYCommittee.fileuploads),
-        with_loader_criteria(Member, lambda m: m.deleted == False),
-        with_loader_criteria(Meeting, lambda m: m.deleted == False),
-        with_loader_criteria(FileUpload, lambda f: f.deleted == False),
-        with_loader_criteria(AcademicYear, lambda ay: ay.deleted == False),
-        with_loader_criteria(CommitteeType, lambda ct: ct.deleted == False),
-    ).filter(AYCommittee.deleted == False)
-
-    # Explicitly join and filter academic_year and committee to ensure it's not None
-    query = query.join(AYCommittee.academic_year).filter(AcademicYear.deleted == False)
-    query = query.join(AYCommittee.committee).filter(Committee.deleted == False)
-    query = query.join(Committee.committee_type).filter(CommitteeType.deleted == False)
-    query = query.join(AYCommittee.members).filter(Member.deleted == False).join(Member.employee)
-
-    # Filter by employee_id if provided
-    filter_user = request.args.get("users", "")
-    if filter_user and filter_user != "0":
-        employee_ids = [int(id) for id in filter_user.split(",")]
-        query = query.filter(Member.employee_id.in_(employee_ids))
-
-    # Filter by academic_year_ids if provided
-    filter_year_ids = request.args.get("years", "")
-    if filter_year_ids and filter_year_ids != "0":
-        year_ids = [int(y) for y in filter_year_ids.split(",")]
-        query = query.filter(AYCommittee.academic_year_id.in_(year_ids))
-
-    # Filter by committee_ids if provided
-    filter_committee_ids = request.args.get("committees", "")
-    if filter_committee_ids and filter_committee_ids != "0":
-        committee_ids = [int(c) for c in filter_committee_ids.split(",")]
-        query = query.filter(AYCommittee.committee_id.in_(committee_ids))
-
-    # Filter by committee_type_ids if provided
-    filter_committee_type = request.args.get("types", "")
-    if filter_committee_type and filter_committee_type != "0":
-        type_ids = [int(ct) for ct in filter_committee_type.split(",")]
-        query = query.filter(Committee.committee_type_id.in_(type_ids))
-
-    # Fetch results    
-    aycommittees = query.all()
-
-    # Only show filtered members
-    if filter_user and filter_user != "0":
-        for committee in aycommittees:
-            committee.members = [m for m in committee.members if m.employee_id in employee_ids]
-
-    # Sort members by role default_order
-    for committee in aycommittees:
-        committee.members.sort(key=lambda m: m.member_role.default_order if m.member_role and m.member_role.default_order is not None else 999)
-
-    # Build results
-    committees = []
-    for com in aycommittees:
-        committee_data = {
-            "academic_year": com.academic_year.year,
-            "id": com.id,
-            "name": com.committee.name + (f" ({com.committee.short_name})" if com.committee.short_name else ""),
-            "mission": com.committee.mission,
-            "members": [
-                f"{member.employee.employee_name} ({member.member_role.role}) ({member.employee.job_code_description})"
-                for member in com.members
-            ],
-            "meetings": [
-                f"{meeting.title} ({meeting.date.strftime('%Y-%m-%d')})"
-                for meeting in com.meetings
-            ],
-            "documents": [doc.filename for doc in com.fileuploads],
-        }
-        committees.append(committee_data)
-
-    return jsonify(committees)
-
-@bp.route("/get_committees_by_member", methods=["GET"])
-@permission_required("committee_report+view")
-def get_committees_by_member():
-
-    query = Member.query.join(Member.ay_committee)\
-                .join(AYCommittee.committee)\
-                .join(AYCommittee.academic_year)\
-                .join(Committee.committee_type)
-    query = query.filter(
-        Member.deleted == False,
-        AYCommittee.deleted == False,
-        Committee.deleted == False,
-        CommitteeType.deleted == False,
-        AcademicYear.deleted == False
-    )
-
-    # Filter by employee_id if provided
-    filter_user = request.args.get("users", "")
-    if filter_user and filter_user != "0":
-        employee_ids = [int(id) for id in filter_user.split(",")]
-        query = query.filter(Member.employee_id.in_(employee_ids))
-
-    # Filter by academic_year_ids if provided
-    filter_year_ids = request.args.get("years", "")
-    if filter_year_ids and filter_year_ids != "0":
-        year_ids = [int(y) for y in filter_year_ids.split(",")]
-        query = query.filter(AYCommittee.academic_year_id.in_(year_ids))
-
-    # Filter by committee_ids if provided
-    filter_committee_ids = request.args.get("committees", "")
-    if filter_committee_ids and filter_committee_ids != "0":
-        committee_ids = [int(c) for c in filter_committee_ids.split(",")]
-        query = query.filter(AYCommittee.committee_id.in_(committee_ids))
-
-    # Filter by committee_type_ids if provided
-    filter_committee_type = request.args.get("types", "")
-    if filter_committee_type and filter_committee_type != "0":
-        type_ids = [int(ct) for ct in filter_committee_type.split(",")]
-        query = query.filter(Committee.committee_type_id.in_(type_ids))
-
-    # Fetch results
-    members = query.all()
-
-    member_data = defaultdict(lambda: {
-        "employee_id": None,
-        "first_name": None,
-        "last_name": None,
-        "job_code": None,
-        "years": set(),
-        "committees": defaultdict(lambda: {"id": "", "name": "", "short_name": "", "roles": {}})
-    })
-
-    for row in members:
-        employee_id = row.employee_id
-        role = row.member_role.role
-        first_name = row.employee.employee_first_name
-        last_name = row.employee.employee_last_name
-        job_code = row.employee.job_code_description
-        committee = row.ay_committee.committee
-        academic_year = row.ay_committee.academic_year.year
-
-        member = member_data[employee_id]
-        member["employee_id"] = employee_id
-        member["first_name"] = first_name
-        member["last_name"] = last_name
-        member["job_code"] = job_code
-        member["years"].add(academic_year)
-    
-        committee_data = member["committees"][committee.id]
-        committee_data["id"] = committee.id
-        committee_data["name"] = committee.name
-        committee_data["short_name"] = committee.short_name    
-        committee_data["roles"][academic_year] = role
-
-    # Finalize JSON structure
-    results = []
-    for member in member_data.values():
-        results.append({
-            "employee_id": member["employee_id"],
-            "first_name": member["first_name"],
-            "last_name": member["last_name"],
-            "job_code": member["job_code"],
-            "years": sorted(member["years"]),
-            "committees": list(member["committees"].values())
-        })
-    
-    # Sort by last_name (case-insensitive)
-    results.sort(key=lambda x: x["last_name"].lower())
-
-    return results
-
-@bp.route("/get_committees_by_assignment", methods=["GET"])
-@permission_required("committee_report+view")
-def get_committees_by_assignment():
-
-    query = Member.query.join(Member.ay_committee)\
-                .join(AYCommittee.committee)\
-                .join(AYCommittee.academic_year)\
-                .join(Committee.committee_type)
-    query = query.filter(
-        Member.deleted == False,
-        AYCommittee.deleted == False,
-        Committee.deleted == False,
-        CommitteeType.deleted == False,
-        AcademicYear.deleted == False
-    )
-
-    # Filter by employee_id if provided
-    filter_user = request.args.get("users", "")
-    if filter_user and filter_user != "0":
-        employee_ids = [int(id) for id in filter_user.split(",")]
-        query = query.filter(Member.employee_id.in_(employee_ids))
-
-    # Filter by academic_year_ids if provided
-    filter_year_ids = request.args.get("years", "")
-    if filter_year_ids and filter_year_ids != "0":
-        year_ids = [int(y) for y in filter_year_ids.split(",")]
-        query = query.filter(AYCommittee.academic_year_id.in_(year_ids))
-
-    # Filter by committee_ids if provided
-    filter_committee_ids = request.args.get("committees", "")
-    if filter_committee_ids and filter_committee_ids != "0":
-        committee_ids = [int(c) for c in filter_committee_ids.split(",")]
-        query = query.filter(AYCommittee.committee_id.in_(committee_ids))
-
-    # Filter by committee_type_ids if provided
-    filter_committee_type = request.args.get("types", "")
-    if filter_committee_type and filter_committee_type != "0":
-        type_ids = [int(ct) for ct in filter_committee_type.split(",")]
-        query = query.filter(Committee.committee_type_id.in_(type_ids))
-
-    # Fetch results
-    members = query.all()
-
-    committee_data = defaultdict(lambda: {
-        "committee_id": None,
-        "name": None,
-        "short_name": None,
-        "description": None,
-        "mission": None,
-        "reporting_start": None,
-        "committee_type": None,
-        "frequency_type": None,
-        "years": set(),
-        "members": defaultdict(lambda: {"employee_id": "", "first_name": "", "last_name": "", "job_code" : "", "roles": {}})
-    })
-
-    for mem in members:
-        com = mem.ay_committee
-        committee = com.committee
-        year = com.academic_year
-
-        cdata = committee_data[committee.id]
-        cdata["committee_id"] = committee.id
-        cdata["name"] = committee.name
-        cdata["short_name"] = committee.short_name or ""
-        cdata["description"] = committee.description or ""
-        cdata["mission"] = committee.mission or ""
-        cdata["committee_type"] = committee.committee_type.type if committee.committee_type_id else ""
-        cdata["years"].add(year.year)
-
-        emp = mem.employee
-        mrole = mem.member_role.role
-
-        member = cdata["members"][emp.employee_id]
-        member["employee_id"] = emp.employee_id
-        member["first_name"] = emp.employee_first_name
-        member["last_name"] = emp.employee_last_name
-        member["job_code"] = emp.job_code_description
-        member["roles"][year.year] = mrole
-
-    # Finalize JSON structure
-    results = []
-    for committee in committee_data.values():
-        results.append({
-            "committee_id": committee["committee_id"],
-            "name": committee["name"],
-            "short_name": committee["short_name"],
-            "description": committee["description"],
-            "mission": committee["mission"],
-            "reporting_start": committee["reporting_start"],
-            "committee_type": committee["committee_type"],
-            "frequency_type": committee["frequency_type"],
-            "years": sorted(committee["years"]),
-            "members": list(committee["members"].values())
-        })
-    
-    # Sort by name (case-insensitive)
-    results.sort(key=lambda x: x["name"].lower())
-    
-    return results
-
-@bp.route('/generate_pdf', methods=['POST'])
-@permission_required("committee_report+view")
-def generate_pdf():
-    html_content = request.form.get('html_data')
-
-    # Check if html_content is None and return an error
-    if not html_content:
-        return "Error: No HTML data received", 400
-
-    pdf_file = convert_html_to_pdf(html_content)
-    if pdf_file:
-        return send_file(pdf_file, download_name=request.form.get('filename')+".pdf", as_attachment=True)
-    return "Error generating PDF", 500
-
-@permission_required("committee_report+view")
-def convert_html_to_pdf(html_content):
-    """Converts HTML content to a PDF file in memory."""
-    pdf_file = io.BytesIO()
-    pisa_status = pisa.CreatePDF(io.BytesIO(html_content.encode("utf-8")), pdf_file)
-
-    if pisa_status.err:
-        return None
-    pdf_file.seek(0)
-    return pdf_file
-
-# @permission_required("committees+view, committees+add, committees+edit, committees+delete")
 def get_committees():
     data = Committee.query.filter_by(deleted=False).order_by(Committee.name).all()
     return data
@@ -1071,84 +907,3 @@ def get_committees():
 def get_employees():
     data = Employee.query.filter(Employee.username.isnot(None),Employee.employee_status == 'Active').order_by(Employee.employee_last_name,Employee.employee_first_name).all()
     return data
-
-@bp.route('/report_all_committees/')
-@permission_required("committee_report+view")
-def report_all_committees():
-    form=CommitteeReportForm()
-
-    # Academic Year choices
-    form.academic_year.choices = [(0, "All")]
-    form.academic_year.choices += [(row.id, row.year) for row in get_academic_years()]
-    form.academic_year.data = [0]  # Select "All" by default
-
-    # Committee choices
-    form.committee.choices = [(0, "All")]
-    form.committee.choices += [(row.id, row.name) for row in get_committees()]
-    form.committee.data = [0]
-
-    # Committee Type choices
-    form.committee_type.choices = [(0, "All")]
-    form.committee_type.choices += [(row.id, row.type) for row in get_committee_types()]
-    form.committee_type.data = [0]
-
-    # User choices
-    form.users.choices = [(0, "All")]
-    form.users.choices += [(row.employee_id, f"{row.employee_last_name}, {row.employee_first_name}") for row in get_employees()]
-    form.users.data = [0]
-
-    return render_template('committee_tracker/report_all_committees.html', form=form)
-
-@bp.route('/member_report/')
-@permission_required("committee_report+view")
-def member_report():
-    form=CommitteeReportForm()
-
-    # Academic Year choices
-    form.academic_year.choices = [(0, "All")]
-    form.academic_year.choices += [(row.id, row.year) for row in get_academic_years()]
-    form.academic_year.data = [0]  # Select "All" by default
-
-    # Committee choices
-    form.committee.choices = [(0, "All")]
-    form.committee.choices += [(row.id, row.name) for row in get_committees()]
-    form.committee.data = [0]
-
-    # Committee Type choices
-    form.committee_type.choices = [(0, "All")]
-    form.committee_type.choices += [(row.id, row.type) for row in get_committee_types()]
-    form.committee_type.data = [0]
-
-    # User choices
-    form.users.choices = [(0, "All")]
-    form.users.choices += [(row.employee_id, f"{row.employee_last_name}, {row.employee_first_name}") for row in get_employees()]
-    form.users.data = [0]
-
-    return render_template('committee_tracker/report_by_member.html', form=form)
-
-@bp.route('/assignment_report/')
-@permission_required("committee_report+view")
-def assignment_report():
-    form=CommitteeReportForm()
-
-    # Academic Year choices
-    form.academic_year.choices = [(0, "All")]
-    form.academic_year.choices += [(row.id, row.year) for row in get_academic_years()]
-    form.academic_year.data = [0]  # Select "All" by default
-
-    # Committee choices
-    form.committee.choices = [(0, "All")]
-    form.committee.choices += [(row.id, row.name) for row in get_committees()]
-    form.committee.data = [0]
-
-    # Committee Type choices
-    form.committee_type.choices = [(0, "All")]
-    form.committee_type.choices += [(row.id, row.type) for row in get_committee_types()]
-    form.committee_type.data = [0]
-
-    # User choices
-    form.users.choices = [(0, "All")]
-    form.users.choices += [(row.employee_id, f"{row.employee_last_name}, {row.employee_first_name}") for row in get_employees()]
-    form.users.data = [0]
-
-    return render_template('committee_tracker/report_by_assignment.html', form=form)

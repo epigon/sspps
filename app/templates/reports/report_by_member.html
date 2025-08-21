@@ -16,6 +16,22 @@ Dashboard
     .cell-bold {
         font-weight: bold;
     }
+
+    .commitment-cell {
+        text-align: right;
+        font-weight: 500;
+        padding: 4px;
+        color: #222;
+    }
+
+    .heatmap-legend span {
+        color: #444;
+    }
+
+    .totals-row {
+        background-color: #f5f5f5;
+        font-weight: bold;
+    }
 </style>
 
 {% endblock %}
@@ -36,7 +52,20 @@ Dashboard
 <div class="container-fluid">
     <div class="row">
         <div class="col">
-            {% include "/committee_tracker/_filter_reports.html" %}
+            {% include "/reports/_filter_reports.html" %}
+            <div class="heatmap-legend" style="display:flex;align-items:center;gap:8px;margin:10px 0;">
+                <span>Commitment Legend:</span>
+                <span style="font-size:0.85em;">0%</span>
+                <div style="flex:1;height:16px;
+                    background: linear-gradient(to right,
+                    rgba(255,0,0,0.25) 0%,     /* red */
+                    rgba(255,255,0,0.25) 50%,  /* yellow */
+                    rgba(0,128,0,0.25) 100%    /* green */
+                    );
+                    border-radius:4px;">
+                </div>
+                <span style="font-size:0.85em;margin-left:auto;">100%</span>
+            </div>
         </div>
     </div>
 </div>
@@ -45,25 +74,27 @@ Dashboard
     <!-- Export Button with Spinner -->
     <button onclick="exportDetailToExcel()" class="btn btn-primary align-items-center gap-2 my-2">
         <span id="detail-text">Export Detail Report</span>
-        <span id="detail-spinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+        <span id="detail-spinner" class="spinner-border spinner-border-sm d-none" role="status"
+            aria-hidden="true"></span>
     </button>
 
     <button onclick="exportSummaryToExcel()" class="btn btn-primary align-items-center gap-2 my-2">
         <span id="summary-text">Export Summary Report</span>
-        <span id="summary-spinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+        <span id="summary-spinner" class="spinner-border spinner-border-sm d-none" role="status"
+            aria-hidden="true"></span>
     </button>
 
     <div id="tablesContainer" class="mt-3">
         <!-- Dynamically generated tables will go here -->
     </div>
 </div>
+
 <!-- End Main content -->
 {% endblock %}
 
 {% block scripts %}
 {{ super() }}
 <script>
-
     function trimEmptyCells(arr) {
         // Remove leading and trailing empty strings
         let start = 0;
@@ -87,8 +118,39 @@ Dashboard
         text.innerText = "Exporting...";
         spinner.classList.remove("d-none");
 
+        const existingSheets = []
+
         for (const table of tables) {
-            const worksheet = workbook.addWorksheet(table.dataset.committee || "Sheet");
+            let currentRow = 1;
+
+            // start with member name or default
+            let sheetName = (table.dataset.memberName || "Sheet")
+                .replace(/[^a-zA-Z0-9 ]/g, "")   // keep only alphanumeric and spaces
+                .trim();
+
+            // fallback if empty
+            if (!sheetName) sheetName = "Sheet";
+
+            // enforce max length 30
+            if (sheetName.length > 30) {
+                sheetName = sheetName.substring(0, 30);
+            }
+
+            // ensure uniqueness
+            let uniqueName = sheetName;
+            let counter = 2;
+            while (existingSheets.includes(uniqueName)) {
+                const suffix = ` (${counter})`;
+                const maxLength = 30 - suffix.length;
+                uniqueName = `${sheetName.substring(0, maxLength)}${suffix}`;
+                counter++;
+            }
+
+            // track it
+            existingSheets.push(uniqueName);
+
+            // create worksheet
+            const worksheet = workbook.addWorksheet(uniqueName);
 
             // Extract header
             const rawHeaders = Array.from(table.querySelectorAll("thead tr th")).map(th => th.innerText.trim());
@@ -96,7 +158,7 @@ Dashboard
             // Remove leading/trailing empty headers
             const headers = trimEmptyCells(rawHeaders);
             worksheet.addRow(headers);
-
+            
             // Style header row
             const headerRow = worksheet.getRow(1);
             headerRow.eachCell((cell) => {
@@ -107,14 +169,37 @@ Dashboard
                     fgColor: { argb: "FF00629B" } // Blue background (note the FF prefix for opacity)
                 };
             });
+            currentRow++;
 
             // Extract rows
             const rows = table.querySelectorAll("tbody tr");
             rows.forEach(row => {
-                const rowData = Array.from(row.querySelectorAll("td")).map(td => td.innerText.trim());
-                worksheet.addRow(trimEmptyCells(rowData));
+                const cells = Array.from(row.querySelectorAll("td"));
+                const rowValues = cells.map(td => td.innerText.trim());
+                const excelRow = worksheet.insertRow(currentRow, trimEmptyCells(rowValues));
+
+                cells.forEach((td, idx) => {
+                    const pct = parseFloat(td.getAttribute("data-pct"));
+                    console.log(pct, isNaN(pct));
+                    if (!isNaN(pct)) {
+                        let fillColor = "FFFFFF"; // default white
+
+                        // 🔧 Muted heatmap (adjust thresholds/colors as you like)
+                        if (pct >= 90) fillColor = "FFC6EFCE";   // green
+                        else if (pct >= 50) fillColor = "FFFFEB9C"; // orange/yellow
+                        else if (pct >= 0) fillColor = "FFF2DCDB";   // red/pink
+
+                        excelRow.getCell(idx + 1).fill = {
+                            type: "pattern",
+                            pattern: "solid",
+                            fgColor: { argb: fillColor }
+                        };
+                    }
+                });
+                currentRow++;
             });
 
+            // Adjust column widths
             worksheet.columns.forEach((column, idx) => {
                 const values = column.values.slice(1); // skip index 0
                 const widths = values.map(v => (v ? v.toString().length : 10));
@@ -131,7 +216,7 @@ Dashboard
 
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.download = "SSPPS_Committee_Assignments_Detail.xlsx";
+        link.download = "SSPPS_Committee_Members_Detail.xlsx";
         link.click();
 
         // Re-enable button and hide spinner
@@ -145,7 +230,7 @@ Dashboard
         const text = document.getElementById("summary-text");
         const spinner = document.getElementById("summary-spinner");
         const workbook = new ExcelJS.Workbook();
-        const worksheet = workbook.addWorksheet("Committee Assignments");
+        const worksheet = workbook.addWorksheet("Committee Members");
         const tables = document.querySelectorAll("#tablesContainer table");
 
         // Disable button and show spinner
@@ -156,12 +241,12 @@ Dashboard
         let currentRow = 1;
 
         for (const table of tables) {
-            const committeeName = table.dataset.committee || "Table";
+            const memberName = table.dataset.memberName || "Table";
 
             // Title row
             // worksheet.mergeCells(`A${currentRow}:Z${currentRow}`);
             const titleCell = worksheet.getCell(`A${currentRow}`);
-            titleCell.value = committeeName;
+            titleCell.value = memberName;
             titleCell.font = { bold: true, size: 14 };
             currentRow++;
 
@@ -183,13 +268,41 @@ Dashboard
 
             currentRow++;
 
-            // Data rows
+            // Data rows with heatmap coloring
             const rows = table.querySelectorAll("tbody tr");
             rows.forEach(row => {
-                const rowData = Array.from(row.querySelectorAll("td")).map(td => td.innerText.trim());
-                worksheet.insertRow(currentRow, trimEmptyCells(rowData));
+                const cells = Array.from(row.querySelectorAll("td"));
+                const rowValues = cells.map(td => td.innerText.trim());
+                const excelRow = worksheet.insertRow(currentRow, trimEmptyCells(rowValues));
+
+                cells.forEach((td, idx) => {
+                    const pct = parseFloat(td.getAttribute("data-pct"));
+                    if (!isNaN(pct)) {
+                        let fillColor = "FFFFFF"; // default white
+
+                        // 🔧 Muted heatmap (adjust thresholds/colors as you like)
+                        if (pct >= 90) fillColor = "FFC6EFCE";   // green
+                        else if (pct >= 50) fillColor = "FFFFEB9C"; // orange/yellow
+                        else if (pct >= 0) fillColor = "FFF2DCDB";   // red/pink
+
+                        excelRow.getCell(idx + 1).fill = {
+                            type: "pattern",
+                            pattern: "solid",
+                            fgColor: { argb: fillColor }
+                        };
+                    }
+                });
+
                 currentRow++;
             });
+
+            // Data rows
+            // const rows = table.querySelectorAll("tbody tr");
+            // rows.forEach(row => {
+            //     const rowData = Array.from(row.querySelectorAll("td")).map(td => td.innerText.trim());
+            //     worksheet.insertRow(currentRow, trimEmptyCells(rowData));
+            //     currentRow++;
+            // });
 
             // Add empty row between tables
             currentRow++;
@@ -216,7 +329,7 @@ Dashboard
 
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.download = "SSPPS_Committee_Assignments_Summary.xlsx";
+        link.download = "SSPPS_Committee_Members_Summary.xlsx";
         link.click();
 
         // Re-enable button and hide spinner
@@ -226,46 +339,57 @@ Dashboard
     }
 
     $(document).ready(function () {
-
         // Function to generate committee table
-        function createCommitteeTable(committee_data) {
+        function createCommitteeTable(member_data) {
             const dept = "SSPPS"
-            committee_data.forEach(committee => {
-                years = committee.years;
-                members = committee.members;
-                let tableId = committee.committee_id;
+            member_data.forEach(member => {
+                years = member.years;
+                committees = member.committees;
+                let tableId = member.employee_id;
                 let colstyle = "col-" + Math.floor(12 / (years.length + 2)).toString()
-                if (committee.short_name != '') {
-                    var short_name = '(' + committee.short_name + ')';
-                } else {
-                    var short_name = '';
-                }
 
-                let tableHtml = `<h2>${committee.name}</h2>
-                        <table id="${tableId}" class="display table table-bordered academic-year-table" data-committee="${committee.name}">
+                let tableHtml = `<h2>${member.first_name} ${member.last_name}</h2>
+                        <table id="${tableId}" class="display table table-bordered table-sm academic-year-table" data-member-name="${member.first_name} ${member.last_name}">
                             <thead>
-                                <th><strong>${committee.name} ${short_name}</strong> ${committee.committee_type}</th>`
+                                <th>${member.first_name} ${member.last_name} (${member.job_code})</th>`
                 years.forEach(year => {
                     tableHtml += `<th class="${colstyle}">${year}</th>`
                 })
                 tableHtml += `
                             </thead>
                             <tbody>`
-                members.forEach(member => {
-                    let row = `<tr data-id="${member.employee_id}"><td>${member.first_name} ${member.last_name} (${member.job_code})</td>`;
+                committees.forEach(committee => {
+                    let row = `<tr data-id="${committee.id}"><td>${committee.name} (${committee.short_name})</td>`;
                     years.forEach(year => {
-                        let role = member.roles[year] || '';
+                        const role = committee.roles[year] || '';
+                        const s = (committee.stats && committee.stats[year]) || {};
+                        const pct = s.percent_commitment ?? 0;   // already rounded to 2 decimals
+                        const exp = s.total_expected_hours ?? 0;
+                        const act = s.actual_hours ?? 0;
+                        const att = s.meetings_attended ?? 0;
                         if (role == '') {
-                            var cstyle = ' class = "cell-disabled"';
+                            row += `<td class = "cell-disabled">-</td>`;
                         } else {
-                            var cstyle = ' class = "table-success"';
+                            row += `<td data-pct="${pct}" style="background-color:${getHeatColor(pct)}">${role} (fulfilled ${act} of ${exp} hours)</td>`;
                         }
-                        row += `<td ${cstyle}>${role}</td>`;
+
                     });
                     row += '</tr>';
                     tableHtml += row;
                 })
+                const totals = member.year_totals;
+                tableHtml += `
+                        <tr class="totals-row"><td>Totals:</td>`;
 
+                for (const year of member.years) {
+                    const annPct = totals[year]?.annual_percent_commitment || 0;
+                    const annActual = totals[year]?.annual_actual_hours || 0;
+                    const annExpected = totals[year]?.annual_expected_hours || 0;
+                    tableHtml += `<td data-pct="${annPct}" class="${colstyle}" style="background-color:${getHeatColor(annPct)}">Fulfilled ${annActual.toFixed(2)} of ${annExpected.toFixed(2)} hrs</td>`;
+                }
+                tableHtml += `</tr>
+                    `;
+                // }
                 tableHtml += `
                             </tbody>
                         </table>`;
@@ -275,7 +399,10 @@ Dashboard
                 // Initialize DataTable for this specific table
                 let table = $(`#${tableId}`).DataTable(
                     {
-                        searching: false, paging: false, info: false
+                        searching: false, 
+                        paging: false, 
+                        info: false,
+                        responsive: true
                     }
                 );
             })
@@ -289,7 +416,7 @@ Dashboard
 
         // Fetch filtered data
         $.ajax({
-            url: `/committee_tracker/get_committees_by_assignment?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}`,
+            url: `/reports/get_committees_by_member?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}`,
             method: 'GET',
             success: function (data) {
                 // Clear any previous tables
@@ -308,7 +435,7 @@ Dashboard
 
             // Fetch filtered data
             $.ajax({
-                url: `/committee_tracker/get_committees_by_assignment?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}`,
+                url: `/reports/get_committees_by_member?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}`,
                 method: 'GET',
                 success: function (data) {
                     // Clear any previous tables
@@ -318,6 +445,7 @@ Dashboard
             });
         });
     });
+
     document.addEventListener("DOMContentLoaded", function () {
         const multiSelects = ["academic_year", "committee", "committee_type", "users"];
 
@@ -342,5 +470,21 @@ Dashboard
             }
         });
     });
+
+    function getHeatColor(value) {
+        const v = Math.min(Math.max(value || 0, 0), 100); // clamp 0–100
+
+        if (v <= 50) {
+            // red (255,0,0) → yellow (255,255,0)
+            const g = Math.round((v / 50) * 255);
+            return `rgb(255,${g},0,0.25)`;
+        } else {
+            // yellow (255,255,0) → green (0,128,0)
+            const ratio = (v - 50) / 50;
+            const r = Math.round(255 * (1 - ratio));
+            const g = Math.round(255 - (127 * ratio)); // goes from 255 → 128
+            return `rgb(${r},${g},0,0.25)`;
+        }
+    }
 </script>
 {% endblock %}

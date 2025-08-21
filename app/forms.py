@@ -185,7 +185,6 @@ class CommitteeForm(FlaskForm):
     description = TextAreaField('Description', validators=[Length(max=255)])
     reporting_start = SelectField('Reporting Start', choices=MONTHS, validators=[DataRequired()])
     mission = TextAreaField('Mission Statement', validators=[Length(max=4000)])
-    frequency_type_id = SelectField('Reporting Frequency', choices=[], validators=[DataRequired()])
     committee_type_id = SelectField('Committee Type', choices=[], validators=[DataRequired()])
 
     def __init__(self, original_name=None, *args, **kwargs):
@@ -200,8 +199,12 @@ class CommitteeForm(FlaskForm):
             raise ValidationError("That committee already exists.")
 
 class AYCommitteeForm(FlaskForm):
+    id = HiddenField('AYCommittee ID')
     committee_id = SelectField('Committee', validators=[InputRequired()], choices=[])
     academic_year_id = SelectField('Academic Year', validators=[InputRequired()], choices=[])
+    meeting_frequency_type_id = SelectField('Meeting Frequency', choices=[], validators=[DataRequired()])
+    meeting_duration_in_minutes = IntegerField('Meeting duration per frequency (in minutes)', default=0)
+    supplemental_minutes_per_frequency = IntegerField('Outside meeting workload per frequency (in minutes)', default=0)
 
 class CommitteeReportForm(FlaskForm):
     academic_year = SelectMultipleField('Academic Year', 
@@ -250,15 +253,8 @@ class MeetingForm(FlaskForm):
     ay_committee_id = HiddenField('AYCommittee', validators=[DataRequired()])
     title = StringField('Meeting Title', validators=[DataRequired()])
     date = DateField('Meeting Date', validators=[DataRequired()], format='%Y-%m-%d')
-    start_time = TimeField('Start Time', validators=[DataRequired()])
-    end_time = TimeField('End Time', validators=[DataRequired()])
     location = StringField('Location', validators=[DataRequired()])
     notes = TextAreaField('Notes', validators=[Optional()])
-
-    def validate_end_time(self, field):
-        if self.start_time.data and field.data:
-            if field.data <= self.start_time.data:
-                raise ValidationError('End Time must be later than Start Time.')
 
 class FileUploadForm(FlaskForm):
     ay_committee_id = HiddenField('AYCommittee', validators=[DataRequired()])
