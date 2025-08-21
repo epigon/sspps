@@ -22,196 +22,220 @@
 
 <body class="d-flex flex-column min-vh-100">
     {%- block header %}
-    <header class="layout-header">
-        <!-- <a class="sr-only" href="#main-content">Skip to main content</a> -->
-        <div id="uc-emergency"></div>
-        <section class="layout-login">
-            <div class="layout-container"></div>
-        </section>
+    <header class="layout-header bg-white border-bottom">
+        <div class="container d-flex align-items-center justify-content-between py-2 my-2">
 
-        <section class="layout-title">
-            <div class="layout-container container">
-                <!-- <a href="{{ url_for('main.home') }}" class="title-header title-header-large">SSPPS</a>
-        <a href="{{ url_for('main.home') }}" class="title-header title-header-short">SSPPS</a> -->
-                <a href="{{ url_for('main.home') }}" class="title-logo">UC San Diego</a>
-            </div>
-        </section>
-    </header>
-    {%- endblock header %}
+            <!-- Left: Logo -->
+            <a href="{{ url_for('main.home') }}" class="d-flex align-items-center">
+                <img src="{{ url_for('static', filename='img/UCSDLogo-SkaggsSchool-2023-BlueGold-sm.jpg') }}" alt="UC San Diego logo"
+                    style="height:60px;" />
+            </a>
 
-    {%- block navbar %}
-    <nav class="navbar navbar-expand-lg navbar-dark mb-3" style="background-color: #00629B;">
-        <div class="container">
-            <!-- <a class="navbar-brand" href="#">Navbar</a> -->
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
-                data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false"
-                aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarSupportedContent">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+            <!-- Right: Navbar -->
+            <nav class="navbar navbar-expand-lg navbar-light">
+                <div class="container">
+                    <!-- <a class="navbar-brand" href="#">Navbar</a> -->
+                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent"
+                        aria-expanded="false" aria-label="Toggle navigation">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
 
-                    <!-- 
+                            <!-- 
                     <li class="nav-item active">
                         <a class="nav-link" href="#">Screening Core</a>
                     </li>
                     -->
-                    {% if has_permission('committee+view') %}
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown"
-                            aria-expanded="false">
-                            Committee Tracker
-                        </a>
-                        <ul class="dropdown-menu">
-                            {% if has_permission('ay_committee+view') %}
-                            <li><a class="dropdown-item" href="{{ url_for('committee.ay_committees') }}">Committees</a>
-                            </li>
-                            {% endif %}
-                            <li>
-                                <hr class="dropdown-divider">
-                            </li>
                             {% if has_permission('committee+view') %}
-                            <li><a class="dropdown-item" href="{{ url_for('committee.base_committees') }}">Base
-                                    Committees</a></li>
-                            {% endif %}
-                            {% if has_permission('academic_year+view') %}
-                            <li><a class="dropdown-item" href="{{ url_for('academic_years.list') }}">Academic
-                                    Years</a></li>
-                            {% endif %}
-                            {% if has_permission('committee_type+view') %}
-                            <li><a class="dropdown-item" href="{{ url_for('committee.committee_types') }}">Committee
-                                    Types</a></li>
-                            {% endif %}
-                            {% if has_permission('frequency_type+view') %}
-                            <li><a class="dropdown-item" href="{{ url_for('committee.frequency_types') }}">Frequency
-                                    Types</a></li>
-                            {% endif %}
-                            {% if has_permission('member_role+view') %}
-                            <li><a class="dropdown-item" href="{{ url_for('committee.member_roles') }}">Member Roles</a>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown"
+                                    aria-expanded="false">
+                                    Committee Tracker
+                                </a>
+                                <ul class="dropdown-menu">
+                                    {% if has_permission('ay_committee+view') %}
+                                    <li><a class="dropdown-item"
+                                            href="{{ url_for('committee.ay_committees_by_user',user_id=current_user.id) }}">My
+                                            Committees</a>
+                                    </li>
+                                    <li><a class="dropdown-item"
+                                            href="{{ url_for('committee.ay_committees') }}">Committees</a>
+                                    </li>
+                                    {% endif %}
+                                    <li>
+                                        <hr class="dropdown-divider">
+                                    </li>
+                                    {% if has_permission('committee+view') %}
+                                    <li><a class="dropdown-item"
+                                            href="{{ url_for('committee.base_committees') }}">Committee
+                                            Groups</a></li>
+                                    {% endif %}
+                                    {% if has_permission('academic_year+view') %}
+                                    <li><a class="dropdown-item" href="{{ url_for('academic_years.list') }}">Academic
+                                            Years</a></li>
+                                    {% endif %}
+                                    {% if has_permission('committee_type+view') %}
+                                    <li><a class="dropdown-item"
+                                            href="{{ url_for('committee.committee_types') }}">Committee
+                                            Types</a></li>
+                                    {% endif %}
+                                    {% if has_permission('frequency_type+view') %}
+                                    <li><a class="dropdown-item"
+                                            href="{{ url_for('committee.frequency_types') }}">Frequency
+                                            Types</a></li>
+                                    {% endif %}
+                                    {% if has_permission('member_role+view') %}
+                                    <li><a class="dropdown-item" href="{{ url_for('committee.member_roles') }}">Member
+                                            Roles</a>
+                                    </li>
+                                    {% endif %}
+                                    <li>
+                                        <hr class="dropdown-divider">
+                                    </li>
+                                    {% if has_permission('committee_report+view') %}
+                                    <li><a class="dropdown-item"
+                                            href="{{ url_for('reports.report_all_committees') }}">View
+                                            All Committees</a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('reports.member_report') }}">View by
+                                            Member</a></li>
+                                    <li><a class="dropdown-item"
+                                            href="{{ url_for('reports.assignment_report') }}">View by
+                                            Assignments</a></li>
+                                    {% endif %}
+                                </ul>
                             </li>
                             {% endif %}
-                            <li>
-                                <hr class="dropdown-divider">
-                            </li>
-                            {% if has_permission('committee_report+view') %}
-                            <li><a class="dropdown-item" href="{{ url_for('committee.report_all_committees') }}">View
-                                    All Committees</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('committee.member_report') }}">View by
-                                    Member</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('committee.assignment_report') }}">View by
-                                    Assignments</a></li>
-                            {% endif %}
-                        </ul>
-                    </li>
-                    {% endif %}
-                    {% if is_admin() 
-                        or has_permission('panopto_scheduler+view') 
-                        or has_permission('panopto_scheduler+add')
-                        or has_permission('panopto_scheduler+edit') 
-                        or has_permission('calendar+view') 
-                        or has_permission('calendar+add')
-                        or has_permission('calendar+edit')
-                        or has_permission('ad_lookup+view')
-                        or has_permission('canvas_enrollments+view') 
-                        or has_permission('canvas_enrollments+add')
-                        or has_permission('students+view')
-                        or has_permission('students+add') 
-                        or has_permission('student+edit')
-                        or has_permission('listserv+view') 
-                        or has_permission('listserv+add') 
-                        or has_permission('listserv+edit') 
-                        or has_permission('listserv+delete')
-                    %}
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown"
-                            aria-expanded="false">
-                            Admin Tools
-                        </a>
-                        <ul class="dropdown-menu">
-                            {% if is_admin() %}
-                            <li><a class="dropdown-item" href="{{ url_for('users.list_users') }}">Users</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('roles.list_roles') }}">Roles</a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('permissions.list_permissions') }}">Permissions</a></li>
-                            {% endif %}
-                            
-                            {% if has_permission('panopto_scheduler+view') or has_permission('panopto_scheduler+add')
-                            or has_permission('panopto_scheduler+edit') %}
-                            <li>
-                                <hr class="dropdown-divider">
-                            </li>
-                            <li>
-                                <a class="dropdown-item" href="{{ url_for('scheduler.list_canvas_events') }}">Panopto
-                                    Scheduler</a>
-                            </li>
-                            {% endif %}
-                            {% if has_permission('calendar+view') or has_permission('calendar+add') or
-                            has_permission('calendar+edit') %}
-                            <li>
-                                <hr class="dropdown-divider">
-                            </li>
-                            <li>
-                                <a class="dropdown-item" href="{{ url_for('calendars.edit_calendar_groups') }}">Calendar Groups</a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item" href="{{ url_for('calendars.calendar_groups') }}">Canvas Calendars</a>
-                            </li>
-                            {% endif %}
+                            {% if is_admin()
+                            or has_permission('panopto_scheduler+view')
+                            or has_permission('panopto_scheduler+add')
+                            or has_permission('panopto_scheduler+edit')
+                            or has_permission('calendar+view')
+                            or has_permission('calendar+add')
+                            or has_permission('calendar+edit')
+                            or has_permission('ad_lookup+view')
+                            or has_permission('canvas_enrollments+view')
+                            or has_permission('canvas_enrollments+add')
+                            or has_permission('students+view')
+                            or has_permission('students+add')
+                            or has_permission('student+edit')
+                            or has_permission('listserv+view')
+                            or has_permission('listserv+add')
+                            or has_permission('listserv+edit')
+                            or has_permission('listserv+delete')
+                            %}
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown"
+                                    aria-expanded="false">
+                                    Admin Tools
+                                </a>
+                                <ul class="dropdown-menu">
+                                    {% if is_admin() %}
+                                    <li><a class="dropdown-item" href="{{ url_for('users.list_users') }}">Users</a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('roles.list_roles') }}">Roles</a></li>
+                                    <li><a class="dropdown-item"
+                                            href="{{ url_for('permissions.list_permissions') }}">Permissions</a></li>
+                                    {% endif %}
 
-                            {% if has_permission('ad_lookup+view') %}
-                            <li>
-                                <hr class="dropdown-divider">
-                            </li>
-                            <li>
-                                <a class="dropdown-item" href="{{ url_for('ad_lookup.search') }}">Active Directory
-                                    Search</a>
+                                    {% if has_permission('panopto_scheduler+view') or
+                                    has_permission('panopto_scheduler+add')
+                                    or has_permission('panopto_scheduler+edit') %}
+                                    <li>
+                                        <hr class="dropdown-divider">
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item"
+                                            href="{{ url_for('scheduler.list_canvas_events') }}">Panopto
+                                            Scheduler</a>
+                                    </li>
+                                    {% endif %}
+                                    {% if has_permission('calendar+view') or has_permission('calendar+add') or
+                                    has_permission('calendar+edit') %}
+                                    <li>
+                                        <hr class="dropdown-divider">
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item"
+                                            href="{{ url_for('calendars.edit_calendar_groups') }}">Calendar
+                                            Groups</a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item"
+                                            href="{{ url_for('calendars.calendar_groups') }}">Canvas
+                                            Calendars</a>
+                                    </li>
+                                    {% endif %}
+
+                                    {% if has_permission('ad_lookup+view') %}
+                                    <li>
+                                        <hr class="dropdown-divider">
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{{ url_for('ad_lookup.search') }}">Active
+                                            Directory
+                                            Search</a>
+                                    </li>
+                                    {% endif %}
+                                    {% if has_permission('canvas_enrollments+view') or
+                                    has_permission('canvas_enrollments+add')
+                                    %}
+                                    <li>
+                                        <hr class="dropdown-divider">
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{{ url_for('students.enroll_students') }}">Canvas
+                                            Student
+                                            Enrollments</a>
+                                    </li>
+
+                                    {% endif %}
+                                    {% if has_permission('students+view') %}
+                                    <li>
+                                        <a class="dropdown-item" href="{{ url_for('students.photo_cards') }}">Photo
+                                            Cards</a>
+                                    </li>
+                                    {% endif %}
+                                    {% if has_permission('students+add') or has_permission('student+edit') %}
+                                    <li>
+                                        <a class="dropdown-item" href="{{ url_for('students.upload_form') }}">Upload
+                                            Students</a>
+                                    </li>
+                                    {% endif %}
+                                    {% if has_permission('listserv+view') or has_permission('listserv+add') or
+                                    has_permission('listserv+edit') or has_permission('listserv+delete') %}
+                                    <li>
+                                        <a class="dropdown-item" href="{{ url_for('groupsearch.list_groups') }}">Google
+                                            Listserv</a>
+                                    </li>
+                                    {% endif %}
+                                </ul>
                             </li>
                             {% endif %}
-                            {% if has_permission('canvas_enrollments+view') or has_permission('canvas_enrollments+add') %}
-                            <li>
-                                <hr class="dropdown-divider">
+                            {% if current_user.is_authenticated %}
+                            <li class="nav-item active">
+                                <a class="nav-link" href="{{ url_for('main.profile') }}">Profile</a>
                             </li>
-                            <li>
-                                <a class="dropdown-item" href="{{ url_for('students.enroll_students') }}">Canvas Student Enrollments</a>
+                            <li class="nav-item active">
+                                <a class="nav-link" href="{{ url_for('main.logout') }}">Logout</a>
                             </li>
-                            {% endif %}
-                            {% if has_permission('students+view') %}
-                            <li>
-                                <a class="dropdown-item" href="{{ url_for('students.photo_cards') }}">Photo Cards</a>
-                            </li>
-                            {% endif %}
-                            {% if has_permission('students+add') or has_permission('student+edit') %}
-                            <li>
-                                <a class="dropdown-item" href="{{ url_for('students.upload_form') }}">Upload
-                                    Students</a>
-                            </li>
-                            {% endif %}
-                            {% if has_permission('listserv+view') or has_permission('listserv+add') or
-                            has_permission('listserv+edit') or has_permission('listserv+delete') %}
-                            <li>
-                                <a class="dropdown-item" href="{{ url_for('groupsearch.list_groups') }}">Google Listserv</a>
+                            {% else %}
+                            <li class="nav-item active">
+                                <a class="nav-link" href="{{ url_for('main.secure') }}">Login</a>
                             </li>
                             {% endif %}
                         </ul>
-                    </li>
-                    {% endif %}
-                    {% if current_user.is_authenticated %}
-                    <li class="nav-item active">
-                        <a class="nav-link" href="{{ url_for('main.profile') }}">Profile</a>
-                    </li>
-                    <li class="nav-item active">
-                        <a class="nav-link" href="{{ url_for('main.logout') }}">Logout</a>
-                    </li>
-                    {% else %}
-                    <li class="nav-item active">
-                        <a class="nav-link" href="{{ url_for('main.secure') }}">Login</a>
-                    </li>
-                    {% endif %}
-                </ul>
-            </div>
+                    </div>
+                </div>
+            </nav>
+
         </div>
-    </nav>
-    {% if breadcrumbs %}
-    <nav aria-label="breadcrumb" class="mx-3">
+    </header>
+    {%- endblock header %}
+
+    {%- block navbar %}
+    <!-- {% if breadcrumbs %}
+    <nav aria-label="breadcrumb" class="mx-3 my-2">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="{{ url_for('main.home') }}">Home</a></li>
             {% for crumb in breadcrumbs[:-1] %}
@@ -220,7 +244,7 @@
             <li class="breadcrumb-item active" aria-current="page">{{ breadcrumbs[-1].name }}</li>
         </ol>
     </nav>
-    {% endif %}
+    {% endif %} -->
     <!-- end navbar -->
     {%- endblock navbar %}
     <!-- Your page content -->
@@ -241,7 +265,7 @@
         {% block content %}{% endblock %}
         <img src="https://a5.ucsd.edu/tritON/imagebug">
     </main>
-    
+
     {% block footer -%}
     <footer class="footer" style="background-color: #00629B;">
         <div class="container">
@@ -262,8 +286,8 @@
                     </ul>
                 </div>
                 <div class="col-sm-4">
-                    <img src="{{ url_for('static', filename='img/ucsd-footer-logo-white.png') }}" alt="UC San Diego logo"
-                        class="img-responsive footer-logo" />
+                    <img src="{{ url_for('static', filename='img/ucsd-footer-logo-white.png') }}"
+                        alt="UC San Diego logo" class="img-responsive footer-logo" />
                 </div>
             </div>
         </div>

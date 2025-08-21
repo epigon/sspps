@@ -21,10 +21,9 @@
                 <th>Instrument</th>
                 <th>PI Information</th>
                 <th>Requestor Information</th>
-                <th>Requires Training</th>
+                <th>Training Completed</th>
                 <th>Project / Task Code</th>
                 <th>Funding Source</th>
-                <th>Expenditure Type</th>
                 <th>Submitted On</th>
                 <th>Status</th>
                 <th>Action</th>
@@ -63,10 +62,9 @@
                 {% set _ = requestor.append(req.requestor_phone) %}
                 {% endif %}
                 <td>{{ requestor | join('<br />') | safe }}</td>
-                <td>{{ 'Yes' if req.requires_training else 'No' }}</td>
+                <td>{{ 'Yes' if req.had_training else 'No' }}</td>
                 <td>{{ req.project_task_code }}</td>
                 <td>{{ req.funding_source_code }}</td>
-                <td>{{ req.expenditure_type }}</td>
                 <td>{{ req.created_at.strftime('%m/%d/%Y %I:%M %p').lower() if req.created_at else '' }}</td>
                 <td>
                     {{ req.status }}

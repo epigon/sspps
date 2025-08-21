@@ -379,33 +379,27 @@ class ProjectTaskCode(db.Model):
     pi_name = db.Column(db.String(50), nullable=False)
     fund_manager_name = db.Column(db.String(50), nullable=False)
     fund_manager_email = db.Column(db.String(50), nullable=False)
-    expenditure_type = db.Column(db.String(50), nullable=False)
     status = Column(db.String(20), nullable=False)  # e.g., 'Active', 'Inactive'
 
 class InstrumentRequest(db.Model):
     __bind_key__ = 'rechargedb' 
     __tablename__ = 'InstrumentRequests'
-    # id = Column(db.Integer, primary_key=True)
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4())) # For general UUID handling
-   
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4())) # For general UUID handling   
     instrument_name = Column(db.String(255), nullable=False)
     instrument_id = Column(db.String(50), nullable=False)
-    # department = Column(db.String(50), nullable=False)
     department_code = Column( db.String(20), db.ForeignKey("DEPARTMENTS.code"), nullable=False )
     department = db.relationship( "Department", back_populates="instrument_requests" )
     pi_name = Column(db.String(100), nullable=False)
     pi_email = Column(db.String(120), nullable=False)
     pi_phone = Column(db.String(20))
-    ad_username = Column(db.String(50), nullable=False)
+    # ad_username = Column(db.String(50), nullable=False)
+    requestor_name = Column(db.String(50), nullable=False)
     requestor_position = Column(db.String(100), nullable=False)
     requestor_email = Column(db.String(120), nullable=False)
     requestor_phone = Column(db.String(20))
-    requires_training = Column(db.Boolean, nullable=False, default=False)
+    had_training = Column(db.Boolean, nullable=False, default=False)
     project_task_code = Column(db.String(50), nullable=False)
     funding_source_code = db.Column(db.String(50), nullable=False)
-    expenditure_type = db.Column(db.String(50), nullable=False)
-    # start_datetime = db.Column(DateTime, nullable=False)
-    # end_datetime = db.Column(DateTime, nullable=False)
     status = Column(db.String(20), default="Pending")  # Pending, Approved, Rejected
     created_at = Column(db.DateTime, default=datetime.now)
     approved_at = Column(db.DateTime)
@@ -416,9 +410,7 @@ class InstrumentRequest(db.Model):
         "Employee",
         primaryjoin="foreign(InstrumentRequest.approved_by) == Employee.username",
         uselist=False,
-        viewonly=True,
-        # specify the remote side explicitly if needed:
-        # remote_side="Employee.ad_username"
+        viewonly=True
     )
 
 class Machine(db.Model):

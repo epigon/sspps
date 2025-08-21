@@ -8,7 +8,7 @@ bp = Blueprint('main', __name__, template_folder='templates')
 @bp.route("/")
 @bp.route("/home/")
 def home():    
-    return render_template("main/home.html")
+    return render_template("main/home.html", breadcrumbs=[])
 
 def is_safe_url(target):
     """Make sure the redirect URL is local (avoid open redirects)."""

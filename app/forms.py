@@ -1,7 +1,7 @@
 from app.models import Committee, Department, Employee, Machine, Permission, ProjectTaskCode, Role, User
 from flask_wtf import FlaskForm
 from markupsafe import Markup, escape
-from wtforms import widgets, BooleanField, DateField, DateTimeLocalField, FileField, HiddenField, IntegerField, \
+from wtforms import widgets, BooleanField, DateField, DateTimeLocalField, FileField, HiddenField, IntegerField, RadioField,\
     SelectField, SelectMultipleField, StringField, SubmitField, TelField, TextAreaField, TimeField, ValidationError
 from wtforms.validators import DataRequired, Email, InputRequired, Length, Optional, ValidationError
 from wtforms.widgets import CheckboxInput, ListWidget
@@ -299,15 +299,16 @@ class InstrumentRequestForm(FlaskForm):
     pi_phone = TelField("PI Phone")
     project_task_code = DataAttributeSelectField("Project-Task Code", validators=[DataRequired()])
     funding_source = DataAttributeSelectField("Funding Source", validators=[DataRequired()])
-    expenditure_type = DataAttributeSelectField("Expenditure Type", validators=[DataRequired()])
-    ad_username = StringField("Requestor AD Username", validators=[DataRequired()])
+    # ad_username = StringField("Requestor AD Username", validators=[DataRequired()])
+    requestor_name = StringField("Requestor Name", validators=[DataRequired()])
     requestor_position = StringField("Requestor Position", validators=[DataRequired()])
     requestor_email = StringField("Requestor Email", validators=[DataRequired(), Email()])
     requestor_phone = TelField("Requestor Phone")
-    requires_training = BooleanField("Requires Training?")
-
-    # start_datetime = DateTimeLocalField('Start Date and Time', format='%Y-%m-%dT%H:%M', validators=[DataRequired()])
-    # end_datetime = DateTimeLocalField( 'End Date and Time', format='%Y-%m-%dT%H:%M', validators=[DataRequired()])
+    had_training = RadioField(
+        "Have you taken the mandatory training?",
+        choices=[("yes", "Yes"), ("no", "No")],
+        validators=[DataRequired()]
+    )
     submit = SubmitField("Submit Request")
 
     def __init__(self, *args, **kwargs):
@@ -328,7 +329,7 @@ class InstrumentRequestForm(FlaskForm):
         # PI Names
         rows = ProjectTaskCode.query.with_entities(
             ProjectTaskCode.pi_email, ProjectTaskCode.pi_name, ProjectTaskCode.project_task_code, ProjectTaskCode.funding_source_code, 
-            ProjectTaskCode.funding_source, ProjectTaskCode.expenditure_type
+            ProjectTaskCode.funding_source
         ).distinct().all()
 
         # Step 2: build distinct sets
@@ -338,14 +339,11 @@ class InstrumentRequestForm(FlaskForm):
         project_set = {(r.project_task_code, r.pi_email) for r in rows}
         # Distinct funding sources
         funding_set = {(r.funding_source_code, r.funding_source, r.project_task_code) for r in rows}
-        # Distinct expenditure types
-        expenditure_set = {(r.expenditure_type, r.project_task_code) for r in rows}
 
         # Step 3: sort each list
         pi_choices_sorted = sorted(pi_set, key=lambda x: x[1])  # sort by PI name
         project_choices_sorted = sorted(project_set, key=lambda x: x[0])  # sort by code
         funding_choices_sorted = sorted(funding_set, key=lambda x: x[1])  # sort by funding source name
-        expenditure_choices_sorted = sorted(expenditure_set, key=lambda x: x[0])  # sort by expenditure type
 
         # Step 4: assign to form
         self.pi_name.choices = [('', '--- Select a PI ---', {})] + [
@@ -361,27 +359,8 @@ class InstrumentRequestForm(FlaskForm):
             for fs_code, fs_name, project_task_code in funding_choices_sorted
         ]
 
-        self.expenditure_type.choices = [('', '--- Select Expenditure Type ---', {})] + [
-            (
-                expenditure_type or "Unknown",
-                expenditure_type or "Unknown",
-                {"data-project-task": project_task_code}
-            )
-            for expenditure_type, project_task_code in expenditure_choices_sorted
-        ]
-
     def validate(self, extra_validators=None):
         rv = super().validate(extra_validators=extra_validators)
         if not rv:
             return False
-
-        # task = ProjectTaskCode.query.filter_by(
-        #     project_task_code=f"{self.project_number.data.strip()}-{self.task_code.data.strip()}",
-        #     status='Active'
-        # ).first()
-
-        # if not task:
-        #     self.project_number.errors.append("Invalid or inactive Project/Task combination.")
-        #     return False
-
         return True

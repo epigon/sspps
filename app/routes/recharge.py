@@ -1,4 +1,5 @@
-from app import config, db
+from app import db
+from app.email import send_email_via_powershell
 from app.forms import InstrumentRequestForm
 from app.models import Department, Employee, InstrumentRequest, Machine, ProjectTaskCode, User
 from datetime import datetime, timedelta
@@ -7,7 +8,6 @@ from flask_login import login_required, current_user
 import io
 import os
 import qrcode
-import subprocess
 
 bp = Blueprint('recharge', __name__, url_prefix='/recharge')
 
@@ -25,20 +25,6 @@ def request_instrument():
 
     if form.validate_on_submit():
         machine = Machine.query.get(form.instrument.data)
-
-        # start = form.start_datetime.data
-        # end = form.end_datetime.data
-
-        # # Validation: end must be later than start
-        # if end <= start:
-        #     flash("End datetime must be later than start datetime.", "danger")
-        #     return render_template('instrument_request.html', form=form)
-
-        # # Validation: must meet minimum duration
-        # min_delta = timedelta(minutes=machine.MinimumDuration)
-        # if (end - start) < min_delta:
-        #     flash(f"End datetime must be at least {machine.MinimumDuration} minutes after start.", "danger")
-        #     return render_template('recharge/request_instrument.html', form=form)
         
         req = InstrumentRequest(
             instrument_name=machine.MachineName,
@@ -47,14 +33,13 @@ def request_instrument():
             pi_name=form.pi_name.data,
             pi_email=form.pi_email.data,
             pi_phone=form.pi_phone.data,
-            ad_username=form.ad_username.data,
+            requestor_name=form.requestor_name.data,
             requestor_position=form.requestor_position.data,
             requestor_email=form.requestor_email.data,
             requestor_phone=form.requestor_phone.data,
-            requires_training=form.requires_training.data,
+            had_training=True if form.had_training.data.lower()=="yes" else False,
             project_task_code=form.project_task_code.data,
-            funding_source_code=form.funding_source.data,
-            expenditure_type=form.expenditure_type.data
+            funding_source_code=form.funding_source.data
         )
         db.session.add(req)
         db.session.commit()
@@ -130,12 +115,3 @@ def resend_email(request_id):
     req = email_request_barcode(request_id)
     flash(f"Request #{req.id} barcode emailed to {req.requestor_email}.", "success")
     return redirect(url_for("recharge.review_requests"))
-
-def send_email_via_powershell(to_address, to_cc, from_address, subject, body, attachment_path):
-    ps_script = f'Send-MailMessage -From "{from_address}" -To "{to_address}" -Cc ("{to_cc}","{from_address}") -Subject "{subject}" -Body "{body}" -Attachments "{attachment_path}" -SmtpServer "{config.MAIL_SERVER}" -UseSsl'
-
-    completed = subprocess.run(["powershell", "-Command", ps_script], capture_output=True, text=True)
-    if completed.returncode != 0:
-        print("Error sending mail:", completed.stderr)
-    else:
-        print("Mail sent successfully")

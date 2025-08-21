@@ -6,17 +6,23 @@
         {{ form.hidden_tag() }}
         {% for field in form if field.name != 'submit' and field.name != 'csrf_token' %}
         <div class="row mb-3">
-            {% if field.type == 'BooleanField' %}
-                <div class="col-2">{{ field.label(class="form-check-label") }}</div>
-                <div class="col-6">{{ field(class="form-check-input") }}</div>
+            {% if field.type == 'RadioField' %}
+            <div class="col-3">{{ field.label(class="form-check-label") }}</div>
+            <div class="col-6">{% for subfield in form.had_training %}
+                <div class="form-check form-check-inline">
+                    {{ subfield(class="form-check-input") }}
+                    {{ subfield.label(class="form-check-label") }}
+                </div>
+                {% endfor %}
+            </div>
             {% elif field.type == 'SelectField' or field.type == 'DataAttributeSelectField' %}
-                <div class="col-2">{{ field.label(class="form-label") }}</div>
-                <div class="col-6">{{ field(class="form-select") }}</div>
+            <div class="col-3">{{ field.label(class="form-label") }}</div>
+            <div class="col-6">{{ field(class="form-select") }}</div>
             {% else %}
-                <div class="col-2">{{ field.label(class="form-label") }}</div>
-                <div class="col-6">{{ field(class="form-control") }}</div>
+            <div class="col-3">{{ field.label(class="form-label") }}</div>
+            <div class="col-6">{{ field(class="form-control") }}</div>
             {% endif %}
-            <div class="col-4">
+            <div class="col-3">
                 {% for error in field.errors %}
                 <div class="text-danger small">{{ error }}</div>
                 {% endfor %}
@@ -31,56 +37,45 @@
 {% block scripts %}
 {{ super() }}
 <script>
-    const piSelect = document.getElementById('pi_name');
-    const piEmail = document.getElementById('pi_email');
-    const projectSelect = document.getElementById('project_task_code');
-    const fundingSelect = document.getElementById('funding_source');
-    const expenditureSelect = document.getElementById('expenditure_type');
+    $(document).ready(function () {
+        const piSelect = document.getElementById('pi_name');
+        const piEmail = document.getElementById('pi_email');
+        const projectSelect = document.getElementById('project_task_code');
+        const fundingSelect = document.getElementById('funding_source');
 
-    // Store original options so we can restore them later
-    const projectOptions = Array.from(projectSelect.options);
-    const fundingOptions = Array.from(fundingSelect.options);
-    const expenditureOptions = Array.from(expenditureSelect.options);
+        // Store original options so we can restore them later
+        const projectOptions = Array.from(projectSelect.options);
+        const fundingOptions = Array.from(fundingSelect.options);
 
-    // Step 1: Filter project_task_code by PI
-    piSelect.addEventListener('change', function () {
-        const selectedPI = this.options[this.selectedIndex];
-        const email = selectedPI.dataset.email; // grab data-email
-        piEmail.value = email || '';  // set the input field value
+        // Step 1: Filter project_task_code by PI
+        piSelect.addEventListener('change', function () {
+            const selectedPI = this.options[this.selectedIndex];
+            const email = selectedPI.dataset.email; // grab data-email
+            piEmail.value = email || '';  // set the input field value
 
-        projectSelect.innerHTML = ''; // clear
-        projectOptions.forEach(opt => {
-            if (!opt.value || !email || opt.dataset.email === email) {
-                projectSelect.appendChild(opt.cloneNode(true));
-            }
+            projectSelect.innerHTML = ''; // clear
+            projectOptions.forEach(opt => {
+                if (!opt.value || !email || opt.dataset.email === email) {
+                    projectSelect.appendChild(opt.cloneNode(true));
+                }
+            });
+
+            // Reset funding source
+            fundingSelect.innerHTML = '';
+            fundingSelect.appendChild(fundingOptions[0].cloneNode(true)); // placeholder only
+
         });
 
-        // Reset funding source
-        fundingSelect.innerHTML = '';
-        fundingSelect.appendChild(fundingOptions[0].cloneNode(true)); // placeholder only
-
-        // Filter expenditure_type by PI email
-        expenditureSelect.innerHTML = '';
-        expenditureSelect.appendChild(expenditureOptions[0].cloneNode(true)); // placeholder only
-    });
-
-    // Step 2: Filter funding_source by project_task_code
-    projectSelect.addEventListener('change', function () {
-        const selectedProject = this.value;
-        fundingSelect.innerHTML = ''; // clear
-        fundingOptions.forEach(opt => {
-            if (!opt.value || !selectedProject || opt.dataset.projectTask === selectedProject) {
-                fundingSelect.appendChild(opt.cloneNode(true));
-            }
-        });
-
-        expenditureSelect.innerHTML = ''; // clear
-        expenditureOptions.forEach(opt => {
-            if (!opt.value || !selectedProject || opt.dataset.projectTask === selectedProject) {
-                expenditureSelect.appendChild(opt.cloneNode(true));
-            }
+        // Step 2: Filter funding_source by project_task_code
+        projectSelect.addEventListener('change', function () {
+            const selectedProject = this.value;
+            fundingSelect.innerHTML = ''; // clear
+            fundingOptions.forEach(opt => {
+                if (!opt.value || !selectedProject || opt.dataset.projectTask === selectedProject) {
+                    fundingSelect.appendChild(opt.cloneNode(true));
+                }
+            });
         });
     });
-
 </script>
 {% endblock %}
