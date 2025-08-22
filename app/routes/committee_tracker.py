@@ -885,17 +885,14 @@ def meeting_attendance_json(ay_committee_id, meeting_id):
 
     return jsonify({"members": members, "attendance": attendance})
 
-@permission_required("frequency_type+view, frequency_type+add, frequency_type+edit, frequency_type+delete")
 def get_frequency_types():
     ftypes = FrequencyType.query.filter_by(deleted=False).order_by(FrequencyType.type).all()
     return ftypes
 
-@permission_required("committee_type+view, committee_type+add, committee_type+edit, committee_type+delete")
 def get_committee_types():
     ctypes = CommitteeType.query.filter_by(deleted=False).order_by(CommitteeType.type).all()
     return ctypes
 
-@permission_required("member_role+view, member_role+add, member_role+edit, member_role+delete")
 def get_member_roles():
     mroles = MemberRole.query.filter_by(deleted=False).order_by(MemberRole.role).all()
     return mroles
@@ -904,7 +901,6 @@ def get_committees():
     data = Committee.query.filter_by(deleted=False).order_by(Committee.name).all()
     return data
 
-# @permission_required("member+view, member+add, member+edit, member+delete")
 def get_employees():
     data = Employee.query.filter(Employee.username.isnot(None),Employee.employee_status == 'Active').order_by(Employee.employee_last_name,Employee.employee_first_name).all()
     return data

@@ -38,9 +38,7 @@ if not os.path.exists(UPLOAD_FOLDER):
 def before_request():
     pass
 
-@permission_required("academic_year+view, academic_year+add, academic_year+edit, academic_year+delete")
 def get_academic_years():
-    # ayears = db.session.query(AcademicYear).order_by(AcademicYear.year.desc()).all()
     ayears = AcademicYear.query.filter_by(deleted=False).order_by(AcademicYear.year.desc()).all()
     return ayears
 
