@@ -4,7 +4,7 @@ $(document).ready(function () {
     }
 
     // Initialize DataTable
-    let table = new $('#memberTable').DataTable({
+    let table = $('#memberTable').DataTable({
         pageLength: 10,
         responsive: true
     });
@@ -108,7 +108,7 @@ $(document).ready(function () {
                             data.member.end_date,
                             displayYesNo(data.member.voting),
                             `<button class="btn btn-warning btn-sm edit-btn" data-bs-toggle="modal" data-bs-target="#memberModal" data-id="${data.member.id}">Edit</button> 
-                                <button class="btn btn-danger btn-sm delete-btn" data-bs-toggle="modal" data-bs-target="#deleteMemberModal" data-id="${data.member.id}">Delete</button>`,
+                            <button class="btn btn-danger btn-sm delete-btn" data-bs-toggle="modal" data-bs-target="#deleteMemberModal" data-id="${data.member.id}">Delete</button>`,
                             data.member.notes
                         ]).draw().node();
 
