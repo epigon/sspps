@@ -253,7 +253,7 @@ class MeetingForm(FlaskForm):
     ay_committee_id = HiddenField('AYCommittee', validators=[DataRequired()])
     title = StringField('Meeting Title', validators=[DataRequired()])
     date = DateField('Meeting Date', validators=[DataRequired()], format='%Y-%m-%d')
-    location = StringField('Location', validators=[DataRequired()])
+    location = StringField('Location', validators=[Optional()])
     notes = TextAreaField('Notes', validators=[Optional()])
 
 class FileUploadForm(FlaskForm):
