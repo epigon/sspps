@@ -450,7 +450,7 @@ def delete_role(role_id):
 
 # List Members    
 @bp.route('/<int:ay_committee_id>/members/', methods=['GET'])
-@permission_required("ay_committee+add")
+@permission_required("ay_committee+add,ay_committee+edit,ay_committee+view")
 def members(ay_committee_id:int):
     memberForm = MemberForm()
     memberForm.ay_committee_id.data = ay_committee_id
