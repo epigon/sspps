@@ -172,7 +172,7 @@ class Meeting(db.Model):
     id = Column(Integer, primary_key=True)
     title = Column(String(255), nullable=False)  
     date = Column(Date, nullable=False)
-    location = Column(String(255), nullable=False)
+    location = Column(String(255))
     notes = Column(Text)    
     ay_committee_id = Column(Integer, ForeignKey("AY_COMMITTEES.id"), nullable=False)
     ay_committee = relationship("AYCommittee", back_populates="meetings")
