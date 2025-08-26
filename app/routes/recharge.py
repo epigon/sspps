@@ -62,7 +62,7 @@ def review_requests():
     return render_template("recharge/review_requests.html", requests=requests_list)
 
 @permission_required('screeningcore_approve+add')
-@bp.route("/approve-request/<string:request_id>")
+@bp.route("/approve-request/<string:request_id>", methods=["POST"])
 def approve_request(request_id):
 
     req = InstrumentRequest.query.get_or_404(request_id)
@@ -71,6 +71,7 @@ def approve_request(request_id):
     req.status = "Approved"
     req.approved_at = datetime.now()
     req.approved_by = current_user.username
+    req.notes = request.form.get("notes")  
     db.session.commit()
 
     # Reuse the email function

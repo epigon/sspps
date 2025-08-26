@@ -423,6 +423,7 @@ class InstrumentRequest(db.Model):
     project_task_code = Column(db.String(50), nullable=False)
     funding_source_code = db.Column(db.String(50), nullable=False)
     status = Column(db.String(20), default="Pending")  # Pending, Approved, Rejected
+    notes = db.Column(db.Text)
     created_at = Column(db.DateTime, default=datetime.now)
     approved_at = Column(db.DateTime)
     approved_by = Column(db.String(50))  # AD username of reviewer

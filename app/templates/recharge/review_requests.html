@@ -73,17 +73,27 @@
                     on {{ req.approved_at.strftime('%m/%d/%Y %I:%M %p').lower() if
                     req.approved_at else ''
                     }}
+                        {% if req.notes %}
+                        <div class="mt-1">
+                            <strong>Notes:</strong><br>
+                            <span class="text-muted">{{ req.notes }}</span>
+                        </div>
+                        {% endif %}
                     {% endif %}
                 </td>
                 <td>
                     {% if req.status == 'Pending' %}
-                    <a href="{{ url_for('recharge.approve_request', request_id=req.id) }}"
-                        class="btn btn-success btn-sm">Approve
-                        & Email</a>
+                    <form action="{{ url_for('recharge.approve_request', request_id=req.id) }}" method="post"
+                        class="d-flex flex-column">
+                        <textarea name="notes" class="form-control form-control-sm mb-1" rows="2"
+                            placeholder="Enter notes..."></textarea>
+                        <button type="submit" class="btn btn-success btn-sm">Approve &amp; Email</button>
+                    </form>
                     {% elif req.status == 'Approved' %}
                     <a href="{{ url_for('recharge.resend_email', request_id=req.id) }}"
                         class="btn btn-secondary btn-sm">
-                        Resend Email</a>
+                        Resend Email
+                    </a>
                     {% else %}
                     <span class="text-muted">—</span>
                     {% endif %}
