@@ -49,8 +49,8 @@
                 {% endif %}
                 <td>{{ pi | join('<br />') | safe }}</td>
                 {% set requestor = [] %}
-                {% if req.ad_username %}
-                {% set _ = requestor.append(req.ad_username) %}
+                {% if req.requestor_name %}
+                {% set _ = requestor.append(req.requestor_name) %}
                 {% endif %}
                 {% if req.requestor_position %}
                 {% set _ = requestor.append(req.requestor_position) %}
