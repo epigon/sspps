@@ -118,6 +118,7 @@ def email_request_barcode(request_id):
 @permission_required('screeningcore_approve+add')
 @bp.route("/resend-email/<string:request_id>")
 def resend_email(request_id):
-    req = email_request_barcode(request_id)
+    req = InstrumentRequest.query.get_or_404(request_id)
+    email_request_barcode(request_id)
     flash(f"Request #{req.id} barcode emailed to {req.requestor_email}.", "success")
     return redirect(url_for("recharge.review_requests"))
