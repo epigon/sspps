@@ -96,7 +96,7 @@ def email_request_barcode(request_id):
     approver = Employee.query.filter_by(employee_id=user.employee_id).first()
 
     # Create barcode image in memory
-    payload = f"{req.id}|{req.project_task_code}"
+    payload = f"{req.id}"
     print("Payload:", payload, type(payload))    
 
     # Generate QR code image
