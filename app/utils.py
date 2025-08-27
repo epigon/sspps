@@ -1,5 +1,6 @@
 from flask_login import current_user
-from flask import abort, jsonify
+from flask import current_app, request, abort, jsonify, render_template, flash, redirect, url_for
+from flask_login import current_user
 from functools import wraps
 
 # def role_or_permission_required(roles, permissions):
@@ -21,29 +22,43 @@ def admin_required(f):
     return decorated_function
 
 def permission_required(permissions):
+    """
+    Decorator to protect routes by required permissions.
+
+    permissions: str like "screeningcore_approve+add" or list of such strings.
+    """
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             if not current_user.is_authenticated:
-                # abort(403)
-                return jsonify({'success':False, 'message': 'Authentication required'}), 403
+                # User not logged in
+                if request.accept_mimetypes.accept_json:
+                    return jsonify({'success': False, 'message': 'Authentication required'}), 403
+                return render_template("403.html", message="You must be logged in to access this page."), 403
 
-            # Normalize permission input
+            # Normalize permission list
             if isinstance(permissions, str):
                 permission_list = [p.strip().lower() for p in permissions.split(',')]
             else:
                 permission_list = [p.lower() for p in permissions]
 
+            # Check if user has ANY of the required permissions
             for perm in permission_list:
                 try:
                     resource, action = perm.split('+')
                     if current_user.can(resource.strip(), action.strip()):
+                        # User has permission → allow access
                         return f(*args, **kwargs)
                 except ValueError:
-                    continue  # Skip malformed permissions
+                    continue  # skip malformed permissions
 
-            # abort(403)  # None matched            
-            return jsonify({'success':False, 'message': 'You do not have permission to perform this action.'}), 403
+            # User has no permission → handle gracefully
+            if request.method == "POST":
+                flash("You do not have permission to perform this action.", "danger")
+                return redirect(request.referrer or url_for("main.home"))
+
+            return render_template("errors/403.html", message="You do not have permission."), 403
+        
         return decorated_function
     return decorator
 

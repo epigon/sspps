@@ -36,9 +36,9 @@ def before_request():
         return  # Skip login_required check
     return login_required(lambda: None)()  # Call login_required manually
 
-@permission_required('calendar+add, calendar+edit')
 @bp.route('/calendar_groups/new', methods=['GET', 'POST'])
 @bp.route('/calendar_groups/<int:group_id>', methods=['GET', 'POST'])
+@permission_required('calendar+add, calendar+edit')
 def edit_calendar_groups(group_id=None):
     form = CalendarGroupForm()
     groups = CalendarGroup.query.all()
@@ -68,8 +68,8 @@ def edit_calendar_groups(group_id=None):
 
     return render_template('calendars/edit_calendar_groups.html', groups=groups, form=form, group_id=group_id, title=title)
 
-@permission_required('calendar+delete')
 @bp.route('/calendar_groups/delete/<int:group_id>', methods=['POST'])
+@permission_required('calendar+delete')
 def delete_calendar_groups(group_id):
     group = CalendarGroup.query.get_or_404(group_id)
     db.session.delete(group)
@@ -77,8 +77,8 @@ def delete_calendar_groups(group_id):
     flash('Calendar group deleted.', 'success')
     return redirect(url_for('calendars.edit_calendar_groups'))
 
-@permission_required('calendar+add, calendar+edit')
 @bp.route("/calendar_groups")
+@permission_required('calendar+add, calendar+edit')
 def calendar_groups():
     courses1 = get_canvas_courses(account="SSPPS")
     courses2= get_canvas_courses(account="SOM")
@@ -96,8 +96,8 @@ def calendar_groups():
 
     return render_template("calendars/calendar_groups.html", courses=courses, groups=groups, selections=grouped_selections)
 
-@permission_required('calendar+add, calendar+edit')
 @bp.route("/save_selections", methods=["POST"])
+@permission_required('calendar+add, calendar+edit')
 def save_selections():
     data = request.json
     CalendarGroupSelection.query.delete()
@@ -113,7 +113,6 @@ def save_selections():
     db.session.commit()
     return jsonify({"message": "Selections saved."})
 
-# @permission_required('calendar+add, calendar+edit')
 @bp.route("/generate_scheduled_ics", methods=["POST"])
 def generate_scheduled_ics():
     print(f"[{datetime.now()}] Running scheduled ICS generation job...")

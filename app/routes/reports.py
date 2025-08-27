@@ -448,7 +448,6 @@ def generate_pdf():
         return send_file(pdf_file, download_name=request.form.get('filename')+".pdf", as_attachment=True)
     return "Error generating PDF", 500
 
-@permission_required("committee_report+view")
 def convert_html_to_pdf(html_content):
     """Converts HTML content to a PDF file in memory."""
     pdf_file = io.BytesIO()

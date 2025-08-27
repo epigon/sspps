@@ -1,4 +1,5 @@
 #!python3
+from app import config
 from flask import request, url_for
 from http.server import BaseHTTPRequestHandler
 from oauthlib.oauth2 import LegacyApplicationClient  # specific to Resource Owner Grant
@@ -8,10 +9,18 @@ from urllib.parse import urlparse, urlunparse
 import os
 import pickle
 import pprint
+import socket
 import time
 import webbrowser
 
 REDIRECT_PORT = 9127
+
+# def get_free_port():
+#     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+#         s.bind(('', 0))
+#         return s.getsockname()[1]
+
+# REDIRECT_PORT = get_free_port()
 
 # Typical scope for accessing Panopto API.
 DEFAULT_SCOPE = ('openid', 'api')
@@ -19,28 +28,30 @@ DEFAULT_SCOPE = ('openid', 'api')
 class PanoptoOAuth2():
     def __init__(self, server, client_id, client_secret, ssl_verify):
 
-        redirect_path = '/redirect'
+        # redirect_path = '/redirect'
         hostname = urlparse(request.host_url).hostname
-
-        # self.REDIRECT_URL = request.host_url.rstrip('/') + redirect_path  # dynamically built
-        # print(hostname)
-        self.REDIRECT_URL = f'{hostname}:{REDIRECT_PORT}{redirect_path}' # dynamically built
-        # print(self.REDIRECT_URL)
-
+        if hostname in ('localhost', '127.0.0.1'):
+            self.REDIRECT_URL = f"http://{hostname}:{REDIRECT_PORT}/redirect"
+            # Make oauthlib library accept non-HTTPS redirection.
+            # This should not be applied if the redirect is hosted by actual server (not localhost).
+            # Allow non-HTTPS redirect (safe for localhost dev only)
+            os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+        else:
+            self.REDIRECT_URL = f"https://{hostname}/scheduler/oauth2/callback"
+            # Ensure oauthlib library requires HTTPS redirection (default behavior).
+            if "OAUTHLIB_INSECURE_TRANSPORT" in os.environ:
+                del os.environ["OAUTHLIB_INSECURE_TRANSPORT"]
+        
         self.client_id = client_id
         self.client_secret = client_secret
         self.ssl_verify = ssl_verify
         
-        # Create URI from
-        self.authorization_endpoint = 'https://{0}/Panopto/oauth2/connect/authorize'.format(server)
-        self.access_token_endpoint = 'https://{0}/Panopto/oauth2/connect/token'.format(server)
+        # Panopto OAuth2 endpoints
+        self.authorization_endpoint = f"https://{server}/Panopto/oauth2/connect/authorize"
+        self.access_token_endpoint = f"https://{server}/Panopto/oauth2/connect/token"
 
-        # Create cache file name to store the refresh token. Use server & client ID combination.
-        self.cache_file = 'token_{0}_{1}.cache'.format(server, client_id)
-
-        # Make oauthlib library accept non-HTTPS redirection.
-        # This should not be applied if the redirect is hosted by actual server (not localhost).
-        os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+        # Token cache file (unique per server + client_id)
+        self.cache_file = f"token_{server}_{client_id}.cache"
 
     def get_access_token_authorization_code_grant(self):
         '''
@@ -153,14 +164,14 @@ class RedirectTCPServer(ThreadingTCPServer):
     Custom class of ThreadingTCPServer with RedirectHandler class as handler.
     last_get_path property is set whenever GET method is called by the handler.
     '''
+    allow_reuse_address = True  # must be set at class level or before __init__
     def __init__(self):
         # Class property, representing the path of the most recent GET call.
         self.last_get_path = None
         # Create an instance at REDIRECT_PORT with RedirectHandler class.
         super().__init__(('', REDIRECT_PORT), RedirectHandler)
         # Override the attribute of the server.
-        self.allow_reuse_address = True
-
+        # self.allow_reuse_address = True
 
 class RedirectHandler(BaseHTTPRequestHandler):
     '''

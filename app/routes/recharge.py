@@ -53,9 +53,11 @@ def request_instrument():
     return render_template("recharge/request_instrument.html", form=form)
 
 # --- Reviewer list ---
-@permission_required('screeningcore_approve+add')
 @bp.route("/review_requests")
+@permission_required('screeningcore_approve+add')
 def review_requests():
+
+    print(current_user.can("screeningcore_approve", "add"))
     status = request.args.get("status")
     query = InstrumentRequest.query
 
@@ -65,8 +67,8 @@ def review_requests():
     requests_list = query.order_by(InstrumentRequest.created_at.desc()).all()
     return render_template("recharge/review_requests.html", requests=requests_list)
 
+@bp.route("/approve_request/<string:request_id>", methods=["POST"])
 @permission_required('screeningcore_approve+add')
-@bp.route("/approve-request/<string:request_id>", methods=["POST"])
 def approve_request(request_id):
 
     req = InstrumentRequest.query.get_or_404(request_id)
@@ -84,8 +86,8 @@ def approve_request(request_id):
     flash(f"Request #{req.id} approved and barcode emailed to {req.requestor_email}.", "success")
     return redirect(url_for("recharge.review_requests"))
 
-@permission_required('screeningcore_approve+add')
 @bp.route("/email-request-barcode/<string:request_id>")
+@permission_required('screeningcore_approve+add')
 def email_request_barcode(request_id):
 
     """Generates barcode and sends it via email."""
@@ -94,7 +96,7 @@ def email_request_barcode(request_id):
     approver = Employee.query.filter_by(employee_id=user.employee_id).first()
 
     # Create barcode image in memory
-    payload = f"{req.id}"
+    payload = f"{req.id}|{req.project_task_code}"
     print("Payload:", payload, type(payload))    
 
     # Generate QR code image
@@ -161,15 +163,15 @@ def email_request_barcode(request_id):
     send_email_via_powershell(recipients, cc, sender, subject, body, filename)
 
     # Delete barcode file
-    # try:
-    #     os.remove(filename)
-    # except OSError as e:
-    #     print(f"Error deleting file {filename}: {e}")
+    try:
+        os.remove(filename)
+    except OSError as e:
+        print(f"Error deleting file {filename}: {e}")
 
     return req
 
-@permission_required('screeningcore_approve+add')
 @bp.route("/resend-email/<string:request_id>")
+@permission_required('screeningcore_approve+add')
 def resend_email(request_id):
     req = InstrumentRequest.query.get_or_404(request_id)
     try:

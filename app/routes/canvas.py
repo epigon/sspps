@@ -284,8 +284,8 @@ def get_enrollments(course_id, enrollment_type="StudentEnrollment"):
 
     return all_enrollments
 
-@permission_required('canvas_enrollments+view,canvas_enrollments+add')
 @bp.route("/get_canvas_sections_api/<int:course_id>")
+@permission_required('canvas_enrollments+view,canvas_enrollments+add')
 def get_canvas_sections_api(course_id):
     """
     Returns all sections for a given Canvas course.
@@ -368,8 +368,8 @@ def enroll_multiple_users(course_id, users, enrollment_type="StudentEnrollment",
             })
     return results
 
-@permission_required('canvas_enrollments+add')
 @bp.route("/enroll_user_api", methods=["POST"])
+@permission_required('canvas_enrollments+add')
 def enroll_user_api():
     """
     Enroll a user into a Canvas course.
@@ -409,8 +409,8 @@ def enroll_user_api():
     except requests.exceptions.HTTPError as e:
         return jsonify({"error": str(e), "details": e.response.text}), e.response.status_code
 
-@permission_required('canvas_enrollments+add')
 @bp.route("/enroll_users_bulk_api", methods=["POST"])
+@permission_required('canvas_enrollments+add')
 def enroll_users_bulk_api():
     """
     Bulk enroll users into a Canvas course.
