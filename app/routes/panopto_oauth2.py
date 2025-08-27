@@ -1,5 +1,3 @@
-#!python3
-from app import config
 from flask import request, url_for
 from http.server import BaseHTTPRequestHandler
 from oauthlib.oauth2 import LegacyApplicationClient  # specific to Resource Owner Grant
@@ -15,13 +13,6 @@ import webbrowser
 
 REDIRECT_PORT = 9127
 
-# def get_free_port():
-#     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-#         s.bind(('', 0))
-#         return s.getsockname()[1]
-
-# REDIRECT_PORT = get_free_port()
-
 # Typical scope for accessing Panopto API.
 DEFAULT_SCOPE = ('openid', 'api')
     
@@ -31,13 +22,13 @@ class PanoptoOAuth2():
         # redirect_path = '/redirect'
         hostname = urlparse(request.host_url).hostname
         if hostname in ('localhost', '127.0.0.1'):
-            self.REDIRECT_URL = f"http://{hostname}:{REDIRECT_PORT}/redirect"
+            self.redirect_url = f"http://127.0.0.1:{REDIRECT_PORT}/redirect"
             # Make oauthlib library accept non-HTTPS redirection.
             # This should not be applied if the redirect is hosted by actual server (not localhost).
             # Allow non-HTTPS redirect (safe for localhost dev only)
             os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
         else:
-            self.REDIRECT_URL = f"https://{hostname}/scheduler/oauth2/callback"
+            self.redirect_url = f"https://{hostname}/scheduler/oauth2/callback"
             # Ensure oauthlib library requires HTTPS redirection (default behavior).
             if "OAUTHLIB_INSECURE_TRANSPORT" in os.environ:
                 del os.environ["OAUTHLIB_INSECURE_TRANSPORT"]
@@ -74,11 +65,10 @@ class PanoptoOAuth2():
 
         # Then, fallback to the full autorization path. Offline access scope is needed to get refresh token.
         scope = list(DEFAULT_SCOPE) + ['offline_access']
-        session = OAuth2Session(self.client_id, scope = scope, redirect_uri = self.REDIRECT_URL)
+        session = OAuth2Session(self.client_id, scope = scope, redirect_uri = self.redirect_url)
         
         # Open the authorization page by the browser.
         authorization_url, state = session.authorization_url(self.authorization_endpoint)
-        # print()
         # print('Opening the browser for authorization: {0}'.format(authorization_url))
         webbrowser.open_new_tab(authorization_url)
 
@@ -92,8 +82,7 @@ class PanoptoOAuth2():
             while httpd.last_get_path is None:
                 time.sleep(1)
             redirected_path = httpd.last_get_path
-
-        # print()
+ 
         # print('Get a new access token with authorization code, which is provided as return path: {0}'.format(redirected_path))
         session.fetch_token(self.access_token_endpoint, client_secret = self.client_secret, authorization_response = redirected_path, verify=self.ssl_verify)
         self.__save_token_to_cache(session.token)
@@ -164,14 +153,13 @@ class RedirectTCPServer(ThreadingTCPServer):
     Custom class of ThreadingTCPServer with RedirectHandler class as handler.
     last_get_path property is set whenever GET method is called by the handler.
     '''
-    allow_reuse_address = True  # must be set at class level or before __init__
     def __init__(self):
         # Class property, representing the path of the most recent GET call.
         self.last_get_path = None
         # Create an instance at REDIRECT_PORT with RedirectHandler class.
         super().__init__(('', REDIRECT_PORT), RedirectHandler)
         # Override the attribute of the server.
-        # self.allow_reuse_address = True
+        self.allow_reuse_address = True
 
 class RedirectHandler(BaseHTTPRequestHandler):
     '''

@@ -3,11 +3,12 @@ from app.models import db, ScheduledRecording
 from app.utils import permission_required
 from .canvas import get_canvas_courses, get_canvas_events, chunked_list
 from datetime import datetime
-from flask import Flask, render_template, request, Blueprint, jsonify
+from flask import Flask, render_template, request, Blueprint, jsonify, session, has_request_context
 from flask_login import login_required
 from os.path import dirname, join, abspath
 from .panopto_oauth2 import PanoptoOAuth2
 from requests_oauthlib import OAuth2Session
+from urllib.parse import urlparse, urlunparse
 import argparse
 import os
 import pytz
@@ -30,33 +31,16 @@ HSAccountID = 9
 SOMAccountID = 445	
 SSPPSAccountID = 50 
 
+REDIRECT_PORT = 9127
+                 
 # Routes to Webpages
 @bp.before_request
 @login_required
 def before_request():
     pass
 
-@bp.route("/oauth2/callback")
-def oauth2_callback():
-    full_redirect_url = request.url
-
-    session = OAuth2Session(
-        client_id=PanoptoOAuth2.client_id,
-        redirect_uri=PanoptoOAuth2.REDIRECT_URL,
-        scope=["openid", "api", "offline_access"]
-    )
-
-    token = session.fetch_token(
-        PanoptoOAuth2.access_token_endpoint,
-        client_secret=PanoptoOAuth2.client_secret,
-        authorization_response=full_redirect_url,
-        verify=PanoptoOAuth2.ssl_verify
-    )
-
-    PanoptoOAuth2._PanoptoOAuth2__save_token_to_cache(token)
-
-    return "Authorization complete. You may close this window."
-
+# --- Panopto login helper ---
+@bp.route("/panopto_login")
 def panopto_login():
     args = argparse.Namespace(
         server=PANOPTO_API_BASE,
@@ -64,22 +48,109 @@ def panopto_login():
         client_secret=PANOPTO_CLIENT_SECRET,
         skip_verify=True
     )
-  
+
     if args.skip_verify:
-        # This line is needed to suppress annoying warning message.
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-    # Use requests module's Session object in this example.
-    # ref. https://2.python-requests.org/en/master/user/advanced/#session-objects
     requests_session = requests.Session()
     requests_session.verify = not args.skip_verify
 
-    # Load OAuth2 logic
+    # Build OAuth2 instance
     oauth2 = PanoptoOAuth2(args.server, args.client_id, args.client_secret, not args.skip_verify)
-    print(oauth2.get_access_token_authorization_code_grant())
-    # Initial authorization
+
+    # Only save config in session if we're inside a request
+    if has_request_context():
+        session["panopto"] = {
+            "server": args.server,
+            "client_id": args.client_id,
+            "client_secret": args.client_secret,
+            "ssl_verify": not args.skip_verify,
+            "redirect_url": oauth2.redirect_url,
+            "token_endpoint": oauth2.access_token_endpoint,
+        }
+        # return session["panopto"] 
+
     authorization(requests_session, oauth2)
     return requests_session, oauth2, args
+
+@bp.route("/oauth2/callback")
+def oauth2_callback():
+    try:
+        full_redirect_url = request.url
+        panopto_cfg = session.get("panopto")
+        if not panopto_cfg:
+            return "No Panopto OAuth session found. Please try logging in again.", 400
+
+        oauth2 = PanoptoOAuth2(
+            panopto_cfg["server"],
+            panopto_cfg["client_id"],
+            panopto_cfg["client_secret"],
+            panopto_cfg["ssl_verify"],
+        )
+
+        session_oauth = OAuth2Session(
+            client_id=panopto_cfg["client_id"],
+            redirect_uri=panopto_cfg["redirect_url"],
+            scope=["openid", "api", "offline_access"]
+        )
+
+        token = session_oauth.fetch_token(
+            panopto_cfg["token_endpoint"],
+            client_secret=panopto_cfg["client_secret"],
+            authorization_response=full_redirect_url,
+            verify=panopto_cfg["ssl_verify"]
+        )
+
+        oauth2._PanoptoOAuth2__save_token_to_cache(token)
+        return "Authorization complete. You may close this window."
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return f"OAuth2 callback failed: {e}", 500
+
+# def panopto_login():
+    
+#     args = argparse.Namespace(
+#         server=PANOPTO_API_BASE,
+#         client_id=PANOPTO_CLIENT_ID,
+#         client_secret=PANOPTO_CLIENT_SECRET,
+#         skip_verify=True
+#     )
+
+#     if args.skip_verify:
+#         # This line is needed to suppress annoying warning message.
+#         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+#     # Use requests module's Session object in this example.
+#     # ref. https://2.python-requests.org/en/master/user/advanced/#session-objects
+#     requests_session = requests.Session()
+#     requests_session.verify = not args.skip_verify
+
+#     # Load OAuth2 logic
+#     hostname = urlparse(request.host_url).hostname
+    
+#     if hostname in ('localhost', '127.0.0.1'):
+#         redirect_url = f"http://{hostname}:{REDIRECT_PORT}/redirect"
+#         # Make oauthlib library accept non-HTTPS redirection.
+#         # This should not be applied if the redirect is hosted by actual server (not localhost).
+#         # Allow non-HTTPS redirect (safe for localhost dev only)
+#         os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+#     else:
+#         redirect_url = f"https://{hostname}/scheduler/oauth2/callback"
+#         # Ensure oauthlib library requires HTTPS redirection (default behavior).
+#         if "OAUTHLIB_INSECURE_TRANSPORT" in os.environ:
+#             del os.environ["OAUTHLIB_INSECURE_TRANSPORT"]
+
+#     try:
+#         oauth2 = PanoptoOAuth2(args.server, args.client_id, args.client_secret, redirect_url, not args.skip_verify)
+#     except Exception as e:   
+#         return f"Error initializing Panopto OAuth2: {str(e)}", 500
+    
+#     # Initial authorization
+#     test = authorization(requests_session, oauth2)
+#     return test
+#     return requests_session, oauth2, args
 
 def authorization(requests_session, oauth2):
     # Go through authorization
@@ -215,6 +286,7 @@ def list_canvas_events():
                         "session_id": rec.panopto_session_id,
                         "folder_id": rec.folder_id,
                         "broadcast": rec.broadcast } for rec in scheduled }
+    
     folders = get_panopto_folders()
     recorders = get_panopto_recorders()
     
