@@ -2,9 +2,11 @@ from app.models import db
 from app.cred import LDAP_USER, LDAP_PASSWORD
 from app.utils import permission_required
 from datetime import datetime, timedelta
-from flask import render_template, request, Blueprint
+from flask import render_template, request, Blueprint, g
 from flask_login import login_required
+from functools import lru_cache
 from ldap3 import Server, Connection, ALL, SUBTREE
+from ldap3.utils.conv import escape_filter_chars as esc
 
 bp = Blueprint('ad_lookup', __name__, url_prefix='/ad_lookup')
 
@@ -16,6 +18,25 @@ BASE_DN = 'DC=AD,DC=UCSD,DC=EDU'
 @login_required
 def before_request():
     pass
+
+def get_ldap_conn():
+    if not hasattr(g, 'ldap_conn') or not g.ldap_conn.bound:
+        server = Server(LDAP_SERVER, get_info=None)
+        g.ldap_conn = Connection(
+            server,
+            user=LDAP_USER,
+            password=LDAP_PASSWORD,
+            auto_bind=True,
+            read_only=True,
+            raise_exceptions=True
+        )
+    return g.ldap_conn
+
+@bp.teardown_app_request
+def close_ldap_conn(exception=None):
+    conn = getattr(g, 'ldap_conn', None)
+    if conn and conn.bound:
+        conn.unbind()
 
 def is_active(uac):
     # Bitmask: 2 = account disabled
@@ -30,13 +51,77 @@ def convert_windows_time(windows_time):
     except Exception:
         return 'Invalid'
 
-def extract_ou(distinguished_name, keyword):
-    # Try to extract the OU matching keyword (case-insensitive)
-    parts = distinguished_name.split(',')
-    for part in parts:
-        if part.strip().lower().startswith(f'ou={keyword.lower()}'):
-            return part.strip()
-    return ''
+# def extract_ou(distinguished_name, keyword):
+#     # Try to extract the OU matching keyword (case-insensitive)
+#     parts = distinguished_name.split(',')
+#     for part in parts:
+#         if part.strip().lower().startswith(f'ou={keyword.lower()}'):
+#             return part.strip()
+#     return ''
+
+@lru_cache(maxsize=256)
+def cached_ldap_search(searchtype, username, firstname, lastname):
+    """Cache AD search results with group checks via LDAP filters."""
+    conn = get_ldap_conn()
+
+    # Base filters
+    # Restrict to user objects (avoids computers)
+    filters = ['(objectCategory=person)', '(objectClass=user)']
+    if searchtype == 'partial':
+        if username:
+            filters.append(f'(sAMAccountName=*{esc(username)}*)')
+        if firstname:
+            filters.append(f'(givenName=*{esc(firstname)}*)')
+        if lastname:
+            filters.append(f'(sn=*{esc(lastname)}*)')
+    else:
+        if username:
+            filters.append(f'(sAMAccountName={esc(username)})')
+        if firstname:
+            filters.append(f'(givenName={esc(firstname)})')
+        if lastname:
+            filters.append(f'(sn={esc(lastname)})')
+
+    # Group checks (matching rule in chain = nested group aware)
+    # HS_DUO_DN = f"CN=HS-DUO-USERS,OU=Groups,{BASE_DN}"
+    # SOP_DN = f"CN=FOL_AHS-SOPPS-PHARMACY_EDUCATION-RW,OU=Groups,{BASE_DN}"
+
+    ldap_filter = '(&' + ''.join(filters) + ')'
+
+    conn.search(
+        BASE_DN,
+        ldap_filter,
+        search_scope=SUBTREE,
+        attributes=[
+            'sAMAccountName', 'displayName', 'userAccountControl',
+            'accountExpires', 'employeeID', 'distinguishedName'
+        ],
+        paged_size=50
+    )
+
+    results = []
+    for entry in conn.entries:
+        attr = entry.entry_attributes_as_dict
+        # uname = attr.get('sAMAccountName', [''])[0]
+        results.append({
+            'Username': attr.get('sAMAccountName', [''])[0],
+            'Name': attr.get('displayName', [''])[0],
+            'Active': is_active(attr.get('userAccountControl', [0])[0]),
+            'Exp': convert_windows_time(attr.get('accountExpires', [0])[0]),
+            'Emp ID': attr.get('employeeID', [''])[0] if attr.get('employeeID') else '',
+            'DN': attr.get('distinguishedName', [''])[0],
+            'HC OU': 'Yes' if 'UCSD Healthcare' in attr.get('distinguishedName', [''])[0] else 'No',
+            'SOP OU': 'Yes' if 'School of Pharmacy' in attr.get('distinguishedName', [''])[0] else 'No'
+            # ,
+            # 'HS DUO': 'Yes' if user_in_group(uname, HS_DUO_DN) else 'No',
+            # 'SOP OU': 'Yes' if user_in_group(uname, SOP_DN) else 'No'
+        })
+    return results
+
+def user_in_group(username, group_dn):
+    conn = get_ldap_conn()
+    ldap_filter = f"(&(objectClass=user)(sAMAccountName={username})(memberOf:1.2.840.113556.1.4.1941:={group_dn}))"
+    return conn.search(BASE_DN, ldap_filter, search_scope=SUBTREE, attributes=['sAMAccountName']) and len(conn.entries) > 0
 
 @bp.route('/search', methods=['GET', 'POST'])
 @permission_required('ad_lookup+view')
@@ -44,7 +129,6 @@ def search():
 
     searchterms = '+'.join(filter(None, [
         request.form.get('username', '').strip(),
-        request.form.get('partialusername', '').strip(),
         request.form.get('firstname', '').strip(),
         request.form.get('lastname', '').strip()
     ]))
@@ -56,68 +140,23 @@ def search():
 
     results = []
     error = None
-    searched = False
+    # searched = False
 
     if request.method == 'POST':
-        searched = True  # User submitted form
-        username = request.form.get('username', '').strip()
-        partialusername = request.form.get('partialusername', '').strip()
-        firstname = request.form.get('firstname', '').strip()
-        lastname = request.form.get('lastname', '').strip()
-
-        # Build LDAP filter
-        filters = ['(objectClass=user)']
-        if username:
-            filters.append(f'(sAMAccountName={username})')
-        if partialusername:
-            filters.append(f'(sAMAccountName=*{partialusername}*)')
-        if firstname:
-            filters.append(f'(givenName=*{firstname}*)')
-        if lastname:
-            filters.append(f'(sn=*{lastname}*)')
-
-        ldap_filter = '(&' + ''.join(filters) + ')'
-
+        # searched = True
         try:
-            server = Server(LDAP_SERVER, get_info=ALL)
-            conn = Connection(server, user=LDAP_USER, password=LDAP_PASSWORD, auto_bind=True)
-            conn.search(
-                BASE_DN,
-                ldap_filter,
-                search_scope=SUBTREE,
-                attributes=[
-                    'sAMAccountName', 'displayName', 'userAccountControl',
-                    'accountExpires', 'employeeID', 'distinguishedName',
-                    'givenName', 'sn', 'memberOf'
-                ]
+            results = cached_ldap_search(
+                request.form.get('searchtype', 'exact').strip(),
+                request.form.get('username', '').strip(),
+                request.form.get('firstname', '').strip(),
+                request.form.get('lastname', '').strip()
             )
-            for entry in conn.entries:
-                print(entry)
-                attr = entry.entry_attributes_as_dict
-                member_of = attr.get('memberOf', [])
-
-                def in_group(dn_fragment):
-                    return any(dn_fragment in group_dn for group_dn in member_of)
-                
-                results.append({
-                    'Username': attr.get('sAMAccountName', [''])[0],
-                    'Name': attr.get('displayName', [''])[0],
-                    'Active': is_active(attr.get('userAccountControl', [0])[0]),
-                    'Exp': convert_windows_time(attr.get('accountExpires', [0])[0]),
-                    'Emp ID': attr.get('employeeID', [''])[0] if attr.get('employeeID') else '',
-                    # 'UCOP Emp ID': attr.get('ucpathEmplID', [''])[0] if attr.get('ucpathEmplID') else '',
-                    # 'PID': attr.get('PID', [''])[0] if attr.get('PID') else '',
-                    'DN': attr.get('distinguishedName', [''])[0],
-                    'HC OU': 'Yes' if 'UCSD Healthcare' in attr.get('distinguishedName', [''])[0] else 'No',
-                    'SOP OU': 'Yes' if in_group('FOL_AHS-SOPPS-PHARMACY_EDUCATION-RW') else 'No',
-                    'HS DUO': 'Yes' if in_group('HS-DUO-USERS') else 'No'
-                })
-            conn.unbind()
         except Exception as e:
             error = str(e)
 
-    # print(results)
-    return render_template('ad_lookup/search.html', results=results, error=error, searched=searched, breadcrumbs=custom_breadcrumbs)
+    print(results)
+        
+    return render_template('ad_lookup/search.html', results=results, error=error, searchterms=searchterms, breadcrumbs=custom_breadcrumbs)
 
 #"""Using ADSI LDAP Linked Server"""
 # def search():
