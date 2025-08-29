@@ -175,7 +175,8 @@
             formData.append("broadcast", broadcastCheckbox.checked ? "true" : "false");
         }
 
-        // Send the request via Fetch (POST)
+        const wasChecked = !checkbox.checked;
+
         // Send the request via Fetch (POST)
         fetch(form.action, {
             method: 'POST',
@@ -183,34 +184,54 @@
         })
             .then(response => response.json())  // Parse the JSON body
             .then(data => {
+                console.log("Response from server:", data);
                 const label = row.querySelector(`#label_${eventId}`);
-                label.textContent = checkbox.checked ? "On" : "Off";
+                // label.textContent = checkbox.checked ? "On" : "Off";
 
                 const messageBox = document.getElementById('formResponseMessage');
-                messageBox.textContent = data.message || "Toggle updated.";
-                messageBox.className = 'alert alert-success';
+                if (data.success === false) {
+                    // ❌ Failure: show error in red and revert checkbox
+                    checkbox.checked = wasChecked;
+                    label.textContent = wasChecked ? "On" : "Off";
 
-                // Highlight updated row: green if broadcast, yellow otherwise
-                if (broadcastCheckbox && broadcastCheckbox.checked) {
-                    row.classList.remove("table-success");
-                    row.classList.add("table-warning");
-                } else {
-                    row.classList.remove("table-warning");
-                    row.classList.add("table-success");
-                }
+                    messageBox.textContent = data.message || "An error occurred.";
+                    messageBox.className = 'alert alert-danger';
 
-                // Remove highlight after a few seconds
-                setTimeout(() => {
                     row.classList.remove("table-success", "table-warning");
-                    messageBox.className = '';
-                    messageBox.textContent = '';
-                }, 4000);
+                    row.classList.add("table-danger");
+                } else {
+                    // ✅ Success
+                    label.textContent = checkbox.checked ? "On" : "Off";
+                    messageBox.textContent = data.message || "Toggle updated.";
+                    messageBox.className = 'alert alert-success';
+
+                    // Highlight updated row: green if scheduled, yellow if broadcast
+                    if (broadcastCheckbox && broadcastCheckbox.checked) {
+                        row.classList.remove("table-success", "table-danger");
+                        row.classList.add("table-warning");
+                    } else {
+                        row.classList.remove("table-warning", "table-danger");
+                        row.classList.add("table-success");
+                    }
+
+                    // Remove highlight after a few seconds
+                    setTimeout(() => {
+                        row.classList.remove("table-success", "table-warning", "table-danger");
+                        // messageBox.className = '';
+                        // messageBox.textContent = '';
+                    }, 4000);
+                }
             })
             .catch(error => {
                 console.error("Error submitting toggle:", error);
                 const messageBox = document.getElementById('formResponseMessage');
                 messageBox.textContent = "An error occurred.";
                 messageBox.className = 'alert alert-danger';
+
+                // revert checkbox if fetch itself failed
+                checkbox.checked = wasChecked;
+                const label = row.querySelector(`#label_${eventId}`);
+                label.textContent = wasChecked ? "On" : "Off";
             });
     }
 </script>

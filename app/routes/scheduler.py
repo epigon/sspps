@@ -109,55 +109,50 @@ def oauth2_callback():
         traceback.print_exc()
         return f"OAuth2 callback failed: {e}", 500
 
-# def panopto_login():
-    
-#     args = argparse.Namespace(
-#         server=PANOPTO_API_BASE,
-#         client_id=PANOPTO_CLIENT_ID,
-#         client_secret=PANOPTO_CLIENT_SECRET,
-#         skip_verify=True
-#     )
-
-#     if args.skip_verify:
-#         # This line is needed to suppress annoying warning message.
-#         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-#     # Use requests module's Session object in this example.
-#     # ref. https://2.python-requests.org/en/master/user/advanced/#session-objects
-#     requests_session = requests.Session()
-#     requests_session.verify = not args.skip_verify
-
-#     # Load OAuth2 logic
-#     hostname = urlparse(request.host_url).hostname
-    
-#     if hostname in ('localhost', '127.0.0.1'):
-#         redirect_url = f"http://{hostname}:{REDIRECT_PORT}/redirect"
-#         # Make oauthlib library accept non-HTTPS redirection.
-#         # This should not be applied if the redirect is hosted by actual server (not localhost).
-#         # Allow non-HTTPS redirect (safe for localhost dev only)
-#         os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
-#     else:
-#         redirect_url = f"https://{hostname}/scheduler/oauth2/callback"
-#         # Ensure oauthlib library requires HTTPS redirection (default behavior).
-#         if "OAUTHLIB_INSECURE_TRANSPORT" in os.environ:
-#             del os.environ["OAUTHLIB_INSECURE_TRANSPORT"]
-
-#     try:
-#         oauth2 = PanoptoOAuth2(args.server, args.client_id, args.client_secret, redirect_url, not args.skip_verify)
-#     except Exception as e:   
-#         return f"Error initializing Panopto OAuth2: {str(e)}", 500
-    
-#     # Initial authorization
-#     test = authorization(requests_session, oauth2)
-#     return test
-#     return requests_session, oauth2, args
-
 def authorization(requests_session, oauth2):
     # Go through authorization
     access_token = oauth2.get_access_token_authorization_code_grant()
     
     # Set the token as the header of requests
     requests_session.headers.update({'Authorization': 'Bearer ' + access_token})
+
+def inspect_response(response):
+    """
+    Inspect a requests.Response object from Panopto API.
+    - Returns {"unauthorized": True} if 401 Unauthorized (token expired/invalid).
+    - Returns {"id": "<guid>"} if 2xx success with JSON body containing Id.
+    - Returns {"error": {...}} if 400 Bad Request (e.g. conflicts, bad input).
+    - Raises for other unhandled status codes (403, 404, 500, etc.).
+    """
+    if response.status_code // 100 == 2:  # Success
+        try:
+            return {"id": response.json().get("Id")}
+        except ValueError:
+            return {"id": None}
+
+    if response.status_code == requests.codes.unauthorized:  # 401
+        return {"unauthorized": True}
+
+    if response.status_code == 400:  # Bad Request (conflict, bad input, etc.)
+        try:
+            data = response.json()
+            # Friendly mapping
+            error = data.get("Error", None)
+            # if error:
+            error_code = error.get("ErrorCode", "UnknownError")
+            message = error.get("Message", "Unknown error from Panopto.")
+       
+            if error_code == "ScheduledRecordingConflict":
+                friendly = f"Scheduling conflict: {message}"
+            else:
+                friendly = message
+            return {"error": friendly, "details": data}
+        except ValueError:
+            return {"error": response.text, "details": None}
+
+    # Anything else: raise
+    response.raise_for_status()
+
 
 def inspect_response_is_unauthorized(response):
     '''
@@ -172,6 +167,12 @@ def inspect_response_is_unauthorized(response):
     if response.status_code == requests.codes.unauthorized:
         # print('Unauthorized. Access token is invalid.')
         return True
+
+    if response.status_code == 400:  # Bad Request (conflict, invalid input, etc.)
+        try:
+            return {"error": response.json()}
+        except ValueError:
+            return {"error": response.text}
 
     # Throw unhandled cases.
     response.raise_for_status()
@@ -313,10 +314,12 @@ def toggle_recording():
         db.session.delete(existing)
         db.session.commit()
         # flash("Recording unscheduled", "info")
-        return jsonify({"success": True, "message": "Recording unscheduled."})
+        return jsonify({"success": True, "message": "Recording schedule deleted."})
     else:
-        session_id = schedule_panopto_recording(title, start_time, end_time, folder_id, recorder_id, broadcast)
-        if session_id:
+        result = schedule_panopto_recording(title, start_time, end_time, folder_id, recorder_id, broadcast)
+
+        if "id" in result:
+            print("Scheduled successfully:", result["id"])
             new_rec = ScheduledRecording(
                 canvas_event_id=canvas_event_id,
                 title=title,
@@ -324,18 +327,20 @@ def toggle_recording():
                 end_time=datetime.fromisoformat(end_time),
                 folder_id=folder_id,
                 recorder_id=recorder_id,
-                panopto_session_id=session_id,
+                panopto_session_id=result["id"],
                 broadcast=broadcast
             )
             db.session.add(new_rec)
             db.session.commit()
             return jsonify({"success": True, "message": "Recording scheduled."})
-            # flash("Recording scheduled", "success")
-        else:
-            return jsonify({"success": False, "message": "Failed to schedule."})
-            # flash("Failed to schedule", "danger")
+        elif "error" in result:
+            # Failed to schedule, return error to JS
+            print("Failed to schedule:", result["error"])
+            return jsonify({"success": False, "message": result["error"]})
 
-    # return redirect(url_for('scheduler.list_canvas_events'))
+        else:
+            # Catch-all in case schedule_panopto_recording returned None
+            return jsonify({"success": False, "message": "Unknown error occurred."})
 
 def schedule_panopto_recording(name, start_time, end_time, folder_id, recorder_id, broadcast):
     requests_session, oauth2, args = panopto_login()
@@ -358,15 +363,15 @@ def schedule_panopto_recording(name, start_time, end_time, folder_id, recorder_i
     params = {"resolveConflicts": False}
     headers = {'Content-type': 'application/json', 'Accept': 'application/json'}
     resp = requests_session.post(url=url, json=session_data, params=params, headers=headers)
+    result = inspect_response(resp)
 
-    if inspect_response_is_unauthorized(resp):
+    # Retry once if unauthorized
+    if result.get("unauthorized"):
         authorization(requests_session, oauth2)
-        resp = requests_session.post(url=url, params=session_data)
-
-    if resp.ok:
-        return resp.json()['Id']
-
-    return None
+        resp = requests_session.post(url=url, json=session_data, params=params, headers=headers)
+        result = inspect_response(resp)
+    # print(result)
+    return result
 
 def delete_panopto_recording(session_id):
     requests_session, oauth2, args = panopto_login()
