@@ -60,25 +60,31 @@ def convert_windows_time(windows_time):
 #     return ''
 
 @lru_cache(maxsize=256)
-def cached_ldap_search(searchtype, username, firstname, lastname):
+def cached_ldap_search(searchtype_ad, searchtype_first, searchtype_last, username, firstname, lastname):
     """Cache AD search results with group checks via LDAP filters."""
     conn = get_ldap_conn()
 
     # Base filters
     # Restrict to user objects (avoids computers)
     filters = ['(objectCategory=person)', '(objectClass=user)']
-    if searchtype == 'partial':
+    if searchtype_ad == 'partial':
         if username:
             filters.append(f'(sAMAccountName=*{esc(username)}*)')
-        if firstname:
-            filters.append(f'(givenName=*{esc(firstname)}*)')
-        if lastname:
-            filters.append(f'(sn=*{esc(lastname)}*)')
     else:
         if username:
             filters.append(f'(sAMAccountName={esc(username)})')
+
+    if searchtype_first == 'partial':
+        if firstname:
+            filters.append(f'(givenName=*{esc(firstname)}*)')
+    else:
         if firstname:
             filters.append(f'(givenName={esc(firstname)})')
+
+    if searchtype_last == 'partial':
+        if lastname:
+            filters.append(f'(sn=*{esc(lastname)}*)')
+    else:
         if lastname:
             filters.append(f'(sn={esc(lastname)})')
 
@@ -146,7 +152,9 @@ def search():
         # searched = True
         try:
             results = cached_ldap_search(
-                request.form.get('searchtype', 'exact').strip(),
+                request.form.get('searchtype_ad', 'exact').strip(),
+                request.form.get('searchtype_first', 'exact').strip(),
+                request.form.get('searchtype_last', 'exact').strip(),
                 request.form.get('username', '').strip(),
                 request.form.get('firstname', '').strip(),
                 request.form.get('lastname', '').strip()
