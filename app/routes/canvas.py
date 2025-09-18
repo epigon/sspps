@@ -30,7 +30,7 @@ SSPPSAccountID = 50
 # def before_request():
 #     pass
 
-def get_canvas_courses(account="SSPPS", blueprint=False, state=None):
+def get_canvas_courses(account="SSPPS", blueprint=False, state=None, term_id=None):
     """
     Fetches all Canvas courses for the authenticated user using pagination.
 
@@ -55,6 +55,10 @@ def get_canvas_courses(account="SSPPS", blueprint=False, state=None):
     params = {'per_page': 100, 
               "blueprint": blueprint, 
               "include[]": ["term","account_name"]}
+    
+    if term_id is not None:
+      params['enrollment_term_id'] = term_id
+
     if state is not None:
       params['state[]'] = state
     url = f"{CANVAS_API_BASE}/accounts/{accountID}/courses"
@@ -151,9 +155,8 @@ def get_canvas_courses_by_term(term_id, account="SSPPS"):
     Returns:
         list: Filtered list of Canvas course dictionaries for the selected term.
     """
-    all_courses = get_canvas_courses(account=account)
-    filtered = [c for c in all_courses if str(c.get("enrollment_term_id")) == str(term_id)]
-    return filtered
+    all_courses = get_canvas_courses(account=account, term_id=term_id)
+    return all_courses
 
 def get_canvas_events(context_codes=[], start_date=datetime.now(), end_date=None, all_events=True):
     headers = {'Authorization': f'Bearer {CANVAS_API_TOKEN}'}
@@ -161,9 +164,10 @@ def get_canvas_events(context_codes=[], start_date=datetime.now(), end_date=None
     page_size = 100
     params = {'per_page': page_size, "state[]":"available"}    
 
+    # ✅ Correctly add multiple context_codes
     if context_codes:
-        params.setdefault('context_codes[]', []).append(context_codes)
-
+        params['context_codes[]'] = context_codes 
+        
     if start_date or end_date:
         if start_date:
             if isinstance(start_date, datetime):

@@ -33,6 +33,11 @@
 <div class="container-fluid">
     <h1 class="mb-4">Panopto Scheduler</h1>
     <div id="formResponseMessage"></div>
+    <div class="mb-3">
+        <a href="{{ url_for('scheduler.list_canvas_events') }}" class="btn btn-secondary">
+            ← Change Account / Term
+        </a>
+    </div>
     <form method="post" action="{{ url_for('scheduler.toggle_recording') }}">
         <table id="schedulerTable" class="table table-bordered align-middle table-striped border rounded table-sm">
             <thead class="table-light">

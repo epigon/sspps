@@ -1,8 +1,9 @@
 from app.cred import PANOPTO_API_BASE, PANOPTO_CLIENT_ID, PANOPTO_CLIENT_SECRET
 from app.models import db, ScheduledRecording
 from app.utils import permission_required
-from .canvas import get_canvas_courses, get_canvas_events, chunked_list
-from datetime import datetime
+from .canvas import get_canvas_courses, get_canvas_events, chunked_list, get_enrollment_terms, get_canvas_courses_by_term
+from datetime import datetime, timedelta
+from dateutil import parser  # safer parsing
 from flask import Flask, render_template, request, Blueprint, jsonify, session, has_request_context
 from flask_login import login_required
 from os.path import dirname, join, abspath
@@ -14,6 +15,7 @@ import os
 import pytz
 import requests
 import sys
+import time
 import urllib3
 
 sys.path.insert(0, abspath(join(dirname(__file__), '..', 'common')))
@@ -246,53 +248,115 @@ def get_panopto_recorders():
 @bp.route('/events')
 @permission_required('panopto_scheduler+add, panopto_scheduler+edit')
 def list_canvas_events():
-    courses = get_canvas_courses()
-    
-    # Build a map from course ID to course info
+    account = request.args.get("account")
+    term_id = request.args.get("term_id")
+
+    # Step 1: No account/term selected yet -> show selection screen
+    if not account or not term_id:
+        # You may want to control which accounts are available
+        accounts = [
+            {"code": "SSPPS", "name": "Skaggs School of Pharmacy"},
+            {"code": "SOM", "name": "School of Medicine"},
+            {"code": "HS", "name": "Health Sciences"},
+            {"code": "MAIN", "name": "Main Account"},
+        ]
+        terms = get_enrollment_terms()
+        terms = [
+            {"id": t["id"], "name": t.get("name", f"Term {t['id']}")}
+            for t in terms
+        ]
+        return render_template("scheduler/select_term_account.html",
+                               accounts=accounts,
+                               terms=terms)
+
+    # Step 2: User selected a term -> fetch courses + events
+    start_overall = time.perf_counter()
+
+    # 🔹 Get term details (so we can grab its dates)
+    terms = get_enrollment_terms()
+    selected_term = next((t for t in terms if str(t["id"]) == str(term_id)), None)
+    if not selected_term:
+        return f"Term {term_id} not found", 400
+
+    # 🔹 Parse start/end dates from the term
+    start_date = None
+    end_date = None
+    if selected_term.get("start_at"):
+        start_date = parser.isoparse(selected_term["start_at"])
+    if selected_term.get("end_at"):
+        end_date = parser.isoparse(selected_term["end_at"])
+
+    # Fall back in case Canvas doesn’t provide
+    if not start_date:
+        start_date = datetime.utcnow() - timedelta(days=30)
+    if not end_date:
+        end_date = datetime.utcnow() + timedelta(days=90)
+
+    print(f"📅 Using term date range: {start_date} → {end_date}")
+
+    # 🔹 Fetch courses for the account+term
+    courses = get_canvas_courses_by_term(term_id, account=account)
+
+    # Build course_map
     course_map = {
-        f"course_{course['id']}": {
-            "course_id": course['id'],
-            "sis_course_id": course['sis_course_id'],
-            "course_name": course.get('name', 'Unnamed Course'),
-            "enrollment_term_id": course['enrollment_term_id'],
-            "enrollment_term_name": course['term']['name'],
-            "sis_term_id": course['term']['sis_term_id']
+        f"course_{c['id']}": {
+            "course_id": c['id'],
+            "sis_course_id": c.get('sis_course_id'),
+            "course_name": c.get('name', 'Unnamed Course'),
+            "enrollment_term_id": c.get('enrollment_term_id'),
+            "enrollment_term_name": c.get("term", {}).get("name"),
+            "sis_term_id": c.get("term", {}).get("sis_term_id")
         }
-        for course in courses if 'id' in course and course['term']['sis_term_id'] != "term_default"
+        for c in courses if 'id' in c
     }
     course_ids = list(course_map.keys())
-
     events = []
 
+    # 🔹 Fetch events within the term’s date range
     for course_chunk in chunked_list(course_ids, 10):
-        course_events = get_canvas_events(course_chunk)
+        course_events = get_canvas_events(
+            context_codes=course_chunk,
+            start_date=start_date,
+            end_date=end_date
+        )
         for event in course_events:
-            # Assume event has a 'context_code' like 'course_12345'
-            course_info = course_map.get(event.get('context_code'))
-            if course_info:
-                # event['course_id'] = course_info['course_id']
-                event['course_name'] = course_info['course_name']
-                event['sis_course_id'] = course_info["sis_course_id"]
-                event['term_id'] = course_info["enrollment_term_id"]
-                event['session_title'] = event['sis_course_id']+" "+event['title']+" "+ datetime.fromisoformat(event['start_at'].replace('Z', '+00:00')).astimezone(PACIFIC_TZ).strftime('%#m/%#d/%Y')
-            #     
+            ci = course_map.get(event.get('context_code'))
+            if ci:
+                event['course_name'] = ci['course_name']
+                event['sis_course_id'] = ci["sis_course_id"]
+                event['term_id'] = ci["enrollment_term_id"]
+                event['session_title'] = (
+                    f"{event['sis_course_id']} {event['title']} "
+                    f"{datetime.fromisoformat(event['start_at'].replace('Z', '+00:00')).astimezone(PACIFIC_TZ).strftime('%#m/%#d/%Y')}"
+                )
         events.extend(course_events)
 
-    # Sort events by 'start_at' (convert to datetime for robust sorting)
     events.sort(key=lambda e: datetime.fromisoformat(e['start_at'].replace('Z', '+00:00')) if e.get('start_at') else datetime.max)
-  
+
     scheduled = ScheduledRecording.query.all()
-    scheduled_map = { int(rec.canvas_event_id) : 
-                        {"recorder_id": rec.recorder_id, 
-                        "session_id": rec.panopto_session_id,
-                        "folder_id": rec.folder_id,
-                        "broadcast": rec.broadcast } for rec in scheduled }
-    
+    scheduled_map = {int(rec.canvas_event_id): {
+        "recorder_id": rec.recorder_id,
+        "session_id": rec.panopto_session_id,
+        "folder_id": rec.folder_id,
+        "broadcast": rec.broadcast
+    } for rec in scheduled}
+
     folders = get_panopto_folders()
     recorders = get_panopto_recorders()
-    
-    return render_template("scheduler/canvas_events.html", events=events, scheduled_map=scheduled_map, folders=folders, recorders=recorders)
 
+    duration = time.perf_counter() - start_overall
+    print(f"⏱ list_canvas_events (account {account}, term {term_id}) took {duration:.2f} seconds and returned {len(events)} events.")
+
+    return render_template(
+        "scheduler/canvas_events.html",
+        events=events,
+        scheduled_map=scheduled_map,
+        folders=folders,
+        recorders=recorders,
+        account=account,
+        term_id=term_id,
+        term_name=selected_term.get("name")
+    )
 @bp.route('/recordings/toggle', methods=['POST'])
 @permission_required('panopto_scheduler+add, panopto_scheduler+edit')
 def toggle_recording():

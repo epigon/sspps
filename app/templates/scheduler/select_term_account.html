@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+  <h2>Select Account and Term</h2>
+  <form method="get" action="{{ url_for('scheduler.list_canvas_events') }}">
+    <div class="mb-3">
+      <label for="account" class="form-label">Account</label>
+      <select class="form-select" id="account" name="account" required>
+        <option value="">-- Choose an Account --</option>
+        {% for acct in accounts %}
+          <option value="{{ acct.code }}">{{ acct.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="mb-3">
+      <label for="term_id" class="form-label">Term</label>
+      <select class="form-select" id="term_id" name="term_id" required>
+        <option value="">-- Choose a Term --</option>
+        {% for term in terms %}
+          <option value="{{ term.id }}">{{ term.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Continue</button>
+  </form>
+</div>
+{% endblock %}
