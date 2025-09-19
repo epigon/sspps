@@ -3,14 +3,11 @@
 {% block head %}
 {{super()}}
 
-<!-- DataTables CSS -->
-<link rel="stylesheet" href="https://cdn.datatables.net/1.13.5/css/jquery.dataTables.min.css">
+<!-- DataTables 2 + Bootstrap 5 CSS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/2.0.7/css/dataTables.bootstrap5.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/3.0.2/css/buttons.bootstrap5.min.css">
 
-<!-- jQuery (required by DataTables) -->
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
-<!-- DataTables JS -->
-<script src="https://cdn.datatables.net/1.13.5/js/jquery.dataTables.min.js"></script>
 <style>
     div.dataTables_filter {
         display: flex;
@@ -24,6 +21,25 @@
     div.dataTables_filter select {
         margin-left: 5px;
     }
+
+    /* ✅ Fix print issue (browser Ctrl+P) */
+    @media print {
+        div.dataTables_scrollBody {
+            overflow: visible !important;
+            height: auto !important;
+        }
+
+        table.dataTable {
+            width: 100% !important;
+        }
+
+        /* Hide UI controls when printing */
+        .dataTables_wrapper .dataTables_paginate,
+        .dataTables_wrapper .dataTables_filter,
+        .dataTables_wrapper .dt-buttons {
+            display: none !important;
+        }
+    }
 </style>
 
 {% endblock %}
@@ -32,16 +48,18 @@
 
 <div class="container-fluid">
     <h1 class="mb-4">Panopto Scheduler</h1>
-    <div id="formResponseMessage"></div>
     <div class="mb-3">
         <a href="{{ url_for('scheduler.list_canvas_events') }}" class="btn btn-secondary">
             ← Change Account / Term
         </a>
     </div>
+    <div id="formResponseMessage"></div>
     <form method="post" action="{{ url_for('scheduler.toggle_recording') }}">
-        <table id="schedulerTable" class="table table-bordered align-middle table-striped border rounded table-sm">
-            <thead class="table-light">
+        <h3>{{ account }} {{ term_name }} Events</h3>
+        <table id="schedulerTable" class="table table-striped table-light">
+            <thead>
                 <tr>
+                    <th>Scheduled?</th>
                     <th>Course</th>
                     <th>Event</th>
                     <th>Start</th>
@@ -50,7 +68,6 @@
                     <th>Folder</th>
                     <th>Recorder</th>
                     <th>Broadcast?</th>
-                    <th>Scheduled?</th>
                 </tr>
             </thead>
             <tbody>
@@ -58,6 +75,19 @@
                 {% if event.location_name != "" %}
                 <!-- <tr> -->
                 <tr data-event-id="{{ event.id }}">
+                    <td class="text-center">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="toggle_event" value="{{ event.id }}"
+                                onchange="submitToggleForm(this)" {% if event.id in scheduled_map %}checked{% endif %}>
+                            <label class="form-check-label ms-2" id="label_{{ event.id }}">
+                                {% if event.id in scheduled_map %}On{% else %}Off{% endif %}
+                            </label>
+                        </div>
+                        <input type="hidden" name="event_id_{{ event.id }}" value="{{ event.id }}">
+                        <input type="hidden" name="title_{{ event.id }}" value="{{ event.session_title }}">
+                        <input type="hidden" name="start_time_{{ event.id }}" value="{{ event.start_at }}">
+                        <input type="hidden" name="end_time_{{ event.id }}" value="{{ event.end_at }}">
+                    </td>
                     <td>{{ event.sis_course_id }}</td>
                     <td>{{ event.title }}</td>
                     <td>{{ event.local_start_at }}</td>
@@ -95,19 +125,6 @@
                                 scheduled_map[event.id].get('broadcast') %}checked{% endif %}>
                         </div>
                     </td>
-                    <td class="text-center">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" name="toggle_event" value="{{ event.id }}"
-                                onchange="submitToggleForm(this)" {% if event.id in scheduled_map %}checked{% endif %}>
-                            <label class="form-check-label ms-2" id="label_{{ event.id }}">
-                                {% if event.id in scheduled_map %}On{% else %}Off{% endif %}
-                            </label>
-                        </div>
-                        <input type="hidden" name="event_id_{{ event.id }}" value="{{ event.id }}">
-                        <input type="hidden" name="title_{{ event.id }}" value="{{ event.session_title }}">
-                        <input type="hidden" name="start_time_{{ event.id }}" value="{{ event.start_at }}">
-                        <input type="hidden" name="end_time_{{ event.id }}" value="{{ event.end_at }}">
-                    </td>
                 </tr>
                 {% endif %}
                 {% endfor %}
@@ -119,37 +136,117 @@
 
 {% block scripts %}
 {{ super() }}
+
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<!-- Bootstrap (for dropdowns, etc.) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- DataTables 2 + Bootstrap 5 -->
+<script src="https://cdn.datatables.net/2.0.7/js/dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/2.0.7/js/dataTables.bootstrap5.min.js"></script>
+
+<!-- Buttons 3 + Bootstrap 5 -->
+<script src="https://cdn.datatables.net/buttons/3.0.2/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/3.0.2/js/buttons.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/3.0.2/js/buttons.colVis.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/3.0.2/js/buttons.print.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/3.0.2/js/buttons.html5.min.js"></script>
+
+<!-- PDF dependency -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+
 <script>
     $(document).ready(function () {
-        $('#schedulerTable').DataTable({
-            // Optional: set initial order by 3rd column (Start)
-            order: [[2, 'asc']],
-            // Optional: set page length
-            pageLength: 25,
-            // Enable column searching/filtering (see next step)
+        const table = $('#schedulerTable').DataTable({
+            order: [[3, 'asc']],
+            pageLength: -1,
+            lengthChange: false,
+            dom:
+                "<'d-flex justify-content-between align-items-center mb-2'<'d-flex align-items-center search-filter-wrapper'>B>" +
+                "rt" +
+                "<'d-flex justify-content-between mt-2'ip>",
+            buttons: [
+                { extend: 'colvis', className: 'btn btn-secondary', text: 'Show/Hide Columns' }
+            ],
             initComplete: function () {
-                var api = this.api();
+                const api = this.api();
+                const courseColumn = api.column(1);
 
-                // Get unique Course values (column 0)
-                var courseColumn = api.column(0);
-                var select = $('<select class="form-select form-select-sm my-2" aria-label="Course filter"><option value="">Filter by Course</option></select>')
-                    .appendTo($('#schedulerTable_filter'))  // Append inside search div
-                    .css({ 'margin-left': '10px', 'width': '200px', 'display': 'inline-block' })
-                    .on('change', function () {
-                        var val = $.fn.dataTable.util.escapeRegex($(this).val());
-                        courseColumn
-                            .search(val ? '^' + val + '$' : '', true, false)
-                            .draw();
-                    });
+                const wrapper = $(api.table().container()).find('.search-filter-wrapper');
 
-                // Populate dropdown with unique sorted course values
+                const searchInput = $('<input type="text" placeholder="Search events..." class="form-control form-control-sm me-2">');
+                wrapper.append(searchInput);
+                searchInput.on('keyup', function () {
+                    api.search(this.value).draw();
+                });
+
+                const courseSelect = $('<select class="form-select form-select-sm me-2"><option value="">Filter by Course</option></select>');
                 courseColumn.data().unique().sort().each(function (d) {
-                    var text = $('<div>').html(d).text();  // strip html if any
-                    select.append('<option value="' + text + '">' + text + '</option>');
+                    const text = $('<div>').html(d).text();
+                    courseSelect.append('<option value="' + text + '">' + text + '</option>');
+                });
+                wrapper.append(courseSelect);
+
+                courseSelect.on('change', function () {
+                    const val = $.fn.dataTable.util.escapeRegex($(this).val());
+                    courseColumn.search(val ? '^' + val + '$' : '', true, false).draw();
                 });
             }
         });
+
     });
+
+    // $(document).ready(function () {
+    //     $('#schedulerTable').DataTable({
+    //         order: [[3, 'asc']],
+    //         // lengthMenu: [
+    //         //     [25, 50, 100, -1], // Values for the page length options
+    //         //     [25, 50, 100, 'All'] // Display text for the options
+    //         // ],
+    //         pageLength: -1,
+    //         lengthChange: false,
+    //         layout: {
+    //             topStart: {
+    //                 buttons: [
+    //                     // { extend: 'pageLength', className: 'btn btn-secondary', text: 'Page Length' },
+    //                     { extend: 'colvis', className: 'btn btn-secondary', text: 'Show/Hide Columns' },
+    //                     { extend: 'print', className: 'btn btn-secondary', text: 'Print', exportOptions: { columns: ':visible' }, orientation: 'landscape', pageSize: 'LEGAL', title: 'Course Events' }
+    //                 ]
+    //             },
+    //             topEnd: {
+    //                 search: { placeholder: 'Search events...' }
+    //             },
+    //             bottomStart: 'info'
+    //             // ,
+    //             // bottomEnd: 'paging'
+    //         },
+    //         initComplete: function () {
+    //             const api = this.api();
+    //             const courseColumn = api.column(1);
+
+    //             const select = $('<select class="form-select form-select-sm me-2 mb-2"><option value="">Filter by Course</option></select>');
+
+    //             // Populate dropdown options
+    //             courseColumn.data().unique().sort().each(function (d) {
+    //                 const text = $('<div>').html(d).text(); // strip HTML
+    //                 select.append('<option value="' + text + '">' + text + '</option>');
+    //             });
+
+    //             // Append before the table
+    //             $(api.table().container()).prepend(select);
+
+    //             // On change, filter the column
+    //             select.on('change', function () {
+    //                 const val = $.fn.dataTable.util.escapeRegex($(this).val());
+    //                 courseColumn.search(val ? '^' + val + '$' : '', true, false).draw();
+    //             });
+    //         }
+
+    //     });
+    // });
 
     function submitToggleForm(checkbox) {
         const form = checkbox.closest("form");

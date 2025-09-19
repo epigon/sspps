@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}
+  {{ machine.MachineName }} Scheduler
+{% endblock %}
+
+{% block styles %}
+  {{ super() }}
+  <!-- FullCalendar CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css" rel="stylesheet">
+  <style>
+    #calendar {
+      max-width: 100%;
+      margin: 20px auto;
+    }
+    #error {
+      color: red;
+      margin-top: 10px;
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2>{{ machine.MachineName }} Scheduler</h2>
+  <p><strong>Request ID:</strong> {{ request_id }}</p>
+
+  <div id="calendar"></div>
+  <div id="error"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <!-- FullCalendar JS -->
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const requestID = "{{ request_id }}";
+      const calendarEl = document.getElementById('calendar');
+
+      const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'timeGridWeek',
+        selectable: true,
+        editable: true,
+        height: 650,
+
+        headerToolbar: {
+          left: 'prev,next today',
+          center: 'title',
+          right: 'timeGridDay,timeGridWeek,dayGridMonth'
+        },
+
+        // Load existing events
+        events: '/recharge/api/events?requestID=' + encodeURIComponent(requestID),
+
+        // Create new event
+        select: function (info) {
+          const title = prompt('Enter event title:');
+          if (title) {
+            const newEvent = {
+              title: title,
+              start: info.start.toISOString(),
+              end: info.end.toISOString(),
+              requestID: requestID
+            };
+
+            fetch('/recharge/api/events', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(newEvent)
+            })
+            .then(resp => resp.json())
+            .then(data => {
+              if (data.error) {
+                document.getElementById('error').innerText = data.error;
+                calendar.refetchEvents();
+              } else {
+                calendar.addEvent({
+                  id: data.id,
+                  title: data.title,
+                  start: data.start,
+                  end: data.end,
+                  extendedProps: { description: data.description }
+                });
+                document.getElementById('error').innerText = '';
+              }
+            });
+          }
+          calendar.unselect();
+        },
+
+        // Update event after drag/drop or resize
+        eventDrop: function (info) { saveEvent(info.event); },
+        eventResize: function (info) { saveEvent(info.event); },
+
+        eventClick: function (info) {
+          alert(info.event.title + "\n\n" + (info.event.extendedProps.description || 'No description'));
+        }
+      });
+
+      calendar.render();
+
+      function saveEvent(event) {
+        const payload = {
+          id: event.id,
+          title: event.title,
+          start: event.start.toISOString(),
+          end: event.end.toISOString(),
+          requestID: requestID
+        };
+
+        fetch('/recharge/api/events/' + event.id, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+        .then(resp => resp.json())
+        .then(data => {
+          if (data.error) {
+            document.getElementById('error').innerText = data.error;
+            calendar.refetchEvents();
+          } else {
+            document.getElementById('error').innerText = '';
+          }
+        });
+      }
+    });
+  </script>
+{% endblock %}

@@ -14,21 +14,30 @@
     {{ bootstrap.load_css() }}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+    <style>
+        @media print {
+            .content {
+                height: auto !important;
+                overflow: visible !important;
+            }
+        }
+    </style>
+
     {% endblock %}
 
     <title>{% block title %}{{title|default}}{% endblock title %}</title>
     {% endblock %}
 </head>
 
-<body class="d-flex flex-column min-vh-100">
+<body class="content d-flex flex-column min-vh-100">
     {%- block header %}
     <header class="layout-header bg-white border-bottom">
         <div class="container d-flex align-items-center justify-content-between py-2 my-2">
 
             <!-- Left: Logo -->
             <a href="{{ url_for('main.home') }}" class="d-flex align-items-center">
-                <img src="{{ url_for('static', filename='img/UCSDLogo-SkaggsSchool-2023-BlueGold-sm.jpg') }}" alt="UC San Diego logo"
-                    style="height:60px;" />
+                <img src="{{ url_for('static', filename='img/UCSDLogo-SkaggsSchool-2023-BlueGold-sm.jpg') }}"
+                    alt="UC San Diego logo" style="height:60px;" />
             </a>
 
             <!-- Right: Navbar -->
@@ -100,8 +109,8 @@
                                             All Committees</a></li>
                                     <li><a class="dropdown-item" href="{{ url_for('reports.member_report') }}">View by
                                             Member</a></li>
-                                    <li><a class="dropdown-item"
-                                            href="{{ url_for('reports.assignment_report') }}">View by
+                                    <li><a class="dropdown-item" href="{{ url_for('reports.assignment_report') }}">View
+                                            by
                                             Assignments</a></li>
                                     {% endif %}
                                 </ul>
