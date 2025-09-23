@@ -11,6 +11,16 @@
             <option value="Pending" {{ 'selected' if request.args.get('status')=='Pending' else '' }}>Pending</option>
             <option value="Approved" {{ 'selected' if request.args.get('status')=='Approved' else '' }}>Approved
             </option>
+            <option value="Denied" {{ 'selected' if request.args.get('status')=='Denied' else '' }}>Denied</option>
+        </select>
+
+        <label for="machine" class="ms-2 me-2 mb-0">Instrument:</label>
+        <select name="machine" id="machine" class="form-select form-select-sm w-auto" onchange="this.form.submit()">
+            <option value="">All</option>
+            {% for m in machines %}
+            <option value="{{ m.MachineId }}" {{ 'selected' if request.args.get('machine')==m.MachineId|string else ''
+                }}>{{ m.MachineName }}</option>
+            {% endfor %}
         </select>
     </form>
 
@@ -33,7 +43,7 @@
             {% for req in requests %}
             <tr>
                 <td>{{ req.id }}</td>
-                <td>{{ req.instrument_name }}</td>
+                <td>{{ req.machine_name }}</td>
                 {% set pi = [] %}
                 {% if req.pi_name %}
                 {% set _ = pi.append(req.pi_name) %}
@@ -67,33 +77,51 @@
                 <td>{{ req.funding_source_code }}</td>
                 <td>{{ req.created_at.strftime('%m/%d/%Y %I:%M %p').lower() if req.created_at else '' }}</td>
                 <td>
-                    {{ req.status }}
-                    {% if req.status == 'Approved' %}
-                    by {{ req.approver.employee_name or '' }}
+                    <strong>{{ req.status }}</strong>
+                    {% if req.status == 'Approved' or req.status == 'Denied' %}<br/>
+                    by {{ req.approver.employee_name or '' }}<br/>
                     on {{ req.approved_at.strftime('%m/%d/%Y %I:%M %p').lower() if
                     req.approved_at else ''
                     }}
-                        {% if req.notes %}
-                        <div class="mt-1">
-                            <strong>Notes:</strong><br>
-                            <span class="text-muted">{{ req.notes }}</span>
-                        </div>
-                        {% endif %}
+                    {% if req.notes %}
+                    <div class="mt-1">
+                        <strong>Notes:</strong><br>
+                        <span class="text-muted">{{ req.notes }}</span>
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                    {% if req.status == 'Approved' %}
+                    <br /><a href="{{ url_for('recharge.resend_email', request_id=req.id) }}"
+                        class="btn btn-secondary btn-sm">
+                        Resend Email
+                    </a>
                     {% endif %}
                 </td>
                 <td>
                     {% if req.status == 'Pending' %}
-                    <form action="{{ url_for('recharge.approve_request', request_id=req.id) }}" method="post"
+                    <form action="{{ url_for('recharge.handle_request', request_id=req.id) }}" method="post"
                         class="d-flex flex-column">
                         <textarea name="notes" class="form-control form-control-sm mb-1" rows="2"
                             placeholder="Enter notes..."></textarea>
-                        <button type="submit" class="btn btn-success btn-sm">Approve &amp; Email</button>
+                        <div class="btn-group">
+                            <button type="submit" name="action" value="approve" class="btn btn-success btn-sm">
+                                Approve
+                            </button>
+                            <button type="submit" name="action" value="deny" class="btn btn-danger btn-sm">
+                                Deny
+                            </button>
+                        </div>
                     </form>
                     {% elif req.status == 'Approved' %}
-                    <a href="{{ url_for('recharge.resend_email', request_id=req.id) }}"
-                        class="btn btn-secondary btn-sm">
-                        Resend Email
-                    </a>
+
+                    <form action="{{ url_for('recharge.handle_request', request_id=req.id) }}" method="post"
+                        class="d-flexx flex-columnx">
+                        <textarea name="notes" class="form-control form-control-sm mb-1" rows="2"
+                            placeholder="Enter notes..."></textarea>
+                        <button type="submit" name="action" value="deny" class="btn btn-danger btn-sm">
+                            Revoke Approval
+                        </button>
+                    </form>
                     {% else %}
                     <span class="text-muted">—</span>
                     {% endif %}

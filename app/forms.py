@@ -288,7 +288,7 @@ class GroupForm(FlaskForm):
 
 # RECHARGE APP
 class InstrumentRequestForm(FlaskForm):
-    instrument = SelectField("Instrument", coerce=int, validators=[DataRequired()])
+    machine = SelectField("Instrument", coerce=int, validators=[DataRequired()])
     department_code = SelectField('Department', validators=[DataRequired()])
     pi_name = DataAttributeSelectField("PI Name", validators=[DataRequired()])
     pi_email = StringField("PI Email", validators=[DataRequired(), Email()])
@@ -309,7 +309,7 @@ class InstrumentRequestForm(FlaskForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.instrument.choices = [
+        self.machine.choices = [
             (0, '--- Select a Machine ---') 
         ] + [
             (m.MachineId, m.MachineName)

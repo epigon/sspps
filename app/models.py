@@ -407,8 +407,8 @@ class InstrumentRequest(db.Model):
     __bind_key__ = 'rechargedb' 
     __tablename__ = 'InstrumentRequests'
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4())) # For general UUID handling   
-    instrument_name = Column(db.String(255), nullable=False)
-    instrument_id = Column(db.String(50), nullable=False)
+    machine_name = Column(db.String(255), nullable=False)
+    machine_id = Column(db.String(50), nullable=False)
     department_code = Column( db.String(20), db.ForeignKey("DEPARTMENTS.code"), nullable=False )
     department = db.relationship( "Department", back_populates="instrument_requests" )
     pi_name = Column(db.String(100), nullable=False)
@@ -445,6 +445,29 @@ class Machine(db.Model):
     MinimumDuration = db.Column(db.Numeric)
     MachineStatus = db.Column(db.Boolean, nullable=False)  # True = active
 
+class MachineEvent(db.Model):
+    __bind_key__ = 'rechargedb'
+    __tablename__ = 'MachineEvents'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    machine_id = db.Column(db.Integer, db.ForeignKey("Machines.MachineId"), nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)   # <-- add description field
+    start = db.Column(db.DateTime, nullable=False)
+    end = db.Column(db.DateTime, nullable=False)
+
+    machine = db.relationship("Machine", backref="events")
+
+    def to_jqx(self):
+        return {
+            "id": self.id,
+            "subject": self.title,       # what jqxScheduler shows as appointment text
+            "description": self.description or "",
+            "start": self.start.isoformat(),
+            "end": self.end.isoformat(),
+        }
+
+    
 class Department(db.Model):
     __bind_key__ = 'rechargedb'
     __tablename__ = 'DEPARTMENTS'
