@@ -413,7 +413,7 @@ def generate_photo_cards():
         if student.pronoun:
             info_lines.append(f"<font color='#333333'>{student.pronoun}</font>")
         if student.phonetic_last_name or student.phonetic_first_name:
-            phonetic = f"<font color='#333333'><i>{student.phonetic_last_name} {student.phonetic_first_name}</i></font>".strip()
+            phonetic = f"<font color='#333333'><i>{student.phonetic_first_name} {student.phonetic_last_name}</i></font>".strip()
             info_lines.append(phonetic)
         
         # Join with line breaks
