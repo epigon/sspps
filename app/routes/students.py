@@ -275,7 +275,8 @@ def list_students():
     for student in students:
         student.first_name = student.lived_first_name.strip() if student.lived_first_name and student.lived_first_name.strip() else student.first_name
         student.last_name = student.lived_last_name.strip() if student.lived_last_name and student.lived_last_name.strip() else student.last_name
-        
+        student.photo_url = student.photo_url if student.photo_url else 'silhouette.jpg'
+
     return render_template('students/list_students.html',
                            students=students,
                            class_years=[c[0] for c in class_years],
@@ -384,6 +385,7 @@ def generate_photo_cards():
 
     for student in students:
         # Image
+        student.photo_url = student.photo_url if student.photo_url else 'silhouette.jpg'
         photo_path = os.path.join(PHOTO_UPLOAD_FOLDER, student.photo_url or '')
 
         try:
@@ -536,7 +538,8 @@ def get_filtered_students_context():
     for student in students:
         student.first_name = student.lived_first_name.strip() if student.lived_first_name and student.lived_first_name.strip() else student.first_name
         student.last_name = student.lived_last_name.strip() if student.lived_last_name and student.lived_last_name.strip() else student.last_name
-     
+        student.photo_url = student.photo_url if student.photo_url else 'silhouette.jpg'
+
     return {
         'form': form,
         'students': students,
