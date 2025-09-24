@@ -38,6 +38,10 @@ TEMPLATE_COLUMNS = [
     'class_of', 'photo_url'
 ]
 
+PHOTO_TEMPLATE_COLUMNS = [
+    'username', 'photo_url'
+]
+
 # Routes to Webpages
 @bp.before_request
 @login_required
@@ -52,6 +56,15 @@ def upload_form():
         {'name': 'Upload Form', 'url': '/students/uploadform'}
     ]
     return render_template('students/upload.html',breadcrumbs=custom_breadcrumbs)
+
+@bp.route('/uploadphotoform')
+@permission_required('students+add, students+edit')
+def upload_photo_form():
+    custom_breadcrumbs = [
+        {'name': 'Students', 'url': '/students/'},
+        {'name': 'Upload Photos', 'url': '/students/uploadphotoform'}
+    ]
+    return render_template('students/upload_photos.html',breadcrumbs=custom_breadcrumbs)
 
 @bp.route('/template')
 @permission_required('students+add, students+edit')
@@ -68,6 +81,24 @@ def download_template():
         mimetype='text/csv',
         headers={
             'Content-Disposition': 'attachment; filename=student_template.csv'
+        }
+    )
+
+@bp.route('/phototemplate')
+@permission_required('students+add, students+edit')
+def download_photo_template():
+    # Create empty DataFrame with header only
+    df = pd.DataFrame(columns=PHOTO_TEMPLATE_COLUMNS)
+
+    # Convert to CSV string
+    csv_data = df.to_csv(index=False)
+
+    # Return as downloadable file
+    return Response(
+        csv_data,
+        mimetype='text/csv',
+        headers={
+            'Content-Disposition': 'attachment; filename=photo_template.csv'
         }
     )
 
@@ -127,7 +158,7 @@ def upload_csv():
         df['create_date'] = pd.to_datetime('now')
         df['create_by'] = int(current_user.id)
 
-        print(df)
+        # print(df)
 
         students = []
         # errors = []
@@ -226,6 +257,112 @@ def upload_csv():
 
 def allowed_photo(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_PHOTO_EXTENSIONS
+
+@bp.route('/uploadphoto', methods=['POST'])
+@permission_required('students+add, students+edit')
+def upload_photo_csv():
+
+    file = request.files.get('file')
+    if not file or not file.filename.endswith('.csv'):
+        flash('Please upload a valid CSV file.', 'info')
+        return redirect(url_for('students.upload_photo_form'))
+
+    # Collect uploaded photos into a dict
+    uploaded_photos = request.files.getlist('photos')
+    photo_dict = {photo.filename: photo for photo in uploaded_photos if allowed_photo(photo.filename)}
+
+    filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+    file.save(filepath)
+
+    errors = []
+    existing_usernames = {s.username for s in Student.query.filter_by(deleted=False).with_entities(Student.username).all()}
+
+    photo_dict = {
+        secure_filename(photo.filename): photo
+        for photo in uploaded_photos
+        if allowed_photo(photo.filename)
+    }
+
+    try:
+        with open(filepath, 'rb') as f:
+            result = chardet.detect(f.read(10000))  # sample first 10KB
+            encoding = result['encoding']
+
+        df = pd.read_csv(filepath, encoding=encoding)
+        
+        required = ['username', 'photo_url']
+        for col in required:
+            if col not in df.columns:
+                errors.append(f"Missing required column: {col}")
+        if errors:
+            return render_template('students/upload_photos.html', errors=errors)
+
+        # Replace NaN with empty string only for object (i.e., string) columns
+        str_cols = df.select_dtypes(include=['object']).columns
+        df[str_cols] = df[str_cols].fillna('')
+        # df['deleted'] = False
+        # df['create_date'] = pd.to_datetime('now')
+        # df['create_by'] = int(current_user.id)
+
+        # print(df)
+
+        students = []
+
+        for i, row in df.iterrows():
+            try:
+                photo_filename = safe_str(row.get('photo_url'), 50)
+
+                # ✅ Skip row if photo is expected but missing from uploaded files
+                if photo_filename and photo_filename not in photo_dict:
+                    errors.append(f"Row {i+2}: Photo file '{photo_filename}' is not included in the upload.")
+                    continue
+
+                # ✅ Save photo if provided
+                if photo_filename:
+                    photo_file = photo_dict[photo_filename]
+                    photo_path = os.path.join(PHOTO_UPLOAD_FOLDER, photo_filename)
+                    photo_file.save(photo_path)
+
+                username = safe_str(row.get('username'), 50)
+
+                if username not in existing_usernames:
+                    errors.append(f"Row {i+2}: Username '{username}' does not exist.")
+                    continue
+                
+                student = Student.query.filter_by(username=username, deleted=False).first()
+
+                if not student:
+                    errors.append(f"Row {i+2}: Username '{username}' does not exist.")
+                    continue
+                
+                if photo_filename:
+                    student.update_date=datetime.now()
+                    student.update_by=int(current_user.id)
+                    student.photo_url = safe_str(photo_filename, 50)
+                    students.append(student)
+                else:
+                    errors.append(f"Row {i+2}: No photo filename provided.")
+
+            except Exception as e:
+                errors.append(f"Row {i+2}: {str(e)}")
+
+        # ✅ Save only good records
+        if students:
+            db.session.commit()
+            flash(f"{len(students)} students uploaded.", 'success')
+
+        # Show errors if any
+        if errors:
+            flash(f"{len(errors)} row(s) had issues.", 'danger')
+            return render_template('students/upload_photos.html', errors=errors)
+        else:
+            return redirect(url_for('students.upload_photo_form'))
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Upload failed: {str(e)}', 'danger')
+
+    return redirect(url_for('students.upload_photo_form'))
 
 @bp.route('/')
 @permission_required('students+view, students+add, students+edit, students+delete')

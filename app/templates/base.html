@@ -210,6 +210,10 @@
                                         <a class="dropdown-item" href="{{ url_for('students.upload_form') }}">Upload
                                             Students</a>
                                     </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{{ url_for('students.upload_photo_form') }}">Upload
+                                            Student Photos</a>
+                                    </li>
                                     {% endif %}
                                     {% if has_permission('listserv+view') or has_permission('listserv+add') or
                                     has_permission('listserv+edit') or has_permission('listserv+delete') %}
