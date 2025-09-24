@@ -272,6 +272,10 @@ def list_students():
 
     students = students.filter(Student.deleted == False).order_by(Student.last_name, Student.first_name).all()
     
+    for student in students:
+        student.first_name = student.lived_first_name.strip() if student.lived_first_name and student.lived_first_name.strip() else student.first_name
+        student.last_name = student.lived_last_name.strip() if student.lived_last_name and student.lived_last_name.strip() else student.last_name
+        
     return render_template('students/list_students.html',
                            students=students,
                            class_years=[c[0] for c in class_years],
@@ -405,7 +409,10 @@ def generate_photo_cards():
 
         # Info
         info_lines = []
-        info_lines.append(f"{student.first_name} {student.last_name}")
+
+        first_name = student.lived_first_name.strip() if student.lived_first_name and student.lived_first_name.strip() else student.first_name
+        last_name = student.lived_last_name.strip() if student.lived_last_name and student.lived_last_name.strip() else student.last_name
+        info_lines.append(f"{first_name} {last_name}")
         if not filter_class_of and student.class_of:
             info_lines.append(f"Class of {student.class_of}")
         if student.email:
@@ -526,7 +533,10 @@ def get_filtered_students_context():
         students = students.filter(Student.pid.in_(enrolled_student_ids))
 
     students = students.filter(Student.deleted == False).order_by(Student.last_name, Student.first_name).all()
-
+    for student in students:
+        student.first_name = student.lived_first_name.strip() if student.lived_first_name and student.lived_first_name.strip() else student.first_name
+        student.last_name = student.lived_last_name.strip() if student.lived_last_name and student.lived_last_name.strip() else student.last_name
+     
     return {
         'form': form,
         'students': students,
