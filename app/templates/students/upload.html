@@ -11,11 +11,7 @@
 
 <!-- DataTables JS -->
 <script src="https://cdn.datatables.net/1.13.5/js/jquery.dataTables.min.js"></script>
-<script>
-    function showProgressBar() {
-        document.getElementById('progress-container').style.display = 'block';
-    }
-</script>
+
 <style>
     #progress-container {
         display: none;
@@ -106,6 +102,19 @@
 {% block scripts %}
 {{ super() }}
 <script>
+    function showProgressBar() {
+        const container = document.getElementById('progress-container');
+        const bar = document.getElementById('progress-bar');
+        container.style.display = 'block';
+        bar.style.width = '0%';
+
+        let progress = 0;
+        const interval = setInterval(() => {
+            progress += 5;
+            bar.style.width = progress + '%';
+            if (progress >= 100) clearInterval(interval);
+        }, 100); // updates every 100ms
+    }
 
     // Called when the user starts a new upload (file select or form submit)
     function resetUploadUI() {
