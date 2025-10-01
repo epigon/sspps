@@ -1,8 +1,16 @@
 let meetingsTable; // global so all handlers can access
+let meetingStatus = $("#meeting-status");
 
 $(document).ready(function () {
-    const committeeId = $("#meetingsTable").data("ay-committee-id");
+    const tableEl = document.getElementById("meetingsTable");
+    if (!tableEl) {
+        console.error("meetingsTable element not found");
+        return;
+    }
 
+    const committeeId = tableEl.dataset.ayCommitteeId;
+    const canEdit = tableEl.dataset.canEdit === "true";
+    // console.log("committeeId", committeeId, "canEdit", canEdit);
     meetingsTable = $('#meetingsTable').DataTable({
         columns: [
             { data: "title" },
@@ -75,6 +83,8 @@ $(document).ready(function () {
             contentType: false,
             dataType: "json",
             success: function (data) {
+                meetingStatus.text("Meeting saved successfully.").addClass("alert alert-success").removeClass("alert-danger");
+                // console.log("Saved meeting:", data);
                 if (data.meetings) {
                     redrawMeetingsTable(data.meetings);
                 }
@@ -88,10 +98,14 @@ $(document).ready(function () {
     $(document).on("click", ".delete-meeting-btn", function () {
         if (!confirm("Are you sure you want to delete this meeting?")) return;
         const meetingId = $(this).data("id");
+        const ayCommitteeId = $(this).data("ay-committee-id");
         $.ajax({
             url: `/committee_tracker/delete_meeting/${meetingId}`,
             method: "POST",
+            data: {"ay_committee_id": ayCommitteeId},
+            dataType: "json",
             success: function (data) {
+                meetingStatus.text("Meeting deleted successfully.").addClass("alert alert-success").removeClass("alert-danger");
                 if (data.meetings) {
                     redrawMeetingsTable(data.meetings);
                 }
@@ -104,6 +118,7 @@ $(document).ready(function () {
     document.getElementById("attendanceModal").addEventListener("show.bs.modal", function (event) {
         const button = event.relatedTarget;
         const meetingId = button.getAttribute("data-meeting-id");
+        // const ayCommitteeId = button.getAttribute("data-ay-committee-id");
         const saveUrl = button.getAttribute("data-save-url");
 
         // Set the form action
@@ -111,6 +126,7 @@ $(document).ready(function () {
         form.action = saveUrl;
 
         document.getElementById("attendanceMeetingId").value = meetingId;
+        document.getElementById("attendanceCommitteeId").value = committeeId;
 
         const tbody = document.getElementById("attendanceModalBody");
         tbody.innerHTML = "";
@@ -208,6 +224,7 @@ $(document).ready(function () {
             .then(res => res.json())
             .then(data => {
                 if (data.success && Array.isArray(data.meetings)) {
+                    meetingStatus.text("Attendance saved successfully.").addClass("alert alert-success").removeClass("alert-danger");
                     redrawMeetingsTable(data.meetings);
                 }
                 const modal = bootstrap.Modal.getInstance(document.getElementById("attendanceModal"));
@@ -220,12 +237,12 @@ $(document).ready(function () {
     function redrawMeetingsTable(meetings) {
 
         const rows = meetings.map(meeting => {
-
+            // console.log("meeting", meeting);
             let attendanceHtml = "<ul class='list-unstyled mb-0'>";
             if (Array.isArray(meeting.attendance)) {
                 meeting.attendance.forEach(att => {
                     if (!att.name || !att.status || att.status == "—") return;
-                    console.log("att.status", att.status);
+                    // console.log("att.status", att.status);
                     let badgeClass = att.status === 'Present' ? 'bg-success' :
                         att.status === 'Absent' ? 'bg-danger' :
                             'bg-secondary';
@@ -235,7 +252,10 @@ $(document).ready(function () {
             }
             attendanceHtml += "</ul>";
 
-            const actionsHtml = `
+            let actionsHtml = "";
+
+            if (canEdit) {
+                actionsHtml += `
             <button class="btn btn-primary btn-sm record-attendance-btn"
                     data-bs-toggle="modal"
                     data-bs-target="#attendanceModal"
@@ -247,8 +267,9 @@ $(document).ready(function () {
                     data-title="${meeting.title}" data-date="${meeting.date}"
                     data-location="${meeting.location}" data-notes="${meeting.notes}">Edit</button>
             <button class="btn btn-danger btn-sm delete-meeting-btn"
-                    data-id="${meeting.id}">Delete</button>
+                    data-id="${meeting.id}" data-ay-committee-id="${meeting.ay_committee_id}">Delete</button>
         `;
+            }
             return {
                 title: meeting.title,
                 date: meeting.date,

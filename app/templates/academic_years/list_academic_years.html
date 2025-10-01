@@ -32,52 +32,53 @@ Academic Years
         </form>
     </div>
     {% endif %}
-</div>
-<!-- Feedback message area -->
-<div id="formResponseMessage" class="mt-3"></div>
-<div class="table-responsive">
-    <table class="table table-striped" id="ayTable">
-        <thead>
-            <tr>
-                <th>Academic Year</th>
-                {% if has_permission('academic_year+add,academic_year+edit')%}
-                <th>Current</th>
-                {% endif %}
-                {% if has_permission('academic_year+add,academic_year+edit,academic_year+delete')%}
-                <th>Manage</th>
-                {% endif %}
-            </tr>
-        </thead>
-        <tbody>
-            {% for ay in ayears %}
-            <tr id="ay-{{ ay.id }}">
-                <td class="col-auto">
-                    <span class="ay-text" id="ay-year-{{ ay.id }}">{{ ay.year }}</span>
-                    {{ render_field(form.year, class="form-control ay-input", id="ay-edit-year-" ~ ay.id,
-                    value=ay.year, style="display:none;", label=False) }}
-                </td>
-                {% if has_permission('academic_year+add,academic_year+edit')%}
-                <td>
-                    <input type="checkbox" class="form-check-input is-current-checkbox" data-ay-id="{{ ay.id }}" {% if
-                        ay.is_current %}checked{% endif %}>
-                </td>
-                {% endif %}
-                {% if has_permission('academic_year+add,academic_year+edit,academic_year+delete')%}
-                <td class="col-2">
+
+    <!-- Feedback message area -->
+    <div id="formResponseMessage" class="mt-3"></div>
+    <div class="table-responsive">
+        <table class="table table-striped" id="ayTable">
+            <thead>
+                <tr>
+                    <th>Academic Year</th>
                     {% if has_permission('academic_year+add,academic_year+edit')%}
-                    <button class="btn btn-primary edit-ay" data-ay-id="{{ ay.id }}">Edit</button>
-                    <button class="btn btn-success save-ay" data-ay-id="{{ ay.id }}" style="display:none;">Save</button>
+                    <th>Current</th>
                     {% endif %}
-                    {% if has_permission('academic_year+delete')%}
-                    <button class="btn btn-danger delete-ay ml-2" data-ay-id="{{ ay.id }}">Delete</button>
+                    {% if has_permission('academic_year+add,academic_year+edit,academic_year+delete')%}
+                    <th>Manage</th>
                     {% endif %}
-                </td>
-                {% endif %}
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ay in ayears %}
+                <tr id="ay-{{ ay.id }}">
+                    <td class="col-auto">
+                        <span class="ay-text" id="ay-year-{{ ay.id }}">{{ ay.year }}</span>
+                        {{ render_field(form.year, class="form-control ay-input", id="ay-edit-year-" ~ ay.id,
+                        value=ay.year, style="display:none;", label=False) }}
+                    </td>
+                    {% if has_permission('academic_year+add,academic_year+edit')%}
+                    <td>
+                        <input type="checkbox" class="form-check-input is-current-checkbox" data-ay-id="{{ ay.id }}" {%
+                            if ay.is_current %}checked{% endif %}>
+                    </td>
+                    {% endif %}
+                    {% if has_permission('academic_year+add,academic_year+edit,academic_year+delete')%}
+                    <td class="col-2">
+                        {% if has_permission('academic_year+add,academic_year+edit')%}
+                        <button class="btn btn-primary edit-ay" data-ay-id="{{ ay.id }}">Edit</button>
+                        <button class="btn btn-success save-ay" data-ay-id="{{ ay.id }}"
+                            style="display:none;">Save</button>
+                        {% endif %}
+                        {% if has_permission('academic_year+delete')%}
+                        <button class="btn btn-danger delete-ay ml-2" data-ay-id="{{ ay.id }}">Delete</button>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 {% endblock %}
 

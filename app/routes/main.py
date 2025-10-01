@@ -43,18 +43,17 @@ def secure():
         host = request.headers['Host']
     
         if host == "127.0.0.1:5000":
-            # user_ad = "e1flastname"
-            user_ad = "epigon"
+            user_ad = "eblaize"
+            # user_ad = "epigon"
         else:
             user_ad = request.environ.get("ADUSERNAME")
-                    
+             
         if not user_ad:
             return "Access denied: No Shibboleth authentication detected", 403
-        
-        user = User.query.filter_by(username=user_ad, deleted=False).first()
 
-        if user:
-                                    
+        user = User.query.filter_by(username=user_ad, deleted=False).first()
+        
+        if user:      
             login_user(user)
 
             next_url = request.args.get('next')
@@ -72,8 +71,7 @@ def secure():
 
             return redirect(url_for("main.home"))
         flash("You are not authorized to use this site.", "danger")
-        # return 'User not found', 404
-        return render_template("home.html")
+        return render_template("main/home.html")
     
     except Exception as e:
         return f"Error: {str(e)}", 500    

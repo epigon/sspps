@@ -1,17 +1,9 @@
+from app.models import Member, Employee
 from flask_login import current_user
 from flask import current_app, request, abort, jsonify, render_template, flash, redirect, url_for
 from flask_login import current_user
 from functools import wraps
 
-# def role_or_permission_required(roles, permissions):
-#     def decorator(f):
-#         @wraps(f)
-#         def decorated_function(*args, **kwargs):
-#             if not has_role_or_permission(roles, permissions):
-#                 abort(403)
-#             return f(*args, **kwargs)
-#         return decorated_function
-#     return decorator
 
 def admin_required(f):
     @wraps(f)
@@ -62,16 +54,6 @@ def permission_required(permissions):
         return decorated_function
     return decorator
 
-# def role_required(role_name):
-#     def decorator(f):
-#         @wraps(f)
-#         def decorated_function(*args, **kwargs):
-#             if not current_user.is_authenticated or current_user.role.name.lower() != role_name.lower():
-#                 abort(403)
-#             return f(*args, **kwargs)
-#         return decorated_function
-#     return decorator
-
 def has_permission(permissions):
     if not current_user.is_authenticated:
         return False
@@ -91,38 +73,55 @@ def has_permission(permissions):
 
     return False
 
-# def has_role(role_name):
-#     return current_user.is_authenticated and current_user.role.name.lower() == role_name.lower()
-
 def is_admin():
     return current_user.is_authenticated and current_user.role.name.lower() == "admin"
 
-# def has_role_or_permission(roles, permissions):
-#     if not current_user.is_authenticated:
-#         return False
+def can_edit_committee(ay_committee_id: int, action: str = "edit") -> bool:
+    """
+    Check if the current user can perform a specific action on a committee.
+    action: "edit" or "delete"
+    """
+    if not current_user.is_authenticated:
+        return False
 
-#     # Normalize input
-#     if isinstance(roles, str):
-#         roles = [r.strip().lower() for r in roles.split(',')]
-#     else:
-#         roles = [r.lower() for r in roles]
+    # ---- Global overrides ----
+    if is_admin():
+        return True
 
-#     if isinstance(permissions, str):
-#         permissions = [p.strip().lower() for p in permissions.split(',')]
-#     else:
-#         permissions = [p.lower() for p in permissions]
+    # ---- Global permission checks ----
+    if action == "delete":
+        if has_permission("committee+delete"):
+            return True
+    elif action == "edit":
+        if has_permission("committee+edit"):
+            return True
 
-#     user_role = current_user.role.name.lower()
+    # ---- Local membership (allow_edit flag) ----
+    if action == "edit":  # local delete not allowed, only edit
+        member = Member.query.join(Employee).filter(
+            Member.ay_committee_id == ay_committee_id,
+            Member.deleted == False,
+            Employee.employee_id == current_user.employee_id,
+            Member.allow_edit == True
+        ).first()
+        if member:
+            return True
 
-#     if user_role in roles:
-#         return True
+    return False
 
-#     for perm in permissions:
-#         try:
-#             resource, action = perm.split('/')
-#             if current_user.can(resource.strip(), action.strip()):
-#                 return True
-#         except ValueError:
-#             continue  # Skip malformed permission
+def committee_edit_required(action="edit"):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            from flask import request, jsonify, redirect, url_for, flash
+            ay_committee_id = kwargs.get("ay_committee_id") or request.form.get("ay_committee_id", type=int)
 
-#     return False
+            if not ay_committee_id or not can_edit_committee(ay_committee_id, action):
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return jsonify(success=False, message=f"You do not have permission to {action} this committee."), 403
+                flash(f"You do not have permission to {action} this committee.", "danger")
+                return redirect(request.referrer or url_for("committee.ay_committees"))
+
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator

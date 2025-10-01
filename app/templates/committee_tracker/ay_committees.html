@@ -40,7 +40,7 @@ Dashboard
                     <thead>
                         <tr>
                             <th>Committees</th>
-                            {% if has_permission('ay_committee+edit,ay_committee+delete') %}
+                            {% if has_permission('ay_committee+view,ay_committee+edit,ay_committee+delete') %}
                             <th>Manage</th>
                             {% endif %}
                         </tr>
@@ -48,17 +48,14 @@ Dashboard
 
                     {% for com in ay_committees %}
                     <tr>
-                        <td>{{ com.committee.name }} {% if com.committee.short_name %}({{ com.committee.short_name }}){% endif %}</td>
-                        {% if has_permission('ay_committee+edit,ay_committee+delete') %}
+                        <td>{{ com.committee.name }} {% if com.committee.short_name %}({{ com.committee.short_name }}){%
+                            endif %}</td>
                         <td>
-                            {% if has_permission('ay_committee+edit') %}
-                            <a href="{{url_for('committee.members', ay_committee_id = com.id)}}">Members</a> |
-                            {% endif %}
-                            {% if has_permission('ay_committee+delete') %}
+                            <a href="{{url_for('committee.members', ay_committee_id = com.id)}}">Members</a>
+                            {% if can_edit_committee(com.id, "delete") %} |
                             <a href="{{url_for('committee.delete_ay_committee', ay_committee_id = com.id)}}">Delete</a>
                             {% endif %}
                         </td>
-                        {% endif %}
                     </tr>
                     {% else %}
                     <tr>
@@ -67,7 +64,8 @@ Dashboard
                     {% endfor %}
                 </table>
                 {% if has_permission('ay_committee+add,ay_committee+edit') %}
-                <a href="/committee_tracker/ay_committee/new?academic_year_id={{current_year.id}}" class="btn btn-primary">Add New</a>
+                <a href="/committee_tracker/ay_committee/new?academic_year_id={{current_year.id}}"
+                    class="btn btn-primary">Add New</a>
                 {% endif %}
             </div>
         </div>

@@ -59,12 +59,12 @@ def create_app():
         return User.query.get(int(user_id))
 
     # Import your permission helpers
-    from app.utils import has_permission, is_admin
+    from app.utils import has_permission, is_admin, can_edit_committee
 
     # Register context processor
     @app.context_processor
     def inject_permissions():
-        return dict(has_permission=has_permission, is_admin=is_admin)
+        return dict(has_permission=has_permission, is_admin=is_admin, can_edit_committee=can_edit_committee)
     
     # Register Blueprints
     from app.routes import main, users, roles, permissions, students, academic_years, calendars, canvas, committee_tracker, \

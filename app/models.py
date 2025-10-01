@@ -282,6 +282,7 @@ class Member(db.Model):
     start_date = Column(Date)
     end_date = Column(Date)
     voting = Column(Boolean, default=True)
+    allow_edit = Column(Boolean, default=False)
     create_date = Column(DateTime, default=datetime.now)
     notes = Column(String(255))
     deleted = Column(Boolean, default=False)

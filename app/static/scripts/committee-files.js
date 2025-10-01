@@ -10,17 +10,26 @@ $(document).ready(function () {
     let uploadForm = $("#upload-form");
     let uploadStatus = $("#upload-status");
     let filesTable = $("#files-table").DataTable({responsive: true});
+    const filesTableEl = document.getElementById("files-table");
+    if (!filesTableEl) {
+        console.error("filesTable element not found");
+        return;
+    }
+
+    const canEditFiles = filesTableEl.dataset.canEdit === "true";
+
+    let ay_committee_id = uploadForm.find('[name="ay_committee_id"]').val();
 
     // Load existing files
     function loadFiles() {
         $('.dt-input').addClass("me-1"); //add spacing to dt-input select
-        let ay_committee_id = uploadForm.find('[name="ay_committee_id"]').val();
+        
         $.ajax({
             url: `/committee_tracker/${ay_committee_id}/uploaded_files`,
             type: "GET",
             success: function (response) {
                 filesTable.clear();
-                let allow_delete = response.allow_delete;
+                // let allow_delete = response.allow_delete;
                 $.each(response.files, function (index, file) {
                     let fileName = file.name.toLowerCase();
                     let fileUrl = `/static/uploads/${file.name}`;
@@ -31,8 +40,9 @@ $(document).ready(function () {
                         : `<a href="${fileUrl}" target="_blank">Preview</a>`;
 
                     let deletebtn = ``
-                    if (allow_delete){
-                        deletebtn = `<button class="delete-file-btn btn btn-danger btn-sm" data-file-id="${file.id}" data-file-name="${file.name}">Delete</button>`
+                    if (canEditFiles === true) {
+                    // if (allow_delete){
+                        deletebtn = `<button class="delete-file-btn btn btn-danger btn-sm" data-file-id="${file.id}" data-file-name="${file.name}" data-ay-committee-id="${ay_committee_id}">Delete</button>`
                     } 
                     filesTable.row.add([
                         file.name,
@@ -133,15 +143,20 @@ $(document).ready(function () {
 
     // Delete File
     $(document).on("click", ".delete-file-btn", function () {
-        let file_id = $(this).data("file-id");
-        let file_name = $(this).data("file-name");
+        const file_id = $(this).data("file-id");
+        const file_name = $(this).data("file-name");
+        const ayCommitteeId = $(this).data("ay-committee-id");
+
         let row = $(this).closest('tr'); // get the row to remove
         let confirmed = confirm("Are you sure you want to delete " + file_name + "?")
         if (!confirmed) return;
         $.ajax({
             url: `/committee_tracker/delete_file/${file_id}`,
-            type: "POST",
-            contentType: "application/json",
+            method: "POST",
+            data: {"ay_committee_id": ayCommitteeId},
+            dataType: "json",
+            // data: JSON.stringify({ ay_committee_id: ay_committee_id }),
+            // contentType: "application/json",
             success: function (response) {
                 $('#upload-status').text(response.message).removeClass('alert-danger').addClass('alert alert-success');
                 filesTable.row(row).remove().draw(false); 

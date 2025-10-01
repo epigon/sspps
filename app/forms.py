@@ -241,6 +241,7 @@ class MemberForm(FlaskForm):
     start_date = DateField('Start Date', format='%Y-%m-%d', validators=[Optional()])
     end_date = DateField('End Date', format='%Y-%m-%d', validators=[Optional()])    
     voting = BooleanField('Voting Member', default=True)
+    allow_edit = BooleanField('Committee Editor', default=False)
     notes = TextAreaField('Notes', validators=[Length(max=255)])
     submit = SubmitField('Submit')    
 

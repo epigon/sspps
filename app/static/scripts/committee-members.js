@@ -6,35 +6,50 @@ $(document).ready(function () {
     // Initialize DataTable
     let table = $('#memberTable').DataTable({
         pageLength: 10,
-        responsive: true
+        responsive: true,
+        order: [[0, 'asc']]
     });
 
-    $('.dt-input').addClass("me-1"); //add spacing to dt-input select
+    // Spacing tweak for DataTables filter
+    $('.dt-input').addClass("me-1");
 
-    $.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
-        if (settings.nTable.id !== 'memberTable') {
-            return true; // Skip if it's not the right table
-        }
-        if (!$('#toggleActive').prop('checked')) {
-            return !data[6].toLowerCase().includes('deleted'); // Exclude "Deleted" (Actions column at index 4)
-        }
-        return true; // Show all if filter is off
-    });
+    // Custom filter for "Active / Deleted"
+    // $.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
+    //     if (settings.nTable.id !== 'memberTable') {
+    //         return true; // Skip if it's not the right table
+    //     }
+    //     // If checkbox is checked we show everything
+    //     const showDeleted = $('#toggleActive').prop('checked');
+    //     if (showDeleted) return true;
+
+    //     // Prefer sanity: try notes column (index 7 in your row array), but fallback safely
+    //     let notesRaw = data[7] || '';
+
+    //     // If notesRaw contains HTML, strip tags before searching
+    //     notesRaw = $('<div>').html(notesRaw).text().trim().toLowerCase();
+
+    //     // Return true to include row; false to exclude (we exclude rows that contain "deleted")
+    //     return notesRaw.indexOf('deleted') === -1;
+    //     // if (!$('#toggleActive').prop('checked')) {
+    //     //     return !data[7].toLowerCase().includes('deleted'); // Exclude "Deleted" (Actions column at index 7)
+    //     // }
+    //     // return true; // Show all if filter is off
+    // });
 
     table.draw();
 
-    $('#toggleActive').on('click', function () {
-        table.draw(); // Apply or reset the filter
-    });
+    // $('#toggleActive').on('click', function () {
+    //     table.draw(); // Apply or reset the filter
+    // });
 
     function resetForm() {
-        // $('#memberForm')[0].reset();
         $('#addformResponseMessage').html("").removeClass('alert alert-danger alert-success');
         $('#member-status').html("").removeClass('alert alert-danger alert-success');
         $(".is-invalid").removeClass("is-invalid");
         $('#memberForm').find('[name="employee_id"]').show();
         $("label[for='employee_id']").show();
     }
+
     // Open Modal for Adding Member
     $('#addMemberButton').on('click', function () {
         resetForm();
@@ -51,7 +66,7 @@ $(document).ready(function () {
                 $(this).prop('selected', true);
             }
         });
-        
+
         $('#memberModal').modal('show');
     });
 
@@ -75,6 +90,11 @@ $(document).ready(function () {
             $('#memberForm').find('[name="voting"]').prop('checked', true);
         } else {
             $('#memberForm').find('[name="voting"]').prop('checked', false);
+        }
+        if (row.find('.allow_edit').text().trim().toLowerCase() == "yes") {
+            $('#memberForm').find('[name="allow_edit"]').prop('checked', true);
+        } else {
+            $('#memberForm').find('[name="allow_edit"]').prop('checked', false);
         }
         $('#memberForm').find('[name="notes"]').val(row.find('.notes').text());
 
@@ -107,6 +127,7 @@ $(document).ready(function () {
                             data.member.start_date,
                             data.member.end_date,
                             displayYesNo(data.member.voting),
+                            displayYesNo(data.member.allow_edit),
                             `<button class="btn btn-warning btn-sm edit-btn" data-bs-toggle="modal" data-bs-target="#memberModal" data-id="${data.member.id}">Edit</button> 
                             <button class="btn btn-danger btn-sm delete-btn" data-bs-toggle="modal" data-bs-target="#deleteMemberModal" data-id="${data.member.id}">Delete</button>`,
                             data.member.notes
@@ -119,8 +140,9 @@ $(document).ready(function () {
                         $(row).find('td').eq(2).addClass("start-date"); // 3rd column
                         $(row).find('td').eq(3).addClass("end-date"); // 4th column
                         $(row).find('td').eq(4).addClass("voting"); // 5th column
-                        $(row).find('td').eq(5).addClass("actions"); // 6th column
-                        $(row).find('td').eq(6).addClass("notes"); // 7th column
+                        $(row).find('td').eq(5).addClass("allow-edit"); // 6th column
+                        $(row).find('td').eq(6).addClass("actions"); // 7th column
+                        $(row).find('td').eq(7).addClass("notes"); // 8th column
                         // Redraw the table to refresh sorting
                         table.row(row).invalidate().draw(false); // False prevents pagination reset
                     } else {
@@ -133,8 +155,9 @@ $(document).ready(function () {
                         rowData[2] = data.member.start_date;
                         rowData[3] = data.member.end_date;
                         rowData[4] = displayYesNo(data.member.voting);
-                        rowData[5] = rowData[5];
-                        rowData[6] = data.member.notes;
+                        rowData[5] = displayYesNo(data.member.allow_edit);
+                        rowData[6] = rowData[6];
+                        rowData[7] = data.member.notes;
 
                         row.find('.member-role').data('member-role-id', data.member.member_role_id);
                         row.attr('data-id', data.member.id).addClass('table-success');
@@ -189,16 +212,19 @@ $(document).ready(function () {
                     $('#deleteMemberModal').modal('hide');
                     let row = $(`tr[data-id='${memberId}']`);
                     let rowIndex = table.row(row).index(); // Get the row index
-                    let rowData = table.row(rowIndex).data();
-                    rowData[5] = ``;  // Update actions column
-                    rowData[6] = `Deleted: ${data.member.delete_date} (${data.member.notes})`;  // Update notes column
-                    $(row).addClass("table-success");
-                    $(row).find('td').addClass("text-muted fst-italic");
 
-                    table.row(rowIndex).data(rowData).draw(false); // Update the row in DataTable
+                    // let rowData = table.row(rowIndex).data();
+                    // rowData[6] = ``;  // Update actions column
+                    // rowData[7] = `Deleted: ${data.member.delete_date} (${data.member.notes})`;  // Update notes column
+                    // $(row).addClass("table-success");
+                    // $(row).find('td').addClass("text-muted fst-italic");
+
+                    // table.row(rowIndex).data(rowData).draw(false); // Update the row in DataTable
+                    // Remove the row completely instead of updating it
+                    table.row(rowIndex).remove().draw(false);
 
                     $('#member-status').text(data.message).removeClass('alert-danger').addClass('alert alert-success');
-                    $(`.delete-btn[data-id='${memberId}'], .edit-btn[data-id='${memberId}']`).addClass("d-none");
+                    // $(`.delete-btn[data-id='${memberId}'], .edit-btn[data-id='${memberId}']`).addClass("d-none");
 
                 } else {
                     $('#member-status').text(data.message).removeClass('alert-success').addClass('alert alert-danger');
@@ -216,7 +242,7 @@ $(document).ready(function () {
         event.preventDefault();
         let $form = $(this);
         let $message = $('#commitmentMessage');
-        let aycommitteeID = $('#id').val(); 
+        let aycommitteeID = $('#id').val();
         console.log(`/committee_tracker/save_commitment/${aycommitteeID}`)
         $.ajax({
             url: `/committee_tracker/save_commitment/${aycommitteeID}`,
@@ -244,5 +270,4 @@ $(document).ready(function () {
             }
         });
     });
-
 });
