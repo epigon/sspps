@@ -132,7 +132,7 @@ def generate_scheduled_ics():
                 datetime(datetime.now().year, 1, 1, tzinfo=timezone.utc)
             ),
             "end_at": (
-                None if course.get("term", {}).get("sis_term_id") == "term_default"
+                datetime(datetime.now().year+5, 1, 1, tzinfo=timezone.utc) if course.get("term", {}).get("sis_term_id") == "term_default"
                 else (
                     course.get('end_at') or
                     datetime(datetime.now().year, 1, 1, tzinfo=timezone.utc)
