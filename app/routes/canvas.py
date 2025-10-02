@@ -199,11 +199,23 @@ def get_canvas_events(context_codes=[], start_date=datetime.now(), end_date=None
 
         data = response.json()
         for event in data:
-            if 'start_at' in event:
-                event['local_start_at'] = datetime.fromisoformat(event['start_at'].replace('Z', '+00:00')).astimezone(PACIFIC_TZ).strftime('%m/%d/%Y %I:%M %p')
-            if 'end_at' in event:
-                event['local_end_at'] = datetime.fromisoformat(event['end_at'].replace('Z', '+00:00')).astimezone(PACIFIC_TZ).strftime('%m/%d/%Y %I:%M %p')
+            if "all_day_date" in event and event["all_day_date"]:
+                # Parse date (assume YYYY-MM-DD from Canvas or your source)
+                all_day = datetime.strptime(event["all_day_date"], "%Y-%m-%d").date()
+                event['start_at'] = all_day.strftime("%Y%m%d")  # 20251017
+                event['end_at'] = (all_day + timedelta(days=1)).strftime("%Y%m%d")  # 20251018
+                event['is_all_day'] = True
+            else:
+                if 'start_at' in event:
+                    event['local_start_at'] = datetime.fromisoformat(
+                        event['start_at'].replace('Z', '+00:00')
+                    ).astimezone(PACIFIC_TZ).strftime('%m/%d/%Y %I:%M %p')
+                if 'end_at' in event:
+                    event['local_end_at'] = datetime.fromisoformat(
+                        event['end_at'].replace('Z', '+00:00')
+                    ).astimezone(PACIFIC_TZ).strftime('%m/%d/%Y %I:%M %p')
             events.append(event)
+            # print(event['local_start_at'], event['local_end_at'], event.get('title','No Title'))
         # print("len",len(data))
 
         if len(data) < page_size:
