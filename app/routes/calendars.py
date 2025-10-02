@@ -120,7 +120,13 @@ def generate_scheduled_ics():
     courses1 = get_canvas_courses(account="SSPPS", state=["available"])
     courses2= get_canvas_courses(account="SOM", state=["available"])
     courses = sorted(courses1 + courses2, key=lambda c: c["name"])
-    
+
+    for course in courses:
+        if course.get('term', 'Unnamed Course').get('sis_term_id') == 'term_default':
+            # print(f"Course {course.get('name', 'Unnamed Course')} has default term, setting generic dates.")
+            course['start_at'] = datetime(datetime.now().year, 1, 1, tzinfo=timezone.utc)
+            course['end_at'] = datetime(datetime.now().year+5, 12, 31, tzinfo=timezone.utc)
+     
     # Build a map from course ID to course info
     course_map = {
         f"{course['id']}": {
