@@ -1,7 +1,7 @@
 @echo off
 
 REM Change directory to your project folder
-cd /d "E:\WWW\sspps\"
+cd /d "E:\WWW\sspps-dev\"
 
 REM Activate the virtual environment
 call venv\Scripts\activate.bat
