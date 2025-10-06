@@ -43,11 +43,11 @@ def secure():
         host = request.headers['Host']
     
         if host == "127.0.0.1:5000":
-            user_ad = "eblaize"
-            # user_ad = "epigon"
+            # user_ad = "pthiel"
+            user_ad = "epigon"
         else:
             user_ad = request.environ.get("ADUSERNAME")
-             
+        print(f"SSO Login attempt for user: {user_ad}")
         if not user_ad:
             return "Access denied: No Shibboleth authentication detected", 403
 
