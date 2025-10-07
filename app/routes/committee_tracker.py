@@ -1,4 +1,4 @@
-from app.utils import admin_required, permission_required, has_permission
+from app.utils import permission_required, has_permission, committee_edit_required
 from app.models import db, AcademicYear, Attendance, AYCommittee, Committee, Member, MemberRole, FrequencyType, CommitteeType, Employee, Meeting, FileUpload, User, Role, Permission
 from app.forms import AYCommitteeForm, CommitteeForm, CommitteeReportForm, MemberForm, MemberRoleForm, MeetingForm, FileUploadForm, FrequencyTypeForm, CommitteeTypeForm
 from datetime import datetime
@@ -167,7 +167,8 @@ def ay_committees_by_user(user_id:int):
 
 # Add a Committee    
 @bp.route('/ay_committee/new', methods=['GET', 'POST'])
-@permission_required('ay_committee+add, ay_committee+edit')
+# @permission_required('ay_committee+add, ay_committee+edit')
+@committee_edit_required("edit")
 def ay_committee(ay_committee_id:int=None):
 
     form = AYCommitteeForm(academic_year_id = request.args.get('academic_year_id', type=int))
@@ -218,7 +219,8 @@ def ay_committee(ay_committee_id:int=None):
     return render_template('committee_tracker/edit_ay_committee.html', form=form)
 
 @bp.route("/save_commitment/<int:ay_committee_id>", methods=["POST"])
-@permission_required('ay_committee+add, ay_committee+edit')
+# @permission_required('ay_committee+add, ay_committee+edit')
+@committee_edit_required("edit")
 def save_commitment(ay_committee_id):
     form = AYCommitteeForm()
 
@@ -237,7 +239,8 @@ def save_commitment(ay_committee_id):
     return jsonify(success=False, error=form.errors)
 
 @bp.route('/delete_ay_committee/<int:ay_committee_id>')
-@permission_required('ay_committee+delete')
+# @permission_required('ay_committee+delete')
+@committee_edit_required("delete")
 def delete_ay_committee(ay_committee_id):
     try:
         ay_committee = AYCommittee.query.filter_by(id=ay_committee_id, deleted=False).first_or_404()        
@@ -458,6 +461,7 @@ def delete_role(role_id):
 # List Members    
 @bp.route('/<int:ay_committee_id>/members/', methods=['GET'])
 @permission_required("ay_committee+add,ay_committee+edit,ay_committee+view")
+# @committee_edit_required("edit")
 def members(ay_committee_id:int):
     memberForm = MemberForm()
     memberForm.ay_committee_id.data = ay_committee_id
@@ -476,11 +480,11 @@ def members(ay_committee_id:int):
             joinedload(AYCommittee.members),
             joinedload(AYCommittee.fileuploads),
             joinedload(AYCommittee.meetings),
-            with_loader_criteria(Member, lambda m: m.deleted == False),
+            # with_loader_criteria(Member, lambda m: m.deleted == False),
             with_loader_criteria(FileUpload, lambda f: f.deleted == False),
             with_loader_criteria(Meeting, lambda m: m.deleted == False),
         ).first() if ay_committee_id else AYCommittee()
-    
+    # print(aycommittee.members)
     meetingForm = MeetingForm(ay_committee_id=ay_committee_id)
     uploadForm = FileUploadForm(ay_committee_id=ay_committee_id)
 
@@ -509,7 +513,8 @@ def members(ay_committee_id:int):
                            uploadForm=uploadForm, aycommittee=aycommittee)
 
 @bp.route('/add_member', methods=['POST'])
-@permission_required("member+add, member+edit")
+# @permission_required("member+add, member+edit")
+@committee_edit_required("edit")
 def add_member():
     form = MemberForm(request.form)
     form.employee_id.choices = [(['', 'Select one'])]
@@ -526,6 +531,7 @@ def add_member():
             start_date=form.start_date.data,
             end_date=form.end_date.data,
             voting=form.voting.data,
+            allow_edit=form.allow_edit.data,
             notes=form.notes.data
         )
 
@@ -549,6 +555,7 @@ def add_member():
                     "start_date": new_member.start_date.strftime('%Y-%m-%d') if new_member.start_date else "",
                     "end_date": new_member.end_date.strftime('%Y-%m-%d') if new_member.end_date else "",
                     "voting": new_member.voting,
+                    "allow_edit": new_member.allow_edit,
                     "notes": new_member.notes
                 }
             })
@@ -571,7 +578,8 @@ def add_member():
         return jsonify({"message": message, "errors": errors}), 400
     
 @bp.route('/edit_member/<int:member_id>', methods=['POST'])
-@permission_required("member+add, member+edit")
+# @permission_required("member+add, member+edit")
+@committee_edit_required("edit")
 def edit_member(member_id:int):
     # member = db.session.query(Member).get(member_id)
     member = Member.query.filter_by(id=member_id, deleted=False).first()
@@ -589,6 +597,7 @@ def edit_member(member_id:int):
             member.start_date = form.start_date.data
             member.end_date = form.end_date.data           
             member.voting=form.voting.data
+            member.allow_edit=form.allow_edit.data
             db.session.commit()
             member.user = Employee.query.filter_by(employee_id=member.employee_id).first()
             member.member_role = MemberRole.query.filter_by(id=member.member_role_id, deleted=False).first()
@@ -607,6 +616,7 @@ def edit_member(member_id:int):
                     "start_date": member.start_date.strftime('%Y-%m-%d') if member.start_date else "",
                     "end_date": member.end_date.strftime('%Y-%m-%d') if member.end_date else "",
                     "voting": member.voting,
+                    "allow_edit": member.allow_edit,
                     "notes": member.notes
                 }
             })
@@ -628,7 +638,8 @@ def edit_member(member_id:int):
         return jsonify({"message": message, "errors": errors}), 400
 
 @bp.route('/delete_member/<int:member_id>', methods=['POST'])
-@permission_required("member+delete")
+# @permission_required("member+delete")
+@committee_edit_required("edit")
 def delete_member(member_id:int):
         
     try:
@@ -686,8 +697,10 @@ def add_member_as_user(employee_id=None):
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+# @bp.route("/<int:ay_committee_id>/upload", methods=["POST"])
 @bp.route("/upload", methods=["POST"])
-@permission_required("document+add, document+edit")
+# @permission_required("document+add, document+edit")
+@committee_edit_required("edit")
 def upload_files():
     if "files" not in request.files:
         return jsonify({"error": "No files provided"}), 400
@@ -723,18 +736,22 @@ def upload_files():
     return jsonify({"success": "Files uploaded successfully", "files": saved_files})
 
 @bp.route("/<int:ay_committee_id>/uploaded_files", methods=["GET"])
-@permission_required("document+view, document+add, document+edit, document+delete")
+# @permission_required("document+view, document+add, document+edit, document+delete")
+# @committee_edit_required("edit")
 def uploaded_files(ay_committee_id:int):
     allfiles = FileUpload.query.filter_by(ay_committee_id=ay_committee_id, deleted=False).all()
     files = [{"ay_committee_id": f.ay_committee_id, "name": f.filename, "size": os.path.getsize(os.path.join(UPLOAD_FOLDER, f.filename)), "id": f.id} for f in allfiles]
     # print(files)
-    return jsonify({"files": files, "allow_delete": has_permission('document+delete')})
+    # return jsonify({"files": files, "allow_delete": has_permission('document+delete')})
+    return jsonify({"files": files})
 
 # Delete File
 @bp.route('/delete_file/<int:file_id>', methods=['POST'])
-@permission_required("document+delete")
+# @permission_required("document+delete")
+@committee_edit_required("edit")
 def delete_file(file_id:int):
     try:
+        ay_committee_id = request.form.get("ay_committee_id")
         doc = FileUpload.query.filter_by(id=file_id, deleted=False).first()
         doc.delete_date = datetime.now()
         doc.deleted = True
@@ -755,7 +772,8 @@ def delete_file(file_id:int):
 #     return jsonify({"meetings": meetings})
 
 @bp.route("/save_meeting", methods=["POST"])
-@permission_required("meeting+add, meeting+edit")
+# @permission_required("meeting+add, meeting+edit")
+@committee_edit_required("edit")
 def save_meeting():
     form = MeetingForm()
     meeting_id = request.form["meeting_id"]
@@ -776,18 +794,20 @@ def save_meeting():
 
         db.session.add(meeting)
         db.session.commit()
-
+        
         return jsonify({"success": True, "meetings": get_meetings_json(meeting.ay_committee_id)})
     else:
         print("error")
         return jsonify({"error": "Invalid data"}), 400
 
 @bp.route("/delete_meeting/<int:meeting_id>", methods=["POST"])
-@permission_required("meeting+delete")
+# @permission_required("meeting+delete")
+@committee_edit_required("edit")
 def delete_meeting(meeting_id:int):
     try:
-        meeting = Meeting.query.filter_by(id=meeting_id, deleted=False).first()
-        ay_committee_id = meeting.ay_committee_id
+        ay_committee_id = request.form.get("ay_committee_id")
+        meeting = Meeting.query.filter_by(id=meeting_id, ay_committee_id=ay_committee_id, deleted=False).first()
+        # ay_committee_id = meeting.ay_committee_id
 
         if not meeting:
             return jsonify({"error": "Meeting not found"}), 404
@@ -802,16 +822,20 @@ def delete_meeting(meeting_id:int):
         return jsonify({"success": False, "message": str(e)})
 
 @bp.route("/save_attendance", methods=["POST"])
-@permission_required("meeting+add, meeting+edit")
+# @permission_required("meeting+add, meeting+edit")
+@committee_edit_required("edit")
 def save_attendance():
     try:
         meeting_id = request.form.get("meeting_id")
-        meeting = Meeting.query.get_or_404(meeting_id)
-
+        
         if not meeting_id:
-            print("No meeting specified.")
-            flash("No meeting specified.", "danger")
+            msg = "No meeting specified."
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return jsonify(success=False, message=msg), 400
+            flash(msg, "danger")
             return redirect(request.referrer)
+
+        meeting = Meeting.query.get_or_404(meeting_id)
 
         # Loop through all form keys starting with 'status_'
         for key, value in request.form.items():
@@ -839,15 +863,16 @@ def save_attendance():
                     db.session.add(new_attendance)
 
         db.session.commit()
+        # print(get_meetings_json(meeting.ay_committee_id))
         return jsonify({"success": True, "meetings": get_meetings_json(meeting.ay_committee_id)})
     except Exception as e:
         db.session.rollback()
         return jsonify({"success": False, "message": str(e)})
 
 @bp.route("/<int:ay_committee_id>/meetings/json")
-@permission_required("meeting+view, meeting+add, meeting+edit, meeting+delete")
+# @permission_required("meeting+view, meeting+add, meeting+edit, meeting+delete")
+# @committee_edit_required("edit")
 def meetings_json(ay_committee_id: int):
-    # print("meetings_json",jsonify(get_meetings_json(ay_committee_id)))
     return jsonify(get_meetings_json(ay_committee_id))
 
 def get_meetings_json(ay_committee_id):
@@ -867,6 +892,7 @@ def get_meetings_json(ay_committee_id):
 
         data.append({
             "id": m.id,
+            "ay_committee_id": m.ay_committee_id,
             "title": m.title,
             "date": m.date.strftime("%Y-%m-%d"),
             "location": m.location or "",
@@ -876,7 +902,7 @@ def get_meetings_json(ay_committee_id):
     return data
 
 @bp.route("/<int:ay_committee_id>/meeting/<int:meeting_id>/attendance/json")
-@permission_required("meeting+view")
+# @permission_required("meeting+view")
 def meeting_attendance_json(ay_committee_id, meeting_id):
     meeting = Meeting.query.filter_by(id=meeting_id, ay_committee_id=ay_committee_id, deleted=False).first()
     if not meeting:
