@@ -2,7 +2,7 @@ from app.cred import PANOPTO_API_BASE, PANOPTO_CLIENT_ID, PANOPTO_CLIENT_SECRET
 from app.models import db, ScheduledRecording
 from app.utils import permission_required
 from .canvas import get_canvas_courses, get_canvas_events, chunked_list, get_enrollment_terms, get_canvas_courses_by_term
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dateutil import parser  # safer parsing
 from flask import Flask, render_template, request, Blueprint, jsonify, session, has_request_context
 from flask_login import login_required
@@ -331,8 +331,12 @@ def list_canvas_events():
                 )
         events.extend(course_events)
 
-    events.sort(key=lambda e: datetime.fromisoformat(e['start_at'].replace('Z', '+00:00')) if e.get('start_at') else datetime.max)
-
+    events.sort(
+        key=lambda e: datetime.fromisoformat(e['start_at'].replace('Z', '+00:00')).replace(tzinfo=timezone.utc)
+        if e.get('start_at')
+        else datetime.max.replace(tzinfo=timezone.utc)
+    )
+    
     scheduled = ScheduledRecording.query.all()
     scheduled_map = {int(rec.canvas_event_id): {
         "recorder_id": rec.recorder_id,
