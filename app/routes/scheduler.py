@@ -320,6 +320,17 @@ def list_canvas_events():
             end_date=end_date
         )
         for event in course_events:
+            if event.get("end_at"):
+                try:
+                    # Convert from ISO string to datetime, add 9 minutes, then back to ISO
+                    dt = datetime.fromisoformat(event["end_at"].replace("Z", "+00:00"))
+                    event["local_end_at"] = datetime.fromisoformat((dt + timedelta(minutes=9)).isoformat().replace('Z', '+00:00')
+                    ).astimezone(PACIFIC_TZ).strftime('%m/%d/%Y %I:%M %p')
+                except Exception:
+                    event["local_end_at"] = datetime.fromisoformat(
+                    event['end_at'].replace('Z', '+00:00')
+                    ).astimezone(PACIFIC_TZ).strftime('%m/%d/%Y %I:%M %p')
+
             ci = course_map.get(event.get('context_code'))
             if ci:
                 event['course_name'] = ci['course_name']
@@ -347,7 +358,7 @@ def list_canvas_events():
 
     folders = get_panopto_folders()
     recorders = get_panopto_recorders()
-
+    print(f"Found {len(folders)} folders and {len(recorders)} recorders in Panopto.",folders)
     duration = time.perf_counter() - start_overall
     print(f"⏱ list_canvas_events (account {account}, term {term_id}) took {duration:.2f} seconds and returned {len(events)} events.")
 
@@ -361,6 +372,7 @@ def list_canvas_events():
         term_id=term_id,
         term_name=selected_term.get("name")
     )
+
 @bp.route('/recordings/toggle', methods=['POST'])
 @permission_required('panopto_scheduler+add, panopto_scheduler+edit')
 def toggle_recording():
