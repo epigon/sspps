@@ -86,7 +86,7 @@
                         <input type="hidden" name="event_id_{{ event.id }}" value="{{ event.id }}">
                         <input type="hidden" name="title_{{ event.id }}" value="{{ event.session_title }}">
                         <input type="hidden" name="start_time_{{ event.id }}" value="{{ event.start_at }}">
-                        <input type="hidden" name="end_time_{{ event.id }}" value="{{ event.end_at }}">
+                        <input type="hidden" name="end_time_{{ event.id }}" value="{{ event.adjusted_end_at }}">
                     </td>
                     <td>{{ event.sis_course_id }}</td>
                     <td>{{ event.title }}</td>
@@ -198,55 +198,6 @@
         });
 
     });
-
-    // $(document).ready(function () {
-    //     $('#schedulerTable').DataTable({
-    //         order: [[3, 'asc']],
-    //         // lengthMenu: [
-    //         //     [25, 50, 100, -1], // Values for the page length options
-    //         //     [25, 50, 100, 'All'] // Display text for the options
-    //         // ],
-    //         pageLength: -1,
-    //         lengthChange: false,
-    //         layout: {
-    //             topStart: {
-    //                 buttons: [
-    //                     // { extend: 'pageLength', className: 'btn btn-secondary', text: 'Page Length' },
-    //                     { extend: 'colvis', className: 'btn btn-secondary', text: 'Show/Hide Columns' },
-    //                     { extend: 'print', className: 'btn btn-secondary', text: 'Print', exportOptions: { columns: ':visible' }, orientation: 'landscape', pageSize: 'LEGAL', title: 'Course Events' }
-    //                 ]
-    //             },
-    //             topEnd: {
-    //                 search: { placeholder: 'Search events...' }
-    //             },
-    //             bottomStart: 'info'
-    //             // ,
-    //             // bottomEnd: 'paging'
-    //         },
-    //         initComplete: function () {
-    //             const api = this.api();
-    //             const courseColumn = api.column(1);
-
-    //             const select = $('<select class="form-select form-select-sm me-2 mb-2"><option value="">Filter by Course</option></select>');
-
-    //             // Populate dropdown options
-    //             courseColumn.data().unique().sort().each(function (d) {
-    //                 const text = $('<div>').html(d).text(); // strip HTML
-    //                 select.append('<option value="' + text + '">' + text + '</option>');
-    //             });
-
-    //             // Append before the table
-    //             $(api.table().container()).prepend(select);
-
-    //             // On change, filter the column
-    //             select.on('change', function () {
-    //                 const val = $.fn.dataTable.util.escapeRegex($(this).val());
-    //                 courseColumn.search(val ? '^' + val + '$' : '', true, false).draw();
-    //             });
-    //         }
-
-    //     });
-    // });
 
     function submitToggleForm(checkbox) {
         const form = checkbox.closest("form");

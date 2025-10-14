@@ -324,9 +324,11 @@ def list_canvas_events():
                 try:
                     # Convert from ISO string to datetime, add 9 minutes, then back to ISO
                     dt = datetime.fromisoformat(event["end_at"].replace("Z", "+00:00"))
-                    event["local_end_at"] = datetime.fromisoformat((dt + timedelta(minutes=9)).isoformat().replace('Z', '+00:00')
+                    event["adjusted_end_at"] = (dt + timedelta(minutes=9)).isoformat()
+                    event["local_end_at"] = datetime.fromisoformat(event["adjusted_end_at"].replace('Z', '+00:00')
                     ).astimezone(PACIFIC_TZ).strftime('%m/%d/%Y %I:%M %p')
                 except Exception:
+                    event["adjusted_end_at"] = event["end_at"]
                     event["local_end_at"] = datetime.fromisoformat(
                     event['end_at'].replace('Z', '+00:00')
                     ).astimezone(PACIFIC_TZ).strftime('%m/%d/%Y %I:%M %p')
