@@ -360,7 +360,7 @@ def list_canvas_events():
 
     folders = get_panopto_folders()
     recorders = get_panopto_recorders()
-    print(f"Found {len(folders)} folders and {len(recorders)} recorders in Panopto.",folders)
+    # print(f"Found {len(folders)} folders and {len(recorders)} recorders in Panopto.",folders)
     duration = time.perf_counter() - start_overall
     print(f"⏱ list_canvas_events (account {account}, term {term_id}) took {duration:.2f} seconds and returned {len(events)} events.")
 

@@ -12,6 +12,7 @@ import requests
 
 bp = Blueprint('groupsearch', __name__, url_prefix='/groupsearch')
 
+#Google service account credentials
 SERVICE_ACCOUNT_FILE =  os.path.join('app', 'nodal-album-464015-d4-e7b2f79666a6.json')
 DELEGATED_EMAIL =  'groups-read-only@nodal-album-464015-d4.iam.gserviceaccount.com'  # Admin email
 SCOPES = ['https://www.googleapis.com/auth/cloud-identity.groups.readonly']
