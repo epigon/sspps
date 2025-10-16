@@ -426,6 +426,30 @@ def list_students():
                            pdf_title=pdf_title,
                            form=form)
 
+@bp.route('/view/<int:student_id>', methods=['GET'])
+@permission_required('students+view')
+def view_student(student_id):
+    student = Student.query.get_or_404(student_id)
+    # form = StudentForm(obj=student)
+
+    # if form.validate_on_submit():
+    #     student.update_date=datetime.now()
+    #     student.update_by=int(current_user.id)
+    #     form.populate_obj(student)
+        
+    #     # Handle photo upload
+    #     file = form.photo_file.data
+    #     if file:
+    #         filename = secure_filename(file.filename)
+    #         file.save(os.path.join(PHOTO_UPLOAD_FOLDER, filename))
+    #         student.photo_url = filename
+
+    #     db.session.commit()
+    #     flash("Student updated successfully.", 'success')
+    #     return redirect(url_for('students.list_students'))
+
+    return render_template('students/view_student.html', student=student)
+
 @bp.route('/edit/<int:student_id>', methods=['GET', 'POST'])
 @permission_required('students+add, students+edit')
 def edit_student(student_id):

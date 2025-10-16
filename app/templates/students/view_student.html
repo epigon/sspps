@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+
+{% block head %}
+{{super()}}
+
+<!-- DataTables CSS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.5/css/jquery.dataTables.min.css">
+
+<!-- jQuery (required by DataTables) -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<!-- DataTables JS -->
+<script src="https://cdn.datatables.net/1.13.5/js/jquery.dataTables.min.js"></script>
+<style>
+    #drop-zone {
+        width: 100%;
+        padding: 20px;
+        border: 2px dashed #ccc;
+        text-align: center;
+        color: #888;
+        cursor: pointer;
+    }
+
+    #drop-zone.dragover {
+        background-color: #f0f8ff;
+        border-color: #4caf50;
+    }
+
+    #drop-zone img {
+        max-width: 150px;
+        margin-top: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="container">
+
+    <h2 class="my-4">Student Info</h2>
+
+    <div class="row mb-3">
+        <div class="col-sm-2">
+            <!-- Current photo preview -->
+            <div class="row">
+                {% if student.photo_url %}
+                <img src="{{ url_for('static', filename='photos/' ~ student.photo_url) }}" class="img-thumbnail"
+                    width="100">
+                {% else %}
+                <em>No photo uploaded</em>
+                {% endif %}
+            </div>
+
+        </div>
+        <div class="col-sm-10 ps-4 ">
+            <div class="row border-bottom py-2">
+                <div class="col-sm-2 fw-bold">Studeny PID</div>
+                <div class="col-sm-10">{{ student.pid }}</div>
+            </div>
+
+            <div class="row border-bottom py-2">
+                <div class="col-sm-2 fw-bold">Username</div>
+                <div class="col-sm-10">
+                    {{ student.username }}
+                </div>
+            </div>
+
+            <div class="row border-bottom py-2">
+                <div class="col-sm-2 fw-bold">Email</div>
+                <div class="col-sm-10">
+                    {{ student.email }}
+                </div>
+            </div>
+
+            <!-- First and Last Name side-by-side -->
+            <div class="row border-bottom py-2">
+                <div class="col-sm-2 fw-bold">Legal</div>
+                <div class="col-sm-5">
+                    <div class="form-div fst-italic">First name</div>
+                    {{ student.first_name }}
+                </div>
+                <div class="col-sm-5">
+                    <div class="form-div fst-italic">Last name</div>
+                    {{ student.last_name }}
+                </div>
+            </div>
+
+            <!-- Other fields -->
+            <div class="row border-bottom py-2">
+                <div class="col-sm-2 fw-bold">Middle name</div>
+                <div class="col-sm-10">
+                    {{ student.middle_name }}
+                </div>
+            </div>
+
+            <div class="row border-bottom py-2">
+                <div class="col-sm-2 fw-bold">Suffix</div>
+                <div class="col-sm-10">
+                    {{ student.suffix }}
+                </div>
+            </div>
+
+            <div class="row border-bottom py-2">
+                <div class="col-sm-2 fw-bold">Pronoun</div>
+                <div class="col-sm-10">
+                    {{ student.pronoun }}
+                </div>
+            </div>
+
+            <div class="row border-bottom py-2">
+                <div class="col-sm-2 fw-bold">LOA</div>
+                <div class="col-sm-10 form-check">
+                    {% if student.loa %} Yes {% else %} No {% endif %}
+                </div>
+            </div>
+
+            <!-- Name pronunciation -->
+            <div class="row border-bottom py-2">
+                <div class="col-sm-2 fw-bold">Phonetic</div>
+                <div class="col-sm-5">
+                    <div class="form-div fst-italic">Phonetic first name</div>
+                    {{ student.phonetic_first_name }}
+                </div>
+                <div class="col-sm-5">
+                    <div class="form-div fst-italic">Phonetic last name</div>
+                    {{ student.phonetic_last_name }}
+                </div>
+            </div>
+
+            <div class="row border-bottom py-2">
+                <div class="col-sm-2 fw-bold">Lived Name</div>
+                <div class="col-sm-5">
+                    <div class="form-div fst-italic">Lived first name</div>
+                    {{ student.lived_first_name }}
+                </div>
+                <div class="col-sm-5">
+                    <div class="form-div fst-italic">Lived last name</div>
+                    {{ student.lived_last_name }}
+                </div>
+            </div>
+
+            <div class="row border-bottom py-2">
+                <div class="col-sm-2 fw-bold">Class of</div>
+                <div class="col-sm-10">
+                    {{ student.class_of }}
+                </div>
+            </div>
+        </div>
+    </div>
+    </form>
+</div>
+{% endblock %}
