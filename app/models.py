@@ -404,6 +404,29 @@ class ProjectTaskCode(db.Model):
     fund_manager_email = db.Column(db.String(50), nullable=False)
     status = Column(db.String(20), nullable=False)  # e.g., 'Active', 'Inactive'
 
+class Chartstring(db.Model):
+    __bind_key__ = 'rechargedb'
+    __tablename__ = 'Chartstrings'
+
+    entity_code = db.Column(db.String(20), nullable=False)
+    fund_code = db.Column(db.String(20), nullable=False)
+    financial_unit_code = db.Column(db.String(20), nullable=False)
+    account_code = db.Column(db.String(20), nullable=False)
+    function_code = db.Column(db.String(20), nullable=False)
+    project_code = db.Column(db.String(20), nullable=False)
+    chartstring = db.Column(db.String(200), primary_key=True)
+    status = db.Column(db.String(20), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+
+    def __repr__(self):
+        return (
+            f"<Chartstring(entity_code={self.entity_code}, fund_code={self.fund_code}, "
+            f"financial_unit_code={self.financial_unit_code}, account_code={self.account_code}, "
+            f"function_code={self.function_code}, project_code={self.project_code}, "
+            f"status={self.status})>"
+        )
+
 class InstrumentRequest(db.Model):
     __bind_key__ = 'rechargedb' 
     __tablename__ = 'InstrumentRequests'
