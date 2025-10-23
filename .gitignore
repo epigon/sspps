@@ -196,3 +196,8 @@ app/nodal-album-464015-d4-e7b2f79666a6.json
 
 app/static/files/vchs_sspps_employee.csv
 app/static/files/vchs_sspps_job_location.csv
+run_generate_scheduled_ics-local.bat
+run_import_projecttaskcodes-local.bat
+myEmma-apikey.txt
+app/static/files/vchs_sspps_employee.csv
+app/static/files/vchs_sspps_job_location.csv

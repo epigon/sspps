@@ -68,15 +68,16 @@ def create_app():
     
     # Register Blueprints
     from app.routes import main, users, roles, permissions, students, academic_years, calendars, canvas, committee_tracker, \
-        ad_lookup, groupsearch, scheduler, recharge, reports #, employees 
+        ad_lookup, scheduler, recharge, reports, emma_service, google_service #, employees 
     app.register_blueprint(main.bp)
     app.register_blueprint(academic_years.bp)
     app.register_blueprint(ad_lookup.bp)
     app.register_blueprint(calendars.bp)
     app.register_blueprint(canvas.bp)
     app.register_blueprint(committee_tracker.bp)
+    app.register_blueprint(emma_service.bp)
     #app.register_blueprint(employees.bp)
-    app.register_blueprint(groupsearch.bp)
+    app.register_blueprint(google_service.bp)
     app.register_blueprint(permissions.bp)
     app.register_blueprint(recharge.bp)
     app.register_blueprint(reports.bp)

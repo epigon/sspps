@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block head %}
+{{super()}}
+<!-- DataTables CSS -->
+<link
+    href="https://cdn.datatables.net/v/dt/jszip-3.10.1/dt-2.2.2/af-2.7.0/b-3.2.2/b-colvis-3.2.2/b-html5-3.2.2/b-print-3.2.2/cr-2.0.4/date-1.5.5/fc-5.0.4/fh-4.0.1/kt-2.12.1/r-3.0.4/rg-1.5.1/rr-1.5.0/sc-2.4.3/sb-1.8.2/sp-2.3.3/sl-3.0.0/sr-1.4.1/datatables.min.css"
+    rel="stylesheet" integrity="sha384-Ds1Vklai96R25BXbTa08O+OjpAevmakmGFQNAQECNryYdQ0qbN4CJSMwUSFT+NYe"
+    crossorigin="anonymous">
+
+<!-- DataTables JS -->
+<script
+    src="https://cdn.datatables.net/v/dt/jszip-3.10.1/dt-2.2.2/af-2.7.0/b-3.2.2/b-colvis-3.2.2/b-html5-3.2.2/b-print-3.2.2/cr-2.0.4/date-1.5.5/fc-5.0.4/fh-4.0.1/kt-2.12.1/r-3.0.4/rg-1.5.1/rr-1.5.0/sc-2.4.3/sb-1.8.2/sp-2.3.3/sl-3.0.0/sr-1.4.1/datatables.min.js"
+    integrity="sha384-lGlyEraPH4ouPKo2ethY8Xic4JlIXN/CUbMNpOce3EjRhLuGH732aMGDH7Cv8+VY"
+    crossorigin="anonymous"></script>
+{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h2>Members for Group: {{ group.group_name }}</h2>
+    <a href="{{ url_for('emma.groups_page') }}" class="btn btn-secondary btn-sm mb-3">← Back to MyEmma Groups</a>
+
+    <!-- Spinner -->
+    <div id="loading" class="text-center my-5">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-3">Loading members, please wait...</p>
+    </div>
+
+    <!-- Tabs and table container -->
+    <div id="members-content" class="d-none">
+        <ul class="nav nav-tabs" id="memberTabs" role="tablist">
+            <li class="nav-item"><button class="nav-link active" id="active-tab" data-bs-toggle="tab"
+                    data-bs-target="#active" type="button">Active</button></li>
+            <li class="nav-item"><button class="nav-link" id="error-tab" data-bs-toggle="tab" data-bs-target="#error"
+                    type="button">Error</button></li>
+            <li class="nav-item"><button class="nav-link" id="optout-tab" data-bs-toggle="tab" data-bs-target="#optout"
+                    type="button">Opt-Out</button></li>
+        </ul>
+
+        <div class="tab-content mt-3">
+            <div class="tab-pane fade show active" id="active" role="tabpanel"></div>
+            <div class="tab-pane fade" id="error" role="tabpanel"></div>
+            <div class="tab-pane fade" id="optout" role="tabpanel"></div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const groupId = {{ group.member_group_id }};
+        const apiUrl = `/emma/api/groups/${groupId}/members`;
+
+        fetch(apiUrl)
+            .then(r => r.json())
+            .then(data => {
+                const active = data.filter(m => m.status === "active");
+                const error = data.filter(m => m.status === "error");
+                const optout = data.filter(m => m.status === "opt-out");
+
+                // Update tab labels with counts
+                document.querySelector('#active-tab').textContent = `Active (${active.length})`;
+                document.querySelector('#error-tab').textContent = `Error (${error.length})`;
+                document.querySelector('#optout-tab').textContent = `Opt-Out (${optout.length})`;
+
+                const renderTable = (members, tableId) => `
+                <table id="${tableId}" class="table table-bordered table-striped">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>Email</th>
+                            <th>Name</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${members.length > 0 ? members.map((m, i) => `
+                            <tr>
+                                <td>${i + 1}</td>
+                                <td>${m.email || '(no email)'}</td>
+                                <td>${(m.fields?.first_name || '')} ${(m.fields?.last_name || '')}</td>
+                                <td>${m.status || '(no status)'}</td>
+                            </tr>`).join('') :
+                        `<tr><td></td>
+                            <td class="text-center">No members found</td>
+                            <td></td><td></td>
+                        </tr>`
+                        }
+                    </tbody>
+                </table>`;
+
+            document.querySelector("#active").innerHTML = renderTable(active, 'active-table');
+            document.querySelector("#error").innerHTML = renderTable(error, 'error-table');
+            document.querySelector("#optout").innerHTML = renderTable(optout, 'optout-table');
+
+            // Hide spinner, show content
+            document.querySelector("#loading").classList.add("d-none");
+            document.querySelector("#members-content").classList.remove("d-none");
+
+            // Initialize DataTables for all 3 tables
+            ['active-table', 'error-table', 'optout-table'].forEach(id => {
+                $(`#${id}`).DataTable({
+                    pageLength: 25,
+                    lengthMenu: [10, 25, 50, 100],
+                    order: [[1, 'asc']] // default sort by Email
+                });
+            });
+
+        })
+        .catch(err => {
+            document.querySelector("#loading").innerHTML = `<p class="text-danger">Failed to load members.</p>`;
+            console.log(err);
+        });
+    });
+</script>
+{% endblock %}

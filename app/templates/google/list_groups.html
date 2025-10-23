@@ -17,7 +17,7 @@
 
 {% block content %}
 
-<div class="container">
+<div class="container mt-4">
     {% if has_permission('listserv+add') or has_permission('listserv+edit') %}
     <h1>Add Google Group/Listserv:</h1>
     <div class="card p-4 mb-3 bg-light" id="addCard">
@@ -33,7 +33,8 @@
         </div>
     </div>
     {% endif %}
-    <h2>Existing Groups</h2>
+    <h2>Google Groups</h2>
+    
     <table id="groups-table" class="table table-bordered align-middle table-striped border rounded table-sm">
         <thead>
             <tr>
@@ -47,11 +48,11 @@
                 <td>{{ group.group_name }}<br>
                     <small class="text-muted">Added: {{ group.create_date.strftime('%Y-%m-%d %H:%M') }}</small>
                 </td>
-                <form method="POST" action="{{ url_for('groupsearch.delete_group', group_id=group.id) }}">
+                <form method="POST" action="{{ url_for('google.delete_group', group_id=group.id) }}">
                     <td>
                         <a href="mailto:{{ group.group_name }}"
                             class="btn btn-secondary btn-sm"><i class="bi bi-envelope"></i> Email Group</a>
-                        <a href="{{ url_for('groupsearch.list_members', group_email=group.group_name) }}"
+                        <a href="{{ url_for('google.groups_members_page', group_email=group.group_name) }}"
                             class="btn btn-primary btn-sm"><i class="bi bi-people"></i> View Members</a>
                         {% if has_permission('listserv+delete') %}
                         <button class="btn btn-sm btn-danger" onclick="return confirm('Are you sure?')"><i class="bi bi-trash"></i> Delete</button>

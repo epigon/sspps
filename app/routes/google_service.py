@@ -10,7 +10,7 @@ import os
 import pytz
 import requests
 
-bp = Blueprint('groupsearch', __name__, url_prefix='/groupsearch')
+bp = Blueprint('google', __name__, url_prefix='/google')
 
 #Google service account credentials
 SERVICE_ACCOUNT_FILE =  os.path.join('app', 'nodal-album-464015-d4-e7b2f79666a6.json')
@@ -38,12 +38,12 @@ def get_request_headers():
     }
     return headers
 
-@bp.route('/list', methods=['GET', 'POST'])
+@bp.route('/groups', methods=['GET', 'POST'])
 @permission_required('listserv+view, listserv+add, listserv+edit, listserv+delete')
-def list_groups():
+def groups_page():
 
     custom_breadcrumbs = [
-        {'name': 'Google Groups', 'url': '/groupsearch/list'}
+        {'name': 'Google Groups', 'url': '/google/list'}
     ]
     form = GroupForm()
     if form.validate_on_submit():
@@ -65,10 +65,10 @@ def list_groups():
             db.session.add(new_group)
             db.session.commit()
             flash('Group added successfully!', 'success')
-        return redirect(url_for('groupsearch.list_groups'))
+        return redirect(url_for('google.groups'))
     
     groups = Listserv.query.filter_by(deleted=False).order_by(Listserv.group_name.asc()).all()
-    return render_template('groupsearch/list_groups.html', form=form, groups=groups, breadcrumbs=custom_breadcrumbs)
+    return render_template('google/list_groups.html', form=form, groups=groups, breadcrumbs=custom_breadcrumbs)
 
 @bp.route('/delete/<int:group_id>', methods=['POST'])
 @permission_required('listserv+delete')
@@ -82,17 +82,17 @@ def delete_group(group_id):
         flash('Group soft-deleted.', 'info')
     else:
         flash('Group already deleted.', 'warning')
-    return redirect(url_for('groupsearch.list_groups'))
+    return redirect(url_for('google.groups'))
 
-@bp.route('/members/<string:group_email>')
+@bp.route("/groups/<string:group_email>/members")
 @permission_required('listserv+view')
-def list_members(group_email):
+def groups_members_page(group_email):
     
     headers = get_request_headers()
     
     custom_breadcrumbs = [
-        {'name': 'Google Groups', 'url': '/groupsearch/list'},
-        {'name': f'{group_email} Members', 'url': f'/groupsearch/members/{group_email}'}
+        {'name': 'Google Groups', 'url': '/google/groups'},
+        {'name': f'{group_email} Members', 'url': f'/google/{group_email}/members/'}
     ]
     # Make the HTTP request to Cloud Identity API
     # Lookup group
@@ -157,4 +157,4 @@ def list_members(group_email):
         if not page_token:
             break
 
-    return render_template('groupsearch/list_members.html', group=group_email, members=members, breadcrumbs=custom_breadcrumbs)
+    return render_template('google/list_members.html', group=group_email, members=members, breadcrumbs=custom_breadcrumbs)

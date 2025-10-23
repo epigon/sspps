@@ -1,41 +1,38 @@
 {% extends 'base.html' %}
-
 {% block head %}
 {{super()}}
-<!-- DataTables JS -->
 <!-- DataTables CSS -->
 <link
     href="https://cdn.datatables.net/v/dt/jszip-3.10.1/dt-2.2.2/af-2.7.0/b-3.2.2/b-colvis-3.2.2/b-html5-3.2.2/b-print-3.2.2/cr-2.0.4/date-1.5.5/fc-5.0.4/fh-4.0.1/kt-2.12.1/r-3.0.4/rg-1.5.1/rr-1.5.0/sc-2.4.3/sb-1.8.2/sp-2.3.3/sl-3.0.0/sr-1.4.1/datatables.min.css"
     rel="stylesheet" integrity="sha384-Ds1Vklai96R25BXbTa08O+OjpAevmakmGFQNAQECNryYdQ0qbN4CJSMwUSFT+NYe"
     crossorigin="anonymous">
-    
+
 <!-- DataTables JS -->
 <script
     src="https://cdn.datatables.net/v/dt/jszip-3.10.1/dt-2.2.2/af-2.7.0/b-3.2.2/b-colvis-3.2.2/b-html5-3.2.2/b-print-3.2.2/cr-2.0.4/date-1.5.5/fc-5.0.4/fh-4.0.1/kt-2.12.1/r-3.0.4/rg-1.5.1/rr-1.5.0/sc-2.4.3/sb-1.8.2/sp-2.3.3/sl-3.0.0/sr-1.4.1/datatables.min.js"
     integrity="sha384-lGlyEraPH4ouPKo2ethY8Xic4JlIXN/CUbMNpOce3EjRhLuGH732aMGDH7Cv8+VY"
     crossorigin="anonymous"></script>
 {% endblock %}
-
 {% block content %}
-
-<div class="container">
-    <h1>{{ group }} Members</h1>
-    <table id="members-table" class="table table-bordered align-middle table-striped border rounded table-sm">
+<div class="container mt-4">
+    <h2>MyEmma Groups</h2>
+    <table id="groups-table" class="table table-bordered align-middle table-striped border rounded table-sm">
         <thead>
             <tr>
-                <th>Email</th>
-                <th>Name</th>
-                <th>Added on</th>
-                <th>Role</th>
+                <th>Group Name</th>
+                <th>Action</th>
             </tr>
         </thead>
         <tbody>
-            {% for member in members %}
+            {% for g in groups %}
             <tr>
-                <td>{{ member.email }}</td>
-                <td>{{ member.name }}</td>
-                <td>{{ member.added }}</td>
-                <td>{{ member.role }}</td>
+                <td>{{ g['group_name'] }}</td>
+                <td>
+                    <a class="btn btn-primary btn-sm"
+                        href="{{ url_for('emma.group_members_page', group_id=g['member_group_id']) }}">
+                        <i class="bi bi-people"></i> View Members
+                    </a>
+                </td>
             </tr>
             {% endfor %}
         </tbody>
@@ -46,8 +43,8 @@
 {{ super() }}
 <script>
     $(document).ready(function () {
-        $('#members-table').DataTable({
-            order: [[0, 'asc']],  // Sort by "Email" ascending
+        $('#groups-table').DataTable({
+            order: [[0, 'asc']],  // Sort by "Group Name" ascending
             pageLength: 25
         });
     });

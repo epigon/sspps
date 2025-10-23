@@ -219,8 +219,13 @@
                                     {% if has_permission('listserv+view') or has_permission('listserv+add') or
                                     has_permission('listserv+edit') or has_permission('listserv+delete') %}
                                     <li>
-                                        <a class="dropdown-item" href="{{ url_for('groupsearch.list_groups') }}">Google
-                                            Listserv</a>
+                                        <hr class="dropdown-divider">
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{{ url_for('google.groups_page') }}">Google Listserv</a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{{ url_for('emma.groups_page') }}">MyEmma Groups</a>
                                     </li>
                                     {% endif %}
                                 </ul>
