@@ -57,7 +57,7 @@ def request_instrument():
 
 # --- Reviewer list ---
 @bp.route("/review_requests")
-# @permission_required('screeningcore_approve+add')
+@permission_required('screeningcore_approve+add')
 def review_requests():
 
     # print(current_user.can("screeningcore_approve", "add"))
@@ -107,44 +107,6 @@ def handle_request(request_id):
         flash(f"Request #{req.id} denied.", "success")
 
     return redirect(url_for("recharge.review_requests"))
-
-# @bp.route("/approve_request/<string:request_id>", methods=["POST"])
-# @permission_required('screeningcore_approve+add')
-# def approve_request(request_id):
-
-#     req = InstrumentRequest.query.get_or_404(request_id)
-
-#     # Update status
-#     req.status = "Approved"
-#     req.approved_at = datetime.now()
-#     req.approved_by = current_user.username
-#     req.notes = request.form.get("notes")  
-#     db.session.commit()
-
-#     # Reuse the email function
-#     email_request_barcode(request_id)
-
-#     flash(f"Request #{req.id} approved and barcode emailed to {req.requestor_email}.", "success")
-#     return redirect(url_for("recharge.review_requests"))
-
-# @bp.route("/deny_request/<string:request_id>", methods=["POST"])
-# @permission_required('screeningcore_approve+add')
-# def deny_request(request_id):
-
-#     req = InstrumentRequest.query.get_or_404(request_id)
-
-#     # Update status
-#     req.status = "Denied"
-#     req.approved_at = datetime.now()
-#     req.approved_by = current_user.username
-#     req.notes = request.form.get("notes")  
-#     db.session.commit()
-
-#     # Reuse the email function
-#     # email_request_barcode(request_id)
-
-#     flash(f"Request #{req.id} denied.", "success")
-#     return redirect(url_for("recharge.review_requests"))
 
 @bp.route("/email-request-barcode/<string:request_id>")
 @permission_required('screeningcore_approve+add')
@@ -214,13 +176,29 @@ def email_request_barcode(request_id):
     recipients = req.requestor_email
     cc = req.pi_email
     sender = approver.email
-    body = (
-        f"Hello,\n\nYour instrument request for {req.machine_name} has been approved.\n"
-        "Your barcode is attached. Please keep it for your records.\n\n"
-        f"Regards,\n{approver.employee_first_name} {approver.employee_last_name}"
-    )
+    
+    body_html = f"""
+    <p>Dear {req.requestor_name},</p>
 
-    send_email_via_powershell(recipients, cc, sender, subject, body, filename)
+    <p>Your instrument request for <strong>{req.machine_name}</strong> has been approved.<br>
+    Your <strong>barcode is attached</strong> - <u>you will need it to access the instrument</u>.</p>
+
+    <p>To help ensure smooth scheduling and fair use, please note the following guidelines:</p>
+    <ul>
+        <li><strong>Minimum usage time:</strong> 1 hour.</li>
+        <li><strong>Billing increments:</strong> Time is billed in 15-minute increments after the first hour.</li>
+        <li><strong>Logout requirement:</strong> Please log out at the end of your session. Billing continues until logout is completed.</li>
+        <li><strong>Booking:</strong> All sessions must be reserved in advance through the instrument booking calendar: 
+            <a href="[Calendar Link]">Calendar Link</a></li>
+    </ul>
+
+    <p>Thank you for your cooperation, and we look forward to supporting your work!</p>
+
+    <p>Best regards,<br>
+    Screening Core</p>
+    """
+
+    send_email_via_powershell(recipients, cc, sender, subject, body_html, filename)
 
     # Delete barcode file
     try:
@@ -244,7 +222,10 @@ def resend_email(request_id):
 
 def send_email_via_powershell(to_address, to_cc=None, from_address=None, subject=None, body=None, attachment_path=None):
     
-    ps_script = f'Send-MailMessage -From "{from_address}" -To "{to_address}" -Cc ("{to_cc}","{from_address}") -Subject "{subject}" -Body "{body}" -Attachments "{attachment_path}" -SmtpServer "{config.MAIL_SERVER}" -UseSsl'
+    # Escape double quotes in the body so HTML isn’t broken
+    safe_body = body.replace('"', '`"') if body else ""
+
+    ps_script = f'Send-MailMessage -From "{from_address}" -To "{to_address}" -Cc ("{to_cc}","{from_address}") -Subject "{subject}" -Body "{safe_body}" -BodyAsHtml -Attachments "{attachment_path}" -SmtpServer "{config.MAIL_SERVER}" -UseSsl'
 
     completed = subprocess.run(["powershell", "-Command", ps_script], capture_output=True, text=True)
     if completed.returncode != 0:
