@@ -55,6 +55,7 @@ def secure():
         
         if user:      
             login_user(user)
+            session.pop('_flashes', None) # Clear any existing flash messages
 
             next_url = request.args.get('next')
             if next_url and is_safe_url(next_url):
