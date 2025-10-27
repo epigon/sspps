@@ -1,6 +1,7 @@
 from app.emmaAPIAdapter import EmmaAPIAdapter
 from app.utils import permission_required
 from flask import render_template, request, Blueprint, jsonify
+from flask_login import login_required, current_user
 import base64
 import os
 import requests
@@ -8,6 +9,12 @@ import requests
 bp = Blueprint('emma', __name__, url_prefix='/emma')
 
 adapter = EmmaAPIAdapter() 
+
+# Routes to Webpages
+@bp.before_request
+@login_required
+def before_request():
+    pass
 
 @bp.route("/groups")
 @permission_required('listserv+view')
