@@ -1,4 +1,4 @@
-from app.models import Committee, Department, Employee, Machine, Permission, ProjectTaskCode, Role, User
+from app.models import Committee, Department, Employee, Instrument, Permission, ProjectTaskCode, Role, User
 from flask_wtf import FlaskForm
 from markupsafe import Markup, escape
 from wtforms import widgets, BooleanField, DateField, DateTimeLocalField, FileField, HiddenField, IntegerField, RadioField,\
@@ -289,7 +289,7 @@ class GroupForm(FlaskForm):
 
 # RECHARGE APP
 class InstrumentRequestForm(FlaskForm):
-    machine = SelectField("Instrument", coerce=int, validators=[DataRequired()])
+    machine = SelectField("Instrument", validators=[DataRequired()])
     department_code = SelectField('Department', validators=[DataRequired()])
     pi_name = DataAttributeSelectField("PI Name", validators=[DataRequired()])
     pi_email = StringField("PI Email", validators=[DataRequired(), Email()])
@@ -311,11 +311,11 @@ class InstrumentRequestForm(FlaskForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.machine.choices = [
-            (0, '--- Select a Machine ---') 
+            (0, '--- Select Instrument ---') 
         ] + [
-            (m.MachineId, m.MachineName)
-            for m in Machine.query.filter_by(MachineStatus=True)
-                .order_by(Machine.MachineName)
+            (m.machine_name, m.machine_name)
+            for m in Instrument.query.filter_by(flag=True)
+                .order_by(Instrument.machine_name)
                 .all()
         ]
         # Populate Department choices: value=department.code, label=department.name

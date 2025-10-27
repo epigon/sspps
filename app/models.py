@@ -432,7 +432,6 @@ class InstrumentRequest(db.Model):
     __tablename__ = 'InstrumentRequests'
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4())) # For general UUID handling   
     machine_name = Column(db.String(255), nullable=False)
-    machine_id = Column(db.String(50), nullable=False)
     department_code = Column( db.String(20), db.ForeignKey("DEPARTMENTS.code"), nullable=False )
     department = db.relationship( "Department", back_populates="instrument_requests" )
     pi_name = Column(db.String(100), nullable=False)
@@ -446,7 +445,7 @@ class InstrumentRequest(db.Model):
     had_training = Column(db.Boolean, nullable=False, default=False)
     project_task_code = Column(db.String(50), nullable=False)
     funding_source_code = db.Column(db.String(50), nullable=False)
-    status = Column(db.String(20), default="Pending")  # Pending, Approved, Rejected
+    status = Column(db.String(20), default="Pending")  # Pending, Approved, Denied, Cancelled
     notes = db.Column(db.Text)
     created_at = Column(db.DateTime, default=datetime.now)
     approved_at = Column(db.DateTime)
@@ -460,14 +459,16 @@ class InstrumentRequest(db.Model):
         viewonly=True
     )
 
-class Machine(db.Model):
+class Instrument(db.Model):
     __bind_key__ = 'rechargedb'
-    __tablename__ = 'Machines'
-    MachineId = db.Column(db.Numeric, primary_key=True)
-    MachineName = db.Column(db.String(255), nullable=False)
-    Charge = db.Column(db.Numeric)
-    MinimumDuration = db.Column(db.Numeric)
-    MachineStatus = db.Column(db.Boolean, nullable=False)  # True = active
+    __tablename__ = 'InstrumentConfig'
+    machine_name = db.Column(db.String(255), primary_key=True, nullable=False)
+    charge = db.Column(db.Numeric, nullable=False)
+    min_duration = db.Column(db.Numeric, nullable=False)
+    duration_type = db.Column(db.String(10), nullable=False)
+    min_increment = db.Column(db.Numeric, nullable=False)
+    increment_type = db.Column(db.String(10), nullable=False)
+    flag = db.Column(db.Boolean, nullable=False)  # True = active
 
 class MachineEvent(db.Model):
     __bind_key__ = 'rechargedb'

@@ -18,8 +18,8 @@
         <select name="machine" id="machine" class="form-select form-select-sm w-auto" onchange="this.form.submit()">
             <option value="">All</option>
             {% for m in machines %}
-            <option value="{{ m.MachineId }}" {{ 'selected' if request.args.get('machine')==m.MachineId|string else ''
-                }}>{{ m.MachineName }}</option>
+            <option value="{{ m.machine_name }}" {{ 'selected' if request.args.get('machine')==m.machine_name|string else ''
+                }}>{{ m.machine_name }}</option>
             {% endfor %}
         </select>
     </form>

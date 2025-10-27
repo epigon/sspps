@@ -2,7 +2,7 @@ from app import db
 from app import config
 # from app.email import send_email_via_powershell
 from app.forms import InstrumentRequestForm
-from app.models import Department, Employee, InstrumentRequest, Machine, MachineEvent, ProjectTaskCode, User
+from app.models import Department, Employee, InstrumentRequest, Instrument, ProjectTaskCode, User
 from app.utils import permission_required
 from datetime import datetime, timedelta
 from flask import Blueprint, flash, jsonify, redirect, render_template, request, send_file, url_for 
@@ -32,11 +32,10 @@ def request_instrument():
     form = InstrumentRequestForm()
 
     if form.validate_on_submit():
-        machine = Machine.query.get(form.machine.data)
+        machine = Instrument.query.get(form.machine.data)
         
         req = InstrumentRequest(
-            machine_name=machine.MachineName,
-            machine_id=str(machine.MachineId),
+            machine_name=machine.machine_name,
             department_code=form.department_code.data,
             pi_name=form.pi_name.data,
             pi_email=form.pi_email.data,
@@ -62,21 +61,19 @@ def review_requests():
 
     # print(current_user.can("screeningcore_approve", "add"))
     status = request.args.get("status")
-    machineID = request.args.get("machine")
+    machine = request.args.get("machine")
     print("machine",request.args.get('machine'))
     query = InstrumentRequest.query
 
     if status:
         query = query.filter_by(status=status)
         
-    if machineID:
-        query = query.filter_by(machine_id=machineID)
+    if machine:
+        query = query.filter_by(machine_name=machine)
 
     requests_list = query.order_by(InstrumentRequest.created_at.desc()).all()
-    machines_list = Machine.query.filter_by(MachineStatus=True).order_by(Machine.MachineName).all()
-    print(machines_list)
-    for m in machines_list:
-        print(m.MachineId, m.MachineName)
+    machines_list = Instrument.query.filter_by(flag=True).order_by(Instrument.machine_name).all()
+
     return render_template("recharge/review_requests.html", requests=requests_list, machines=machines_list)
 
 @bp.route('/handle_request/<string:request_id>', methods=['POST'])
@@ -114,6 +111,8 @@ def email_request_barcode(request_id):
 
     """Generates barcode and sends it via email."""
     req = InstrumentRequest.query.get_or_404(request_id)
+    machine = Instrument.query.filter_by(machine_name=req.machine_name).first()
+
     user = User.query.filter_by(id=current_user.id, deleted=False).first()
     approver = Employee.query.filter_by(employee_id=user.employee_id).first()
 
@@ -176,7 +175,7 @@ def email_request_barcode(request_id):
     recipients = req.requestor_email
     cc = req.pi_email
     sender = approver.email
-    
+
     body_html = f"""
     <p>Dear {req.requestor_name},</p>
 
@@ -185,8 +184,8 @@ def email_request_barcode(request_id):
 
     <p>To help ensure smooth scheduling and fair use, please note the following guidelines:</p>
     <ul>
-        <li><strong>Minimum usage time:</strong> 1 hour.</li>
-        <li><strong>Billing increments:</strong> Time is billed in 15-minute increments after the first hour.</li>
+        <li><strong>Minimum usage time:</strong> {machine.min_duration} {machine.duration_type}.</li>
+        <li><strong>Billing increments:</strong> Time is billed in {machine.min_increment}-{machine.increment_type} increments after the minimum usage time ({machine.min_duration} {machine.duration_type}).</li>
         <li><strong>Logout requirement:</strong> Please log out at the end of your session. Billing continues until logout is completed.</li>
         <li><strong>Booking:</strong> All sessions must be reserved in advance through the instrument booking calendar: 
             <a href="[Calendar Link]">Calendar Link</a></li>
@@ -233,107 +232,107 @@ def send_email_via_powershell(to_address, to_cc=None, from_address=None, subject
     else:
         print("Mail sent successfully")
 
-@bp.route("/schedule")
-def schedule():
-    request_id = request.args.get("requestID")
-    if not request_id:
-        return "Missing requestID", 400
+# @bp.route("/schedule")
+# def schedule():
+#     request_id = request.args.get("requestID")
+#     if not request_id:
+#         return "Missing requestID", 400
 
-    instr_req = InstrumentRequest.query.get(request_id)
-    if not instr_req:
-        return "Invalid requestID", 404
+#     instr_req = InstrumentRequest.query.get(request_id)
+#     if not instr_req:
+#         return "Invalid requestID", 404
 
-    machine = Machine.query.get(instr_req.machine_id)
-    if not machine:
-        return "Machine not found", 404
+#     machine = Machine.query.get(instr_req.machine_id)
+#     if not machine:
+#         return "Machine not found", 404
 
-    return render_template(
-        "recharge/scheduler.html",
-        machine=machine,
-        request_id=request_id,
-        instrument_request=instr_req
-    )
+#     return render_template(
+#         "recharge/scheduler.html",
+#         machine=machine,
+#         request_id=request_id,
+#         instrument_request=instr_req
+#     )
 
-@bp.route("/api/events", methods=["GET", "POST"])
-def api_events():
-    # ----------------- GET -----------------
-    if request.method == "GET":
-        request_id = request.args.get("requestID")
-        if not request_id:
-            return jsonify({"error": "missing requestID"}), 400
+# @bp.route("/api/events", methods=["GET", "POST"])
+# def api_events():
+#     # ----------------- GET -----------------
+#     if request.method == "GET":
+#         request_id = request.args.get("requestID")
+#         if not request_id:
+#             return jsonify({"error": "missing requestID"}), 400
 
-        instr_req = InstrumentRequest.query.get(request_id)
-        if not instr_req:
-            return jsonify({"error": "invalid requestID"}), 404
+#         instr_req = InstrumentRequest.query.get(request_id)
+#         if not instr_req:
+#             return jsonify({"error": "invalid requestID"}), 404
 
-        events = MachineEvent.query.filter_by(machine_id=instr_req.machine_id).all()
+#         events = MachineEvent.query.filter_by(machine_id=instr_req.machine_id).all()
 
-        # FullCalendar expects fields: id, title, start, end, description
-        return jsonify([
-            {
-                "id": e.id,
-                "title": e.title,
-                "start": e.start.isoformat(),
-                "end": e.end.isoformat(),
-                "description": e.description
-            } for e in events
-        ])
+#         # FullCalendar expects fields: id, title, start, end, description
+#         return jsonify([
+#             {
+#                 "id": e.id,
+#                 "title": e.title,
+#                 "start": e.start.isoformat(),
+#                 "end": e.end.isoformat(),
+#                 "description": e.description
+#             } for e in events
+#         ])
 
-    # ----------------- POST -----------------
-    data = request.get_json() or {}
-    request_id = data.get("requestID")
-    if not request_id:
-        return jsonify({"error": "missing requestID"}), 400
+#     # ----------------- POST -----------------
+#     data = request.get_json() or {}
+#     request_id = data.get("requestID")
+#     if not request_id:
+#         return jsonify({"error": "missing requestID"}), 400
 
-    instr_req = InstrumentRequest.query.get(request_id)
-    if not instr_req:
-        return jsonify({"error": "invalid requestID"}), 404
+#     instr_req = InstrumentRequest.query.get(request_id)
+#     if not instr_req:
+#         return jsonify({"error": "invalid requestID"}), 404
 
-    machine = Machine.query.get(instr_req.machine_id)
-    if not machine:
-        return jsonify({"error": "invalid machine"}), 404
+#     machine = Machine.query.get(instr_req.machine_id)
+#     if not machine:
+#         return jsonify({"error": "invalid machine"}), 404
 
-    title = data.get("title") or "Reserved"
-    # Include both requestor name and request ID
-    description = f"Requestor: {instr_req.requestor_name}\nRequest ID: {request_id}"
+#     title = data.get("title") or "Reserved"
+#     # Include both requestor name and request ID
+#     description = f"Requestor: {instr_req.requestor_name}\nRequest ID: {request_id}"
 
-    try:
-        new_start = datetime.fromisoformat(data["start"])
-        new_end = datetime.fromisoformat(data["end"])
-    except Exception:
-        return jsonify({"error": "Invalid datetime format"}), 400
+#     try:
+#         new_start = datetime.fromisoformat(data["start"])
+#         new_end = datetime.fromisoformat(data["end"])
+#     except Exception:
+#         return jsonify({"error": "Invalid datetime format"}), 400
 
-    # Validate duration & alignment
-    duration_minutes = (new_end - new_start).total_seconds() / 60
-    min_duration = max(15, int(machine.MinimumDuration or 15))
-    if duration_minutes < min_duration:
-        return jsonify({"error": f"Minimum duration is {min_duration} minutes"}), 400
-    if duration_minutes % 15 != 0 or not aligned_to_15(new_start) or not aligned_to_15(new_end):
-        return jsonify({"error": "Times must align to 15-minute increments"}), 400
+#     # Validate duration & alignment
+#     duration_minutes = (new_end - new_start).total_seconds() / 60
+#     min_duration = max(15, int(machine.MinimumDuration or 15))
+#     if duration_minutes < min_duration:
+#         return jsonify({"error": f"Minimum duration is {min_duration} minutes"}), 400
+#     if duration_minutes % 15 != 0 or not aligned_to_15(new_start) or not aligned_to_15(new_end):
+#         return jsonify({"error": "Times must align to 15-minute increments"}), 400
 
-    # Conflict check
-    conflict = (MachineEvent.query
-                .filter(MachineEvent.machine_id == machine.MachineId)
-                .filter(MachineEvent.start < new_end, MachineEvent.end > new_start)
-                .first())
-    if conflict:
-        return jsonify({"error": "Time conflict with existing event"}), 409
+#     # Conflict check
+#     conflict = (MachineEvent.query
+#                 .filter(MachineEvent.machine_id == machine.MachineId)
+#                 .filter(MachineEvent.start < new_end, MachineEvent.end > new_start)
+#                 .first())
+#     if conflict:
+#         return jsonify({"error": "Time conflict with existing event"}), 409
 
-    # Save the new event
-    ev = MachineEvent(
-        machine_id=machine.MachineId,
-        title=title,
-        description=description,
-        start=new_start,
-        end=new_end
-    )
-    db.session.add(ev)
-    db.session.commit()
+#     # Save the new event
+#     ev = MachineEvent(
+#         machine_id=machine.MachineId,
+#         title=title,
+#         description=description,
+#         start=new_start,
+#         end=new_end
+#     )
+#     db.session.add(ev)
+#     db.session.commit()
 
-    return jsonify({
-        "id": ev.id,
-        "title": ev.title,
-        "start": ev.start.isoformat(),
-        "end": ev.end.isoformat(),
-        "description": ev.description
-    }), 201
+#     return jsonify({
+#         "id": ev.id,
+#         "title": ev.title,
+#         "start": ev.start.isoformat(),
+#         "end": ev.end.isoformat(),
+#         "description": ev.description
+#     }), 201

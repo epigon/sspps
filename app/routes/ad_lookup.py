@@ -124,11 +124,6 @@ def cached_ldap_search(searchtype_ad, searchtype_first, searchtype_last, usernam
         })
     return results
 
-def user_in_group(username, group_dn):
-    conn = get_ldap_conn()
-    ldap_filter = f"(&(objectClass=user)(sAMAccountName={username})(memberOf:1.2.840.113556.1.4.1941:={group_dn}))"
-    return conn.search(BASE_DN, ldap_filter, search_scope=SUBTREE, attributes=['sAMAccountName']) and len(conn.entries) > 0
-
 @bp.route('/search', methods=['GET', 'POST'])
 @permission_required('ad_lookup+view')
 def search():
@@ -165,81 +160,3 @@ def search():
     print(results)
         
     return render_template('ad_lookup/search.html', results=results, error=error, searchterms=searchterms, breadcrumbs=custom_breadcrumbs)
-
-#"""Using ADSI LDAP Linked Server"""
-# def search():
-#     results = []
-#     searched = False
-#     if request.method == 'POST':
-#         searched = True
-#         firstname = request.form.get('firstname', '').strip()
-#         lastname = request.form.get('lastname', '').strip()
-#         username = request.form.get('username', '').strip()
-
-#         where_clauses = ["objectCategory = ''Person''", "objectClass = ''user''"]
-#         if firstname:
-#             where_clauses.append(f"givenName = ''*{firstname}*''")
-#         if lastname:
-#             where_clauses.append(f"sn = ''*{lastname}*''")
-#         if username:
-#             where_clauses.append(f"sAMAccountName = ''{username}*''")
-
-#         where_sql = " AND ".join(where_clauses)
-        
-#         sql = text(f"""
-#             SELECT sAMAccountName, displayName, userAccountControl, accountExpires,
-#                    employeeID, distinguishedName
-#             FROM OPENQUERY(ADSI, '
-#                 SELECT sAMAccountName, displayName, userAccountControl, accountExpires,
-#                        employeeID, distinguishedName
-#                 FROM ''LDAP://ldap.ad.ucsd.edu/DC=AD,DC=UCSD,DC=EDU''
-#                 WHERE {where_sql}
-#             ')
-#         """)
-
-#         try:
-#             query_result = db.session.execute(sql).fetchall()
-#             for row in query_result:
-#                 # Check if user is in DUO group
-#                 duo_clauses = ["objectCategory = ''Person''", "objectClass = ''user''", f"sAMAccountName = ''{row.sAMAccountName}''"]
-#                 where_sql = " AND ".join(duo_clauses)
-#                 duosql = text(f"""
-#                     SELECT sAMAccountName
-#                     FROM OPENQUERY(ADSI, '
-#                         SELECT sAMAccountName
-#                         FROM ''LDAP://ldap.ad.ucsd.edu/DC=AD,DC=UCSD,DC=EDU''
-#                         WHERE {where_sql}
-#                         AND memberOf = ''CN=HS-DUO-USERS,OU=Groups,OU=Global Resources,OU=UCSD Healthcare,DC=AD,DC=UCSD,DC=EDU''
-#                     ')
-#                 """)
-#                 duo_result = db.session.execute(duosql).fetchone()
-#                 is_duo = duo_result is not None
-#                 sopsql = text(f"""
-#                     SELECT sAMAccountName
-#                     FROM OPENQUERY(ADSI, '
-#                         SELECT sAMAccountName
-#                         FROM ''LDAP://ldap.ad.ucsd.edu/DC=AD,DC=UCSD,DC=EDU''
-#                         WHERE {where_sql}
-#                         AND memberOf = ''CN=FOL_AHS-SOPPS-PHARMACY_EDUCATION-RW,OU=DFS Groups,OU=Groups,OU=AHS,OU=UCSD Healthcare,DC=AD,DC=UCSD,DC=EDU''
-#                     ')
-#                 """)
-#                 sop_result = db.session.execute(sopsql).fetchone()
-#                 is_sop = sop_result is not None
-#                 # print("duo_result",duo_result)
-#                 results.append({
-#                     'Username': row.sAMAccountName,
-#                     'Name': row.displayName,
-#                     'Active': 'Yes' if is_active(row.userAccountControl) else 'No',
-#                     'Exp': convert_windows_time(row.accountExpires),
-#                     'Emp ID': row.employeeID,
-#                     'DN': row.distinguishedName,
-#                     'HC OU': 'Yes' if extract_ou(row.distinguishedName, 'UCSD Healthcare') else 'No',
-#                     'SOP OU': 'Yes' if is_sop else 'No',
-#                     'HS DUO': 'Yes' if is_duo else 'No'
-#                 })
-#         except Exception as e:
-#             print("LDAP query failed:", e)
-
-#     print(results)
-
-#     return render_template('ad_lookup/search.html', results=results, searched=searched)
