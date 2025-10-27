@@ -469,29 +469,6 @@ class Instrument(db.Model):
     min_increment = db.Column(db.Numeric, nullable=False)
     increment_type = db.Column(db.String(10), nullable=False)
     flag = db.Column(db.Boolean, nullable=False)  # True = active
-
-class MachineEvent(db.Model):
-    __bind_key__ = 'rechargedb'
-    __tablename__ = 'MachineEvents'
-
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    machine_id = db.Column(db.Integer, db.ForeignKey("Machines.MachineId"), nullable=False)
-    title = db.Column(db.String(200), nullable=False)
-    description = db.Column(db.Text)   # <-- add description field
-    start = db.Column(db.DateTime, nullable=False)
-    end = db.Column(db.DateTime, nullable=False)
-
-    machine = db.relationship("Machine", backref="events")
-
-    def to_jqx(self):
-        return {
-            "id": self.id,
-            "subject": self.title,       # what jqxScheduler shows as appointment text
-            "description": self.description or "",
-            "start": self.start.isoformat(),
-            "end": self.end.isoformat(),
-        }
-
     
 class Department(db.Model):
     __bind_key__ = 'rechargedb'
