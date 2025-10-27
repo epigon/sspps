@@ -7,7 +7,7 @@ bp = Blueprint('emma', __name__, url_prefix='/emma')
 
 adapter = EmmaAPIAdapter() 
 
-@bp.route('/groups', methods=['GET', 'POST'])
+@bp.route('/groups')
 @login_required
 @permission_required('listserv+view')
 def groups_page():
