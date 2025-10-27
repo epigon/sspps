@@ -55,6 +55,7 @@ def secure():
         
         if user:      
             login_user(user)
+            session.permanent = True
             session.pop('_flashes', None) # Clear any existing flash messages
 
             next_url = request.args.get('next')
