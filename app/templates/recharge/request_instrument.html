@@ -2,6 +2,7 @@
 {% block content %}
 <div class="container mt-4">
     <h2>Instrument Request Form</h2>
+    {% if not request_data %}
     <form method="POST">
         {{ form.hidden_tag() }}
         {% for field in form if field.name != 'submit' and field.name != 'csrf_token' %}
@@ -31,6 +32,22 @@
         {% endfor %}
         {{ form.submit(class="btn btn-primary") }}
     </form>
+    {% else %}
+    <div class="mt-5 p-4 border rounded bg-light">
+        <h4>Request Submitted Successfully</h4>
+        <table class="table table-bordered mt-3">
+            <tbody>
+                {% for key, value in request_data.items() %}
+                <tr>
+                    <th class="w-25">{{ key }}</th>
+                    <td>{{ value }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <a href="{{ url_for('recharge.request_instrument') }}" class="btn btn-secondary mt-3">Submit Another Request</a>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}
 
