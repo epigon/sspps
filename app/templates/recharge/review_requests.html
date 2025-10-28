@@ -9,8 +9,8 @@
         <select name="status" id="status" class="form-select form-select-sm w-auto" onchange="this.form.submit()">
             <option value="">All</option>
             <option value="Pending" {{ 'selected' if request.args.get('status')=='Pending' else '' }}>Pending</option>
-            <option value="Approved" {{ 'selected' if request.args.get('status')=='Approved' else '' }}>Approved
-            </option>
+            <option value="Approved" {{ 'selected' if request.args.get('status')=='Approved' else '' }}>Approved</option>
+            <option value="Cancelled" {{ 'selected' if request.args.get('status')=='Cancelled' else '' }}>Cancelled</option>
             <option value="Denied" {{ 'selected' if request.args.get('status')=='Denied' else '' }}>Denied</option>
         </select>
 
@@ -18,8 +18,8 @@
         <select name="machine" id="machine" class="form-select form-select-sm w-auto" onchange="this.form.submit()">
             <option value="">All</option>
             {% for m in machines %}
-            <option value="{{ m.machine_name }}" {{ 'selected' if request.args.get('machine')==m.machine_name|string else ''
-                }}>{{ m.machine_name }}</option>
+            <option value="{{ m.machine_name }}" {{ 'selected' if request.args.get('machine')==m.machine_name|string
+                else '' }}>{{ m.machine_name }}</option>
             {% endfor %}
         </select>
     </form>
@@ -78,8 +78,8 @@
                 <td>{{ req.created_at.strftime('%m/%d/%Y %I:%M %p').lower() if req.created_at else '' }}</td>
                 <td>
                     <strong>{{ req.status }}</strong>
-                    {% if req.status == 'Approved' or req.status == 'Denied' %}<br/>
-                    by {{ req.approver.employee_name or '' }}<br/>
+                    {% if req.status == 'Approved' or req.status == 'Denied' %}<br />
+                    by {{ req.approver.employee_name or '' }}<br />
                     on {{ req.approved_at.strftime('%m/%d/%Y %I:%M %p').lower() if
                     req.approved_at else ''
                     }}

@@ -1,8 +1,16 @@
+from app import create_app, db
 from app.cred import server, user, pwd, rechargedatabase, odbcdriver  # ensure `database` is defined in cred.py
-from sqlalchemy import create_engine, text, Table, Column, String, MetaData
+from app.models import InstrumentRequest, ProjectTaskCode
+from app.utils import permission_required
+from datetime import datetime
+from sqlalchemy import create_engine, Table, Column, String, MetaData
 import pandas as pd
 
 metadata = MetaData()
+app = create_app()
+
+connection_string = f'mssql+pyodbc://{user}:{pwd}@{server}/{rechargedatabase}?driver={odbcdriver}&TrustServerCertificate=yes'
+engine = create_engine(connection_string)
 
 # --- Define Table for Bulk Insert ---
 project_task_codes_table = Table(
@@ -29,9 +37,6 @@ chartstrings_table = Table(
     Column('project_code', String(20), nullable=False),
     Column('status', String(20))
 )
-
-connection_string = f'mssql+pyodbc://{user}:{pwd}@{server}/{rechargedatabase}?driver={odbcdriver}&TrustServerCertificate=yes'
-engine = create_engine(connection_string)
 
 # --- CSV Import Function ---
 def import_project_task_codes(csv_path):
@@ -69,20 +74,33 @@ def import_project_task_codes(csv_path):
         'Entity_Code', 'Project-Task_Code', 'Award_External_Funding_Source_Code', 'Award_External_Funding_Source'
     ])
 
-    # Convert to dict for insertion
-    records = df.rename(columns={
+    
+# Combine — use "most recent" if present, otherwise "original"
+    df['pi_email'] = (
+        df['Award_Most_Recent_Principal_Investigator_Email_Address']
+        .replace('', pd.NA)  # treat empty string as missing
+        .fillna(df['Award_Principal_Investigator_Email_Address'])
+    )
+
+    df['pi_name'] = (
+        df['Award_Most_Recent_Principal_Investigator_Name_Full']
+        .replace('', pd.NA)
+        .fillna(df['Award_Principal_Investigator_Name_Full'])
+    )
+
+    # Then rename other columns as needed
+    df = df.rename(columns={
         'Entity_Code': 'entity_code',
         'Project-Task_Code': 'project_task_code',
         'Award_External_Funding_Source_Code': 'funding_source_code',
         'Award_External_Funding_Source': 'funding_source',
         'Project_Status': 'status',
-        'Award_Principal_Investigator_Email_Address': 'pi_email',
-        'Award_Principal_Investigator_Name_Full': 'pi_name',
-        'Award_Most_Recent_Principal_Investigator_Email_Address': 'pi_email',
-        'Award_Most_Recent_Principal_Investigator_Name_Full': 'pi_name',
         'Award_Fund_Manager_Name_Full': 'fund_manager_name',
         'Award_Fund_Manager_Email_Address': 'fund_manager_email'
-    }).to_dict(orient='records')
+    })
+
+    # Convert to list of dicts
+    records = df.to_dict(orient='records')
 
     if not records:
         print("No valid rows found to import.")
@@ -156,6 +174,21 @@ def import_chartstrings(csv_path):
         except Exception as e:
             print(f"Error during insert: {e}")
 
+def verify_requests():
+    with app.app_context():
+        req = InstrumentRequest.query.filter(InstrumentRequest.status.in_(["Approved", "Pending"])).all()
+
+        for r in req:
+            activeProjectTaskCode = ProjectTaskCode.query.filter_by(
+                project_task_code=r.project_task_code
+            ).first()
+            if not activeProjectTaskCode:         
+                # print(r.id, r.project_task_code, r.status)   
+                r.notes = ((r.notes+";") or "") + f'\nInvalid Project Task Code. {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
+                r.status = "Cancelled"
+                db.session.commit()
+                print(f"Request ID {r.id} denied due to invalid project task code.")
+
 # --- Run Script ---
 if __name__ == "__main__":
     csv_file = "app/static/files/pharmacy_projectTaskCodes.csv"  # change this path as needed
@@ -163,3 +196,5 @@ if __name__ == "__main__":
 
     csv_file = "app/static/files/pharmacy_chartstrings.csv"  # update if needed
     import_chartstrings(csv_file)
+
+    verify_requests()
