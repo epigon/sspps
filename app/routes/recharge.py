@@ -187,8 +187,7 @@ def email_request_barcode(request_id):
         <li><strong>Minimum usage time:</strong> {machine.min_duration} {machine.duration_type}.</li>
         <li><strong>Billing increments:</strong> Time is billed in {machine.min_increment}-{machine.increment_type} increments after the minimum usage time ({machine.min_duration} {machine.duration_type}).</li>
         <li><strong>Logout requirement:</strong> Please log out at the end of your session. Billing continues until logout is completed.</li>
-        <li><strong>Booking:</strong> All sessions must be reserved in advance through the instrument booking calendar: 
-            <a href="[Calendar Link]">Calendar Link</a></li>
+        <li><strong>Booking:</strong> All sessions must be reserved in advance through the instrument booking calendar.  Calendar link will be sent shortly.</li>
     </ul>
 
     <p>Thank you for your cooperation, and we look forward to supporting your work!</p>
@@ -196,7 +195,7 @@ def email_request_barcode(request_id):
     <p>Best regards,<br>
     Screening Core</p>
     """
-
+    # : <a href="{machine.calendar_url}">Calendar Link</a>
     send_email_via_powershell(recipients, cc, sender, subject, body_html, filename)
 
     # Delete barcode file
