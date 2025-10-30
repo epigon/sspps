@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% from 'bootstrap5/form.html' import render_form, render_field %}
-{% from 'bootstrap5/utils.html' import render_messages %}
+<!-- {% from 'bootstrap5/form.html' import render_form, render_field %}
+{% from 'bootstrap5/utils.html' import render_messages %} -->
 
 {% block title%}
 Committee
@@ -13,17 +13,167 @@ Committee
 {% block content %}
 <div class="container mt-3">
     <div class="col-md-6">
-        
-        <form class="form-signin" method="POST" action="/committee_tracker/ay_committee/new">
+
+        <form method="POST" action="{{ request.path }}">
             <h2 class="form-signin-heading">Add Committee</h2>
             {{ form.hidden_tag() }}
+            {% if disable_academic_year %}
+            <!-- Show academic year as text but keep hidden input for form submission -->
+            <div class="mb-3">
+                <p class="form-control-plaintext">
+                    Academic Year: <em>{{ dict(form.academic_year_id.choices).get(form.academic_year_id.data) }}</em>
+                </p>
+                <input type="hidden" name="academic_year_id" value="{{ form.academic_year_id.data }}">
+            </div>
+            {% else %}
             {{ render_field(form.academic_year_id) }}
+            {% endif %}
             {{ render_field(form.committee_id) }}
             {{ render_field(form.meeting_frequency_type_id) }}
             {{ render_field(form.meeting_duration_in_minutes) }}
             {{ render_field(form.supplemental_minutes_per_frequency) }}
+            <div class="mb-3">
+                <label for="copy_from_id" class="form-label">Copy from Previous Academic Year</label>
+                <select id="copy_from_id" name="copy_from_id" class="form-select" disabled>
+                    <option value="0">— Select Committee First —</option>
+                </select>
+            </div>
+            <div id="copy-options" class="mb-3" style="display:none;">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="copy_members" name="copy_members">
+                    <label class="form-check-label" for="copy_members">Copy Members</label>
+                </div>
+            </div>
             <button class="btn btn-primary" type="submit">Save</button>
-        </form>        
+        </form>
     </div>
 </div>
+{% endblock %}
+{% block scripts %}
+{{super()}}
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const committeeSelect = document.querySelector("#committee_id");
+        const copySelect = document.querySelector("#copy_from_id");
+        const ayField = document.querySelector("#academic_year_id");
+        const freqSelect = document.getElementById('meeting_frequency_type_id');
+        const durationInput = document.getElementById('meeting_duration_in_minutes');
+        const supplementalInput = document.getElementById('supplemental_minutes_per_frequency');
+        const copyOptions = document.getElementById('copy-options');
+        const copyMembersCheckbox = document.getElementById('copy_members');
+
+        // Safely get academic_year_id (hidden or not)
+        const currentAY = ayField ? ayField.value : (
+            document.querySelector('input[name="academic_year_id"]')?.value || 0
+        );
+
+        if (!committeeSelect || !copySelect) return; // safety check
+
+        committeeSelect.addEventListener("change", function () {
+            const committeeId = this.value;
+            if (!committeeId || committeeId == "0") {
+                copySelect.innerHTML = '<option value="0">— Select Committee First —</option>';
+                copySelect.disabled = true;
+                return;
+            }
+
+            fetch(`/committee_tracker/ay_committee/previous/${committeeId}/${currentAY}`)
+                .then(response => response.json())
+                .then(data => {
+                    copySelect.innerHTML = '<option value="0">— Do not copy —</option>';
+                    data.forEach(item => {
+                        const opt = document.createElement("option");
+                        opt.value = item.id;
+                        opt.textContent = item.label;
+                        copySelect.appendChild(opt);
+                    });
+                    copySelect.disabled = false;
+                })
+                .catch(err => console.error("Error loading previous committees:", err));
+        });
+
+        // Preview container
+        let previewContainer = document.createElement('div');
+        previewContainer.id = "member-preview";
+        previewContainer.classList.add("mt-3");
+        copyOptions.parentNode.insertBefore(previewContainer, copyOptions.nextSibling);
+
+        copySelect.addEventListener('change', function () {
+            const selectedId = parseInt(this.value);
+            if (!selectedId) {
+                copyOptions.style.display = 'none';
+                previewContainer.innerHTML = '';
+                return;
+            }
+
+            fetch(`/committee_tracker/get_previous_committee/${selectedId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert(data.error);
+                        return;
+                    }
+
+                    // Fill meeting fields
+                    freqSelect.value = data.meeting_frequency_type_id || '';
+                    durationInput.value = data.meeting_duration_in_minutes || '';
+                    supplementalInput.value = data.supplemental_minutes_per_frequency || '';
+
+                    // Show copy option
+                    copyOptions.style.display = 'block';
+                    copyMembersCheckbox.checked = false;
+                    copyMembersCheckbox.dataset.members = JSON.stringify(data.members);
+                    previewContainer.innerHTML = '';
+                })
+                .catch(err => console.error("Error loading previous committee:", err));
+        });
+
+        // Show preview when checkbox checked
+        copyMembersCheckbox.addEventListener('change', function () {
+            const members = JSON.parse(this.dataset.members || "[]");
+            if (!this.checked) {
+                previewContainer.innerHTML = '';
+                return;
+            }
+
+            if (members.length === 0) {
+                previewContainer.innerHTML = '<div class="alert alert-warning">No members to copy.</div>';
+                return;
+            }
+
+            // Build preview table
+            let table = `
+            <table class="table table-sm table-bordered">
+                <thead class="table-light">
+                    <tr>
+                        <th>Copy?</th>
+                        <th>Employee</th>
+                        <th>Role</th>
+                        <th>Voting</th>
+                        <th>Start Date</th>
+                        <th>End Date</th>
+                        <th>Committee Editor</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${members.map(m => `
+                        <tr>
+                            <td class="text-center">
+                                <input type="checkbox" name="copy_member_ids" value="${m.employee_id}" checked>
+                            </td>
+                            <td>${m.employee_name}</td>
+                            <td>${m.member_role}</td>
+                            <td>${m.voting ? 'Yes' : 'No'}</td>
+                            <td>${m.start_date || ''}</td>
+                            <td>${m.end_date || ''}</td>
+                            <td>${ m.allow_edit ? 'Yes' : 'No' }</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+            previewContainer.innerHTML = `<h6>Members to be copied:</h6>${table}`;
+        });
+    });
+</script>
 {% endblock %}

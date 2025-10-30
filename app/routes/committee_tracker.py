@@ -167,31 +167,80 @@ def ay_committees_by_user(user_id:int):
 
 # Add a Committee    
 @bp.route('/ay_committee/new', methods=['GET', 'POST'])
-# @permission_required('ay_committee+add, ay_committee+edit')
-@committee_edit_required("edit")
+@permission_required('ay_committee+add, ay_committee+edit')
+# @committee_edit_required("edit")
 def ay_committee(ay_committee_id:int=None):
-
-    form = AYCommitteeForm(academic_year_id = request.args.get('academic_year_id', type=int))
+    
+    academic_year_id = request.args.get("academic_year_id", type=int)  # e.g. /new?academic_year_id=3
+    form = AYCommitteeForm()
 
     # build select field choices
     form.academic_year_id.choices = [(0, 'Select Academic Year')] + [
         (row.id, row.year) for row in get_academic_years()
     ]
 
+    # Prepare base committee list
+    all_committees = get_committees()
+
+    # 🔍 Filter committees that are already used for this academic year
+    if academic_year_id:
+        used_committee_ids = {
+            c.committee_id for c in AYCommittee.query.filter_by(
+                academic_year_id=academic_year_id, deleted=False
+            ).all()
+        }
+
+        available_committees = [
+            c for c in all_committees if c.id not in used_committee_ids
+        ]
+    else:
+        available_committees = all_committees
+
+    # Build committee choices (only unused ones if academic_year_id provided)
     form.committee_id.choices = [(0, 'Select Committee')] + [
         (row.id, f"{row.name} ({row.short_name})" if row.short_name else row.name)
-        for row in get_committees()
+        for row in available_committees
     ]
-
+    
     form.meeting_frequency_type_id.choices = [
         (row.id, row.type) for row in get_frequency_types()
     ]
 
-    if request.method == "GET":
-        form.process()
+    # ✅ Initialize copy_from_id safely with an empty list
+    form.copy_from_id.choices = [(0, 'Select Previous Year')]
+    
+    if academic_year_id:
+        form.academic_year_id.data = academic_year_id
+    
+    # --- Rebuild copy_from_id choices if committee selected ---
+    if request.method == "POST":
+        # Safely parse committee_id and academic_year_id from submitted data
+        try:
+            committee_id = int(request.form.get("committee_id", 0))
+            ay_id = int(request.form.get("academic_year_id", 0))
+        except ValueError:
+            committee_id = 0
+            ay_id = 0
 
+        if committee_id:
+            prev_committees = AYCommittee.query.filter(
+                AYCommittee.committee_id == committee_id,
+                AYCommittee.academic_year_id != ay_id,
+                AYCommittee.deleted == False
+            ).order_by(AYCommittee.academic_year_id.desc()).all()
+
+            form.copy_from_id.choices += [
+                (c.id, f"{c.academic_year.year} ({c.committee.name})")
+                for c in prev_committees
+            ]
 
     if form.validate_on_submit():
+        print("Form validated successfully.")
+        # If user selected a committee to copy, prefill from it
+        source = None
+        if form.copy_from_id.data and form.copy_from_id.data != 0:
+            source = AYCommittee.query.get(form.copy_from_id.data)
+
         aycommittee = AYCommittee()
         aycommittee.academic_year_id=form.academic_year_id.data
         aycommittee.committee_id=form.committee_id.data                     
@@ -202,7 +251,28 @@ def ay_committee(ay_committee_id:int=None):
         try:
             db.session.add(aycommittee)
             db.session.commit()
-            flash("Committee has been saved!", 'success')   
+                    
+            # Copy only selected members
+            selected_ids = request.form.getlist("copy_member_ids")  # list of employee_ids as strings
+            if selected_ids and source:
+                selected_ids = [int(eid) for eid in selected_ids]  # convert to int
+                for m in source.members:
+                    if m.deleted or m.employee_id not in selected_ids:
+                        continue
+                    new_member = Member(
+                        ay_committee_id=aycommittee.id,
+                        employee_id=m.employee_id,
+                        member_role_id=m.member_role_id,
+                        start_date=m.start_date,
+                        end_date=m.end_date,
+                        voting=m.voting,
+                        allow_edit=m.allow_edit,
+                        notes=f"Copied from {source.academic_year.year}" if hasattr(source, "academic_year") else None
+                    )
+                    db.session.add(new_member)
+
+            db.session.commit()
+            flash("Committee saved successfully!", "success")
             return redirect(url_for('committee.members', ay_committee_id = aycommittee.id))
 
         except IntegrityError as err:
@@ -213,10 +283,71 @@ def ay_committee(ay_committee_id:int=None):
                 flash(f"Warning: Committee name already exists {aycom.committee.name} for {aycom.academic_year.year}. \n You can edit it here.", 'warning')
                 return redirect(url_for('committee.members', ay_committee_id = aycom.id))
             else:
-                flash("ERROR: (%s)" % err_msg, 'danger')
+                flash(f"ERROR: {err_msg}", "danger")
                 return render_template('committee_tracker/edit_ay_committee.html', form=form)
     
-    return render_template('committee_tracker/edit_ay_committee.html', form=form)
+    # Pass flag to disable or hide the academic year field in template
+    disable_academic_year = bool(academic_year_id)
+
+    return render_template(
+        "committee_tracker/edit_ay_committee.html",
+        form=form,
+        disable_academic_year=disable_academic_year
+    )
+
+@bp.route('/ay_committee/previous/<int:committee_id>/<int:current_ay_id>')
+# @permission_required('ay_committee+add, ay_committee+edit')
+def previous_committees(committee_id, current_ay_id):
+    """Return JSON of previous AYCommittee records for a given committee,
+       excluding the current academic year"""
+    previous = (
+        AYCommittee.query
+        .join(AcademicYear)
+        .filter(
+            AYCommittee.deleted == False,
+            AYCommittee.committee_id == committee_id,
+            AYCommittee.academic_year_id != current_ay_id
+        )
+        .order_by(AcademicYear.year.desc())
+        .all()
+    )
+
+    data = [
+        {"id": row.id, "label": f"{row.academic_year.year}"}
+        for row in previous
+    ]
+    return jsonify(data)
+
+@bp.route("/get_previous_committee/<int:ay_committee_id>")
+def get_previous_committee(ay_committee_id):
+    """AJAX: Return meeting details and member list for a previous AYCommittee"""
+    aycom = AYCommittee.query.filter_by(id=ay_committee_id, deleted=False).first()
+
+    if not aycom:
+        return jsonify({"error": "Not found"}), 404
+
+    details = {
+        "meeting_frequency_type_id": aycom.meeting_frequency_type_id,
+        "meeting_duration_in_minutes": aycom.meeting_duration_in_minutes,
+        "supplemental_minutes_per_frequency": aycom.supplemental_minutes_per_frequency,
+        "members": []
+    }
+
+    for m in aycom.members:
+        if m.deleted:
+            continue
+        details["members"].append({
+            "employee_id": m.employee_id,
+            "employee_name": m.employee.employee_name if hasattr(m.employee, "employee_name") else f"Employee #{m.employee_id}",
+            "member_role_id": m.member_role_id,
+            "member_role": m.member_role.role if hasattr(m.member_role, "role") else "",
+            "start_date": m.start_date.strftime("%Y-%m-%d") if m.start_date else "",
+            "end_date": m.end_date.strftime("%Y-%m-%d") if m.end_date else "",
+            "voting": m.voting,
+            "allow_edit": m.allow_edit
+        })
+
+    return jsonify(details)
 
 @bp.route("/save_commitment/<int:ay_committee_id>", methods=["POST"])
 # @permission_required('ay_committee+add, ay_committee+edit')
