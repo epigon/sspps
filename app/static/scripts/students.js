@@ -77,7 +77,7 @@ $(document).ready(() => {
     const table = $('#students-table').DataTable({
         pageLength: 25,
         order: [],
-        columnDefs: [{ orderable: false, targets: [0, 1, 6] }]
+        columnDefs: [{ orderable: false, targets: [0, 1] }]
     });
 
     table.rows().every(function () {

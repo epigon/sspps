@@ -99,10 +99,6 @@
                 <th>PID</th>
                 <th>Class</th>
                 <th>Email</th>
-                {% if has_permission('students+add') or has_permission('students+edit') or
-                has_permission('students+delete') %}
-                <th>Actions</th>
-                {% endif %}
             </tr>
         </thead>
         <tbody>
@@ -125,20 +121,6 @@
                 <td>{{ s.pid }}</td>
                 <td>{{ s.class_of }}</td>
                 <td><a href="mailto:{{ s.email }}">{{ s.email }}</a></td>
-                {% if has_permission('students+add') or has_permission('students+edit') or
-                has_permission('students+delete') %}
-                <td>
-                    {% if has_permission('students+add') or has_permission('students+edit') %}
-                    <a href="{{ url_for('students.edit_student', student_id=s.id) }}"
-                        class="btn btn-sm btn-primary">Edit</a>
-                    {% endif %}
-                    {% if has_permission('students+delete') %}
-                    <button type="button" class="btn btn-sm btn-danger delete-btn" data-student-id="{{ s.id }}">
-                        Delete
-                    </button>
-                    {% endif %}
-                </td>
-                {% endif %}
             </tr>
             {% endfor %}
         </tbody>
