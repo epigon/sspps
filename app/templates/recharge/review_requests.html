@@ -1,4 +1,21 @@
 {% extends "base.html" %}
+
+{% block head %}
+{{ super() }}
+
+<!-- DataTables CSS -->
+<link
+    href="https://cdn.datatables.net/v/dt/jszip-3.10.1/dt-2.2.2/af-2.7.0/b-3.2.2/b-colvis-3.2.2/b-html5-3.2.2/b-print-3.2.2/cr-2.0.4/date-1.5.5/fc-5.0.4/fh-4.0.1/kt-2.12.1/r-3.0.4/rg-1.5.1/rr-1.5.0/sc-2.4.3/sb-1.8.2/sp-2.3.3/sl-3.0.0/sr-1.4.1/datatables.min.css"
+    rel="stylesheet" integrity="sha384-Ds1Vklai96R25BXbTa08O+OjpAevmakmGFQNAQECNryYdQ0qbN4CJSMwUSFT+NYe"
+    crossorigin="anonymous">
+
+<!-- DataTables JS -->
+<script
+    src="https://cdn.datatables.net/v/dt/jszip-3.10.1/dt-2.2.2/af-2.7.0/b-3.2.2/b-colvis-3.2.2/b-html5-3.2.2/b-print-3.2.2/cr-2.0.4/date-1.5.5/fc-5.0.4/fh-4.0.1/kt-2.12.1/r-3.0.4/rg-1.5.1/rr-1.5.0/sc-2.4.3/sb-1.8.2/sp-2.3.3/sl-3.0.0/sr-1.4.1/datatables.min.js"
+    integrity="sha384-lGlyEraPH4ouPKo2ethY8Xic4JlIXN/CUbMNpOce3EjRhLuGH732aMGDH7Cv8+VY"
+    crossorigin="anonymous"></script>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid mt-4">
     <h2>Instrument Requests</h2>
@@ -9,8 +26,10 @@
         <select name="status" id="status" class="form-select form-select-sm w-auto" onchange="this.form.submit()">
             <option value="">All</option>
             <option value="Pending" {{ 'selected' if request.args.get('status')=='Pending' else '' }}>Pending</option>
-            <option value="Approved" {{ 'selected' if request.args.get('status')=='Approved' else '' }}>Approved</option>
-            <option value="Cancelled" {{ 'selected' if request.args.get('status')=='Cancelled' else '' }}>Cancelled</option>
+            <option value="Approved" {{ 'selected' if request.args.get('status')=='Approved' else '' }}>Approved
+            </option>
+            <option value="Cancelled" {{ 'selected' if request.args.get('status')=='Cancelled' else '' }}>Cancelled
+            </option>
             <option value="Denied" {{ 'selected' if request.args.get('status')=='Denied' else '' }}>Denied</option>
         </select>
 
@@ -24,9 +43,10 @@
         </select>
     </form>
 
-    <table class="table table-bordered table-sm table-responsive">
+    <table id="requestTable" class="table table-bordered table-sm table-responsive table-striped">
         <thead>
             <tr>
+                <th></th>
                 <th>Request #</th>
                 <th>Instrument</th>
                 <th>PI Information</th>
@@ -42,6 +62,7 @@
         <tbody>
             {% for req in requests %}
             <tr>
+                <td class="dt-control"></td>
                 <td>{{ req.id }}</td>
                 <td>{{ req.machine_name }}</td>
                 {% set pi = [] %}
@@ -131,4 +152,19 @@
         </tbody>
     </table>
 </div>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script>
+    $(document).ready(function () {
+    // Initialize DataTable
+        let table = $('#requestTable').DataTable({
+        lengthMenu: [10, 25, 50, { label: 'All', value: -1 }],
+        pageLength: 10,
+        responsive: true,
+        order: [[8, 'asc']],
+        columnDefs: [{ orderable: false, targets: 0 }],
+        });
+    });
+</script>
 {% endblock %}
