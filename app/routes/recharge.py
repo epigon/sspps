@@ -368,9 +368,9 @@ def send_email_via_powershell(to_address, to_cc=None, from_address=None, subject
     safe_body = body.replace('"', '`"') if body else ""
 
     if attachment_path:
-        ps_script = f'Send-MailMessage -From "{from_address}" -To "{to_address}" -Cc ("{to_cc}","{from_address}","screeningcore@health.ucsd.edu") -Subject "{subject}" -Body "{safe_body}" -BodyAsHtml -Attachments "{attachment_path}" -SmtpServer "{config.MAIL_SERVER}" -UseSsl'
+        ps_script = f'Send-MailMessage -From "{from_address}" -To "{to_address}" -Cc ("{to_cc}","{from_address}","screeningcore@health.ucsd.edu","jlagedesiqueiraneto@health.ucsd.edu") -Subject "{subject}" -Body "{safe_body}" -BodyAsHtml -Attachments "{attachment_path}" -SmtpServer "{config.MAIL_SERVER}" -UseSsl'
     else:
-        ps_script = f'Send-MailMessage -From "{from_address}" -To "{to_address}" -Cc ("{to_cc}","{from_address}","screeningcore@health.ucsd.edu") -Subject "{subject}" -Body "{safe_body}" -BodyAsHtml -SmtpServer "{config.MAIL_SERVER}" -UseSsl'
+        ps_script = f'Send-MailMessage -From "{from_address}" -To "{to_address}" -Cc ("{to_cc}","{from_address}","screeningcore@health.ucsd.edu","jlagedesiqueiraneto@health.ucsd.edu") -Subject "{subject}" -Body "{safe_body}" -BodyAsHtml -SmtpServer "{config.MAIL_SERVER}" -UseSsl'
         
     completed = subprocess.run(["powershell", "-Command", ps_script], capture_output=True, text=True)
     if completed.returncode != 0:
