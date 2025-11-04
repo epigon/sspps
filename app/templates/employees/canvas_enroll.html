@@ -84,8 +84,9 @@
             <tr>
                 <th class="col-1"><label><input type="checkbox" id="check-all" /> All</label>
                 </th>
-                <th class="col-6">Name</th>
-                <th class="col-5">Username</th>
+                <th class="col-5">Name</th>
+                <th class="col-3">Login ID</th>
+                <th class="col-3">Username</th>
             </tr>
         </thead>
         <tbody>
@@ -94,8 +95,9 @@
                 <td class="col-1"><label class="lbl-checkbox"><input type="checkbox" name="employee_ids"
                             value="{{ e.id }}" data-pid="{{ e.sis_user_id }}" {% if not e.sis_user_id %}disabled{% endif
                             %} /></label></td>
-                <td class="col-6">{{ e.sortable_name }}</td>
-                <td class="col-5">{{ e.sis_user_id }}</td>
+                <td class="col-5">{{ e.sortable_name }}</td>                
+                <td class="col-3">{{ e.login_id }}</td>
+                <td class="col-3">{{ e.sis_user_id }}</td>
             </tr>
             {% endfor %}
         </tbody>

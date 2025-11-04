@@ -198,6 +198,11 @@
                                             Student
                                             Enrollments</a>
                                     </li>
+                                                                        <li>
+                                        <a class="dropdown-item" href="{{ url_for('employees.enroll_employees') }}">Canvas
+                                            Teacher
+                                            Enrollments</a>
+                                    </li>
 
                                     {% endif %}
                                     {% if has_permission('students+view') %}
