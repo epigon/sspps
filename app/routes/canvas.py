@@ -84,6 +84,56 @@ def get_canvas_courses(account="SSPPS", blueprint=False, state=None, term_id=Non
 
     return all_courses
 
+def get_canvas_users(account="SSPPS", search_term=None):
+    """
+    Fetches all Canvas courses for the authenticated user using pagination.
+
+    Args:
+        base_url (str): Base URL of the Canvas instance (e.g., 'https://canvas.instructure.com')
+        access_token (str): Bearer token for authentication.
+        per_page (int): Number of courses per page.
+
+    Returns:
+        list: List of all course dictionaries.
+    """
+    if account == "HS":
+        accountID = HSAccountID
+    elif account == "SSPPS":
+        accountID = SSPPSAccountID
+    elif account == "SOM":
+        accountID = SOMAccountID
+    else:
+        accountID = mainAccountID
+    
+    headers = {'Authorization': f'Bearer {CANVAS_API_TOKEN}'}
+    params = {'per_page': 100}
+    
+    if search_term is not None:
+      params['search_term'] = search_term
+
+    url = f"{CANVAS_API_BASE}/accounts/{accountID}/users"
+    all_users = []
+
+    while url:
+        # print(url)
+        response = requests.get(url, headers=headers, params=params)
+        response.raise_for_status()
+        all_users.extend(response.json())
+
+        # Parse the Link header for next page
+        links = response.headers.get("Link", "")
+        next_url = None
+        for link in links.split(","):
+            if 'rel="next"' in link:
+                next_url = link[link.find("<") + 1:link.find(">")]
+                break
+        url = next_url
+        params = None  # After the first request, pagination is handled by the link
+
+    all_users = sorted(all_users, key=lambda d: d['name'])
+
+    return all_users
+
 # @bp.route("/api/courses")
 def get_courses_api():
     term_id = request.args.get('term_id')
