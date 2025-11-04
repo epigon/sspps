@@ -51,18 +51,6 @@ $(document).ready(() => {
         refreshPinnedRows();
     });
 
-    $('#check-all').on('click', function () {
-        const checked = this.checked;
-        table.rows({ search: 'applied' }).every(function () {
-            const $checkbox = $(this.node()).find('input[name="employee_ids"]');
-            const pid = $checkbox.data('pid');
-            $checkbox.prop('checked', checked);
-            if (checked) selectedEmployeePIDs.add(pid);
-            else selectedEmployeePIDs.delete(pid);
-        });
-        refreshPinnedRows();
-    });
-
     // --- Keep checked & highlight ---
     function highlightPinned() {
         table.rows().every(function () {
@@ -139,12 +127,6 @@ $(document).ready(() => {
         const notify = $('#notify').is(':checked');
         const role = $('#role_type').val();
         const users = Array.from(selectedEmployeePIDs).map(pid => `sis_user_id:${pid}`);
-        // console.log('Selected course ID:', courseId);
-        // console.log('Selected section ID:', sectionId);
-        // console.log('Notify:', notify);
-        // console.log('Role:', role);
-        // console.log('Users to enroll:', users);
-        // return;
 
         if (!courseId) return alert('Please select a course.');
         if (users.length === 0) return alert('Please select at least one employee.');
