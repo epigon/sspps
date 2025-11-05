@@ -26,20 +26,44 @@
 
     <!-- Tabs and table container -->
     <div id="members-content" class="d-none">
-        <ul class="nav nav-tabs" id="memberTabs" role="tablist">
+        <div class="d-flex justify-content-between align-items-center">
+            <!-- <h5 class="mb-0">Members</h5> -->
+            <div>
+                <label for="statusFilter" class="me-2 fw-bold">Filter by Status:</label>
+                <select id="statusFilter" class="form-select form-select-sm d-inline-block" style="width: 200px;">
+                    <option value="">All</option>
+                    <!-- <option value="active">Active</option>
+                    <option value="error">Error</option>
+                    <option value="opt-out">Opt-Out</option> -->
+                </select>
+            </div>
+        </div>
+
+        <table id="members-table" class="table table-bordered table-striped w-100">
+            <thead class="table-light">
+                <tr>
+                    <th>#</th>
+                    <th>Email</th>
+                    <th>Name</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+        <!-- <ul class="nav nav-tabs" id="memberTabs" role="tablist">
             <li class="nav-item"><button class="nav-link active" id="active-tab" data-bs-toggle="tab"
                     data-bs-target="#active" type="button">Active</button></li>
             <li class="nav-item"><button class="nav-link" id="error-tab" data-bs-toggle="tab" data-bs-target="#error"
                     type="button">Error</button></li>
             <li class="nav-item"><button class="nav-link" id="optout-tab" data-bs-toggle="tab" data-bs-target="#optout"
                     type="button">Opt-Out</button></li>
-        </ul>
+        </ul> -->
 
-        <div class="tab-content mt-3">
+        <!-- <div class="tab-content mt-3">
             <div class="tab-pane fade show active" id="active" role="tabpanel"></div>
             <div class="tab-pane fade" id="error" role="tabpanel"></div>
             <div class="tab-pane fade" id="optout" role="tabpanel"></div>
-        </div>
+        </div> -->
     </div>
 </div>
 
@@ -49,68 +73,160 @@
 <script>
     document.addEventListener("DOMContentLoaded", () => {
         const groupId = {{ group.member_group_id }};
+        const groupName = `{{ group.group_name }}`;
         const apiUrl = `/emma/api/groups/${groupId}/members`;
 
         fetch(apiUrl)
             .then(r => r.json())
             .then(data => {
-                const active = data.filter(m => m.status === "active");
-                const error = data.filter(m => m.status === "error");
-                const optout = data.filter(m => m.status === "opt-out");
-
-                // Update tab labels with counts
-                document.querySelector('#active-tab').textContent = `Active (${active.length})`;
-                document.querySelector('#error-tab').textContent = `Error (${error.length})`;
-                document.querySelector('#optout-tab').textContent = `Opt-Out (${optout.length})`;
-
-                const renderTable = (members, tableId) => `
-                <table id="${tableId}" class="table table-bordered table-striped">
-                    <thead class="table-light">
-                        <tr>
-                            <th>#</th>
-                            <th>Email</th>
-                            <th>Name</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${members.length > 0 ? members.map((m, i) => `
-                            <tr>
-                                <td>${i + 1}</td>
-                                <td>${m.email || '(no email)'}</td>
-                                <td>${(m.fields?.first_name || '')} ${(m.fields?.last_name || '')}</td>
-                                <td>${m.status || '(no status)'}</td>
-                            </tr>`).join('') :
-                        `<tr><td></td>
-                            <td class="text-center">No members found</td>
-                            <td></td><td></td>
-                        </tr>`
-                        }
-                    </tbody>
-                </table>`;
-
-            document.querySelector("#active").innerHTML = renderTable(active, 'active-table');
-            document.querySelector("#error").innerHTML = renderTable(error, 'error-table');
-            document.querySelector("#optout").innerHTML = renderTable(optout, 'optout-table');
-
-            // Hide spinner, show content
+                // Hide spinner, show content
             document.querySelector("#loading").classList.add("d-none");
             document.querySelector("#members-content").classList.remove("d-none");
 
-            // Initialize DataTables for all 3 tables
-            ['active-table', 'error-table', 'optout-table'].forEach(id => {
-                $(`#${id}`).DataTable({
-                    pageLength: 25,
-                    lengthMenu: [10, 25, 50, 100],
-                    order: [[1, 'asc']] // default sort by Email
-                });
+            // Count members per status
+            const counts = data.reduce((acc, m) => {
+                const s = m.status || '(no status)';
+                acc[s] = (acc[s] || 0) + 1;
+                return acc;
+            }, {});
+            const total = data.length;
+
+            // Populate dropdown filter
+            const statusFilter = document.querySelector('#statusFilter');
+            const statuses = Object.keys(counts).sort();
+            statusFilter.innerHTML = `
+                <option value="">All (${total})</option>
+                ${statuses.map(s => `<option value="${s}">${s.charAt(0).toUpperCase() + s.slice(1)} (${counts[s]})</option>`).join('')}
+            `;
+
+            // Populate table
+            const tbody = document.querySelector("#members-table tbody");
+            tbody.innerHTML = data.map((m, i) => `
+                <tr>
+                    <td>${i + 1}</td>
+                    <td>${m.email || '(no email)'}</td>
+                    <td>${(m.fields?.first_name || '')} ${(m.fields?.last_name || '')}</td>
+                    <td>${m.status || '(no status)'}</td>
+                </tr>
+            `).join('');
+            
+            // Initialize DataTable
+            const table = $('#members-table').DataTable({
+                pageLength: 25,
+                lengthMenu: [10, 25, 50, 100],
+                order: [[1, 'asc']], // sort by email
+                layout: {
+                    topStart: {
+                        buttons: [
+                            'pageLength',
+                            {
+                                extend: 'csv',
+                                exportOptions: { columns: ':visible' },
+                                title: `${groupName} Members`
+                            },
+                            {
+                                extend: 'excel',
+                                exportOptions: { columns: ':visible' },
+                                title: `${groupName} Members`
+                            },
+                            {
+                                extend: 'print',
+                                exportOptions: { columns: ':visible' },
+                                orientation: 'portrait',
+                                pageSize: 'LEGAL',
+                                title: `${groupName} Members`
+                            }
+                        ]
+                    }
+                }
+            });
+
+            // Status Filter functionality
+            statusFilter.addEventListener('change', () => {
+                const val = statusFilter.value;
+                table.column(3).search(val ? `^${val}$` : '', true, false).draw();
             });
 
         })
         .catch(err => {
             document.querySelector("#loading").innerHTML = `<p class="text-danger">Failed to load members.</p>`;
-            console.log(err);
+            console.error(err);
         });
+            // document.querySelector("#active").innerHTML = renderTable(active, 'active-table');
+            // document.querySelector("#error").innerHTML = renderTable(error, 'error-table');
+            // document.querySelector("#optout").innerHTML = renderTable(optout, 'optout-table');
+
+            // // Hide spinner, show content
+            // document.querySelector("#loading").classList.add("d-none");
+            // document.querySelector("#members-content").classList.remove("d-none");
+
+            // Initialize DataTables for all 3 tables
+            // ['active-table', 'error-table', 'optout-table'].forEach(id => {
+            //     $(`#${id}`).DataTable({
+            //         pageLength: 25,
+            //         lengthMenu: [10, 25, 50, 100],
+            //         order: [[1, 'asc']], // default sort by Email
+            //         layout: {
+            //             topStart: {
+            //                 buttons: [
+            //                     'pageLength',
+            //                     {
+            //                         extend: 'csv',
+            //                         exportOptions: {
+            //                             columns: ':visible',
+            //                             format: {
+            //                                 body: function (data, column, row) {
+            //                                     return data ? data.replace(/<br\s*\/?>/ig, "\r\n") : data; //change <br/> to \r\n line feed
+            //                                 }
+            //                             }
+            //                         },
+            //                         title: `${groupName} Members`
+            //                     },
+            //                     {
+            //                         extend: 'excel',
+            //                         exportOptions: {
+            //                             columns: ':visible',
+            //                             format: {
+            //                                 body: function (data, column, row) {
+            //                                     return data ? data.replace(/<br\s*\/?>/ig, "\r\n") : data; //change <br/> to \r\n line feed
+            //                                 }
+            //                             }
+            //                         },
+            //                         title: `${groupName} Members`
+            //                     },
+            //                     {
+            //                         extend: 'print',
+            //                         exportOptions: {
+            //                             columns: ':visible',
+            //                             format: {
+            //                                 body: function (data, column, row) {
+            //                                     return data ? data.replace(/<br\s*\/?>/ig, "\r\n") : data; //change <br/> to \r\n line feed
+            //                                 }
+            //                             }
+            //                         },
+            //                         orientation: 'portrait',
+            //                         pageSize: 'LEGAL',
+            //                         title: `${groupName} Members`
+            //                     }
+            //                 ]
+            //             }
+            //         }
+            //         // dom: 'Bfrtip',
+            //         // buttons: [
+            //         //     {
+            //         //         extend: 'excelHtml5',
+            //         //         text: 'Export to Excel',
+            //         //         titleAttr: 'Export to Excel'
+            //         //     }
+            //         // ]
+            //     });
+            // });
+
+        // })
+        // .catch(err => {
+        //     document.querySelector("#loading").innerHTML = `<p class="text-danger">Failed to load members.</p>`;
+        //     console.log(err);
+        // });
     });
 </script>
 {% endblock %}
