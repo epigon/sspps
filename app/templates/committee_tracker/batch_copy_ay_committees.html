@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% from 'bootstrap4/utils.html' import render_messages %}
+
+{% block title %}Batch Copy Committees{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Batch Copy Committees</h2>
+    {{ render_messages() }}
+
+    <form method="POST">
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <label class="form-label fw-bold">Source Academic Year</label>
+                <select name="source_year_id" id="source_year_id" class="form-select">
+                    {% for ay in academic_years %}
+                    <option value="{{ ay.id }}" {% if ay.id==source_year_id %}selected{% endif %}>
+                        {{ ay.year }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-bold">Target Academic Year</label>
+                <select name="target_year_id" id="target_year_id" class="form-select">
+                    <option value="">— Select —</option>
+                    {% for ay in academic_years if ay.id != source_year_id %}
+                    <option value="{{ ay.id }}" {% if ay.id==target_year_id %}selected{% endif %}>
+                        {{ ay.year }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        {% if committees %}
+        <div class="mb-3">
+            <label class="form-label fw-bold">Select Committees to Copy</label>
+            <table class="table table-sm table-striped table-bordered align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th><input type="checkbox" id="select-all"></th>
+                        <th>Committee</th>
+                        <th>Member Count</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in committees %}
+                    {% set disabled = c.committee_id in existing_committee_ids %}
+                    <tr class="{% if disabled %}table-warning{% endif %}">
+                        <td>
+                            <input type="checkbox" name="committee_ids" value="{{ c.id }}" {% if disabled %}disabled{%
+                                else %}checked{% endif %}>
+                        </td>
+                        <td>{{ c.committee_name }}</td>
+                        <td class="text-center">
+                            {% if c.member_count > 0 %}
+                            <a href="#" class="view-members" data-id="{{ c.id }}" data-name="{{ c.committee_name }}">
+                                {{ c.member_count }}
+                            </a>
+                            {% else %}
+                            0
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if disabled %}
+                            <span class="badge bg-warning text-dark">Already exists</span>
+                            {% else %}
+                            <span class="badge bg-success">Available</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <div class="form-check mb-3">
+            <input type="checkbox" class="form-check-input" name="copy_members" id="copy_members">
+            <label class="form-check-label" for="copy_members">Copy members as well</label>
+        </div>
+
+        <button class="btn btn-primary" type="submit" {% if not target_year_id %}disabled{% endif %}>Copy
+            Selected</button>
+        <a href="{{ url_for('committee.ay_committees') }}" class="btn btn-secondary">Cancel</a>
+
+    </form>
+</div>
+
+<!-- Member Preview Modal -->
+<div class="modal fade" id="memberModal" tabindex="-1" aria-labelledby="memberModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="memberModalLabel">Committee Members</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="memberModalContent" class="table-responsive">
+                    <p class="text-muted">Loading members...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+
+<script>
+    document.getElementById("select-all")?.addEventListener("change", function () {
+        document.querySelectorAll('input[name="committee_ids"]:not(:disabled)')
+            .forEach(cb => cb.checked = this.checked);
+    });
+
+    document.getElementById("source_year_id").addEventListener("change", function () {
+        const src = this.value;
+        const tgt = document.getElementById("target_year_id").value;
+        const url = `/committee_tracker/ay_committees/batch_copy?source_year_id=${src}${tgt ? "&target_year_id=" + tgt : ""}`;
+        window.location.href = url;
+    });
+
+    document.getElementById("target_year_id").addEventListener("change", function () {
+        const src = document.getElementById("source_year_id").value;
+        const tgt = this.value;
+        if (tgt) window.location.href = `/committee_tracker/ay_committees/batch_copy?source_year_id=${src}&target_year_id=${tgt}`;
+    });
+    
+    document.querySelectorAll('.view-members').forEach(link => {
+        link.addEventListener('click', function (e) {
+            e.preventDefault();
+            const id = this.dataset.id;
+            const name = this.dataset.name;
+            const modalLabel = document.getElementById('memberModalLabel');
+            const modalBody = document.getElementById('memberModalContent');
+
+            modalLabel.textContent = `Members of ${name}`;
+            modalBody.innerHTML = '<p class="text-muted">Loading members...</p>';
+
+            fetch(`/committee_tracker/ay_committee/${id}/members/json`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) {
+                        modalBody.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+                        return;
+                    }
+
+                    if (data.members.length === 0) {
+                        modalBody.innerHTML = '<p class="text-muted">No members found.</p>';
+                        return;
+                    }
+
+                    const rows = data.members.map(m => `
+                    <tr>
+                        <td>${m.employee_name}</td>
+                        <td>${m.role}</td>
+                        <td>${m.voting ? 'Yes' : 'No'}</td>
+                        <td>${m.allow_edit ? 'Yes' : 'No'}</td>
+                        <td>${m.start_date || ''}</td>
+                        <td>${m.end_date || ''}</td>
+                    </tr>`).join('');
+
+                    modalBody.innerHTML = `
+                    <table class="table table-sm table-striped">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Name</th>
+                                <th>Role</th>
+                                <th>Voting</th>
+                                <th>Editor</th>
+                                <th>Start</th>
+                                <th>End</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>`;
+                })
+                .catch(() => {
+                    modalBody.innerHTML = '<div class="alert alert-danger">Failed to load members.</div>';
+                });
+
+            const modal = new bootstrap.Modal(document.getElementById('memberModal'));
+            modal.show();
+        });
+    });
+</script>
+{% endblock %}

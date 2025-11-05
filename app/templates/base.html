@@ -74,6 +74,11 @@
                                             href="{{ url_for('committee.ay_committees') }}">Committees</a>
                                     </li>
                                     {% endif %}
+                                    {% if has_permission('committee+add') %}
+                                    <li><a class="dropdown-item" href="{{ url_for('committee.batch_copy_ay_committees') }}">
+                                        Batch Copy
+                                    </a></li>
+                                    {% endif %}
                                     <li>
                                         <hr class="dropdown-divider">
                                     </li>

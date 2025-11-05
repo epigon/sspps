@@ -295,9 +295,8 @@ def ay_committee(ay_committee_id:int=None):
         disable_academic_year=disable_academic_year
     )
 
-@bp.route('/ay_committee/previous/<int:committee_id>/<int:current_ay_id>')
-# @permission_required('ay_committee+add, ay_committee+edit')
-def previous_committees(committee_id, current_ay_id):
+@bp.route('/get_previous_committees/<int:committee_id>/<int:current_ay_id>')
+def get_previous_committees(committee_id, current_ay_id):
     """Return JSON of previous AYCommittee records for a given committee,
        excluding the current academic year"""
     previous = (
@@ -318,8 +317,8 @@ def previous_committees(committee_id, current_ay_id):
     ]
     return jsonify(data)
 
-@bp.route("/get_previous_committee/<int:ay_committee_id>")
-def get_previous_committee(ay_committee_id):
+@bp.route("/get_source_committee/<int:ay_committee_id>")
+def get_source_committee(ay_committee_id):
     """AJAX: Return meeting details and member list for a previous AYCommittee"""
     aycom = AYCommittee.query.filter_by(id=ay_committee_id, deleted=False).first()
 
@@ -348,6 +347,130 @@ def get_previous_committee(ay_committee_id):
         })
 
     return jsonify(details)
+
+@bp.route("/ay_committees/batch_copy", methods=["GET", "POST"])
+@permission_required("ay_committee+add, ay_committee+edit")
+def batch_copy_ay_committees():
+    academic_years = AcademicYear.query.filter_by(deleted=False).order_by(AcademicYear.year.desc()).all()
+
+    # Determine source and target year
+    source_year_id = request.args.get("source_year_id", type=int)
+    target_year_id = request.args.get("target_year_id", type=int)
+
+    if not source_year_id:
+        current = AcademicYear.query.filter_by(is_current=True, deleted=False).first()
+        source_year_id = current.id if current else None
+
+    # Fetch source committees and count members
+    source_committees = []
+    if source_year_id:
+        ay_coms = AYCommittee.query.filter_by(academic_year_id=source_year_id, deleted=False).all()
+        for c in ay_coms:
+            member_count = sum(1 for m in c.members if not m.deleted)
+            source_committees.append({
+                "id": c.id,
+                "committee_id": c.committee_id,
+                "committee_name": c.committee.name,
+                "member_count": member_count
+            })
+
+    # Identify which committees already exist in the target year
+    existing_committee_ids = set()
+    if target_year_id:
+        existing_committee_ids = {
+            c.committee_id
+            for c in AYCommittee.query.filter_by(
+                academic_year_id=target_year_id, deleted=False
+            ).all()
+        }
+
+    if request.method == "POST":
+        source_year_id = int(request.form.get("source_year_id"))
+        target_year_id = int(request.form.get("target_year_id"))
+        selected_committee_ids = [int(cid) for cid in request.form.getlist("committee_ids")]
+        copy_members = "copy_members" in request.form
+
+        source_committees_to_copy = AYCommittee.query.filter(
+            AYCommittee.academic_year_id == source_year_id,
+            AYCommittee.id.in_(selected_committee_ids),
+            AYCommittee.deleted == False
+        ).all()
+
+        created = []
+        for src in source_committees_to_copy:
+            exists = AYCommittee.query.filter_by(
+                academic_year_id=target_year_id,
+                committee_id=src.committee_id,
+                deleted=False
+            ).first()
+            if exists:
+                continue
+
+            new_aycom = AYCommittee(
+                academic_year_id=target_year_id,
+                committee_id=src.committee_id,
+                meeting_frequency_type_id=src.meeting_frequency_type_id,
+                meeting_duration_in_minutes=src.meeting_duration_in_minutes,
+                supplemental_minutes_per_frequency=src.supplemental_minutes_per_frequency
+            )
+            db.session.add(new_aycom)
+            db.session.flush()
+
+            if copy_members:
+                for m in src.members:
+                    if m.deleted:
+                        continue
+                    new_member = Member(
+                        ay_committee_id=new_aycom.id,
+                        employee_id=m.employee_id,
+                        member_role_id=m.member_role_id,
+                        start_date=m.start_date,
+                        end_date=m.end_date,
+                        voting=m.voting,
+                        allow_edit=m.allow_edit,
+                        notes=f"Copied from {src.academic_year.year}"
+                    )
+                    db.session.add(new_member)
+
+            created.append(src.committee.name)
+
+        db.session.commit()
+        flash(
+            f"Copied {len(created)} committee(s) to {dict((a.id, a.year) for a in academic_years)[target_year_id]} successfully!",
+            "success",
+        )
+        return redirect(url_for("committee.ay_committees", academic_year_id=target_year_id))
+
+    return render_template(
+        "committee_tracker/batch_copy_ay_committees.html",
+        academic_years=academic_years,
+        source_year_id=source_year_id,
+        target_year_id=target_year_id,
+        committees=source_committees,
+        existing_committee_ids=existing_committee_ids,
+    )
+
+@bp.route("/ay_committee/<int:ay_committee_id>/members/json")
+@permission_required("ay_committee+view")
+def get_committee_members_json(ay_committee_id):
+    """Return JSON list of members for a given AYCommittee."""
+    aycom = AYCommittee.query.filter_by(id=ay_committee_id, deleted=False).first()
+    if not aycom:
+        return jsonify({"error": "Committee not found"}), 404
+
+    members = [
+        {
+            "employee_name": m.employee.employee_name if hasattr(m.employee, "employee_name") else f"Employee #{m.employee_id}",
+            "role": m.member_role.role if hasattr(m.member_role, "role") else "",
+            "voting": m.voting,
+            "allow_edit": m.allow_edit,
+            "start_date": m.start_date.strftime("%Y-%m-%d") if m.start_date else "",
+            "end_date": m.end_date.strftime("%Y-%m-%d") if m.end_date else "",
+        }
+        for m in aycom.members if not m.deleted
+    ]
+    return jsonify({"committee": aycom.committee.name, "members": members})
+
 
 @bp.route("/save_commitment/<int:ay_committee_id>", methods=["POST"])
 # @permission_required('ay_committee+add, ay_committee+edit')

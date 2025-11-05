@@ -77,7 +77,7 @@ Committee
                 return;
             }
 
-            fetch(`/committee_tracker/ay_committee/previous/${committeeId}/${currentAY}`)
+            fetch(`/committee_tracker/get_previous_committees/${committeeId}/${currentAY}`)
                 .then(response => response.json())
                 .then(data => {
                     copySelect.innerHTML = '<option value="0">— Do not copy —</option>';
@@ -106,7 +106,7 @@ Committee
                 return;
             }
 
-            fetch(`/committee_tracker/get_previous_committee/${selectedId}`)
+            fetch(`/committee_tracker/get_source_committee/${selectedId}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.error) {
