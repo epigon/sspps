@@ -116,8 +116,13 @@ Committee
 
                     // Fill meeting fields
                     freqSelect.value = data.meeting_frequency_type_id || '';
-                    durationInput.value = data.meeting_duration_in_minutes || '';
-                    supplementalInput.value = data.supplemental_minutes_per_frequency || '';
+                    durationInput.value = data.meeting_duration_in_minutes === '' || data.meeting_duration_in_minutes == null
+                        ? 0
+                        : data.meeting_duration_in_minutes;
+
+                    supplementalInput.value = data.supplemental_minutes_per_frequency === '' || data.supplemental_minutes_per_frequency == null
+                        ? 0
+                        : data.supplemental_minutes_per_frequency;
 
                     // Show copy option
                     copyOptions.style.display = 'block';
@@ -166,7 +171,7 @@ Committee
                             <td>${m.voting ? 'Yes' : 'No'}</td>
                             <td>${m.start_date || ''}</td>
                             <td>${m.end_date || ''}</td>
-                            <td>${ m.allow_edit ? 'Yes' : 'No' }</td>
+                            <td>${m.allow_edit ? 'Yes' : 'No'}</td>
                         </tr>
                     `).join('')}
                 </tbody>
