@@ -51,9 +51,12 @@ Dashboard
                         <td>{{ com.committee.name }} {% if com.committee.short_name %}({{ com.committee.short_name }}){%
                             endif %}</td>
                         <td>
-                            <a href="{{url_for('committee.members', ay_committee_id = com.id)}}">Members</a>
-                            {% if can_edit_committee(com.id, "delete") %} |
-                            <a href="{{url_for('committee.delete_ay_committee', ay_committee_id = com.id)}}">Delete</a>
+                            <a href="{{url_for('committee.members', ay_committee_id = com.id)}}" class="btn btn-primary me-2"><i class="bi bi-people"></i> Members</a>
+                            {% if can_edit_committee(com.id, "delete") %} 
+                            <a href="{{ url_for('committee.delete_ay_committee', ay_committee_id=com.id) }}"  class="btn btn-danger"
+                                onclick="return confirm('Are you sure you want to delete this committee? This action cannot be undone.');">
+                                <i class="bi bi-trash"></i> Delete
+                            </a>
                             {% endif %}
                         </td>
                     </tr>

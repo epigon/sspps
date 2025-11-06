@@ -238,7 +238,7 @@ $(document).ready(function () {
 
     // Handle Commitment Hours form
     $('#commitmentForm').on('submit', function (event) {
-        console.log("Commitment form submit intercepted ✅");
+        // console.log("Commitment form submit intercepted ✅");
         event.preventDefault();
         let $form = $(this);
         let $message = $('#commitmentMessage');

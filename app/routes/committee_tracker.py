@@ -3,7 +3,7 @@ from app.models import db, AcademicYear, Attendance, AYCommittee, Committee, Mem
 from app.forms import AYCommitteeForm, CommitteeForm, CommitteeReportForm, MemberForm, MemberRoleForm, MeetingForm, FileUploadForm, FrequencyTypeForm, CommitteeTypeForm
 from datetime import datetime
 from flask import render_template, redirect, url_for, request, flash, jsonify, Blueprint
-from flask_login import login_required
+from flask_login import login_required, current_user
 from .academic_years import get_academic_years
 import calendar
 from sqlalchemy.exc import IntegrityError
@@ -54,9 +54,7 @@ def get_month_name(month_number):
 def edit_committee(committee_id:int=None):
     committee = Committee.query.filter_by(id=committee_id, deleted=False).first() if committee_id else Committee()
     form = CommitteeForm(original_name=committee.name if committee.id else None, obj=committee)
-    # form.frequency_type_id.choices = []
-    # for row in get_frequency_types():
-    #     form.frequency_type_id.choices.append([row.id, row.type])
+
     form.committee_type_id.choices = []
     for row in get_committee_types():
         form.committee_type_id.choices.append([row.id, row.type])
@@ -68,6 +66,12 @@ def edit_committee(committee_id:int=None):
         committee.reporting_start=form.reporting_start.data
         committee.mission = form.mission.data
         committee.committee_type_id=form.committee_type_id.data
+        if committee_id:
+            committee.modify_date = datetime.now()
+            committee.modify_by =  current_user.id
+        else:
+            committee.create_date = datetime.now()
+            committee.create_by =  current_user.id
         try:
             db.session.add(committee)
             db.session.commit()
@@ -99,7 +103,7 @@ def delete_base(committee_id):
 
         committee.deleted = True
         committee.delete_date = datetime.now()
-        # db.session.delete(committee)
+        committee.delete_by =  current_user.id
         db.session.commit()
         flash("Committee deleted.", "success")
         return redirect(url_for('committee.base_committees'))
@@ -203,7 +207,7 @@ def ay_committee(ay_committee_id:int=None):
     ]
     
     form.meeting_frequency_type_id.choices = [
-        (row.id, row.type) for row in get_frequency_types()
+        (row.id, f"{row.type} ({row.multiplier}x/year)") for row in get_frequency_types()
     ]
 
     # ✅ Initialize copy_from_id safely with an empty list
@@ -226,7 +230,7 @@ def ay_committee(ay_committee_id:int=None):
             prev_committees = AYCommittee.query.filter(
                 AYCommittee.committee_id == committee_id,
                 AYCommittee.academic_year_id != ay_id,
-                AYCommittee.deleted == False
+                AYCommittee.deleted == False,
             ).order_by(AYCommittee.academic_year_id.desc()).all()
 
             form.copy_from_id.choices += [
@@ -247,7 +251,8 @@ def ay_committee(ay_committee_id:int=None):
         aycommittee.meeting_frequency_type_id=form.meeting_frequency_type_id.data
         aycommittee.meeting_duration_in_minutes=form.meeting_duration_in_minutes.data
         aycommittee.supplemental_minutes_per_frequency=form.supplemental_minutes_per_frequency.data
-
+        aycommittee.create_date = datetime.now()
+        aycommittee.create_by =  current_user.id
         try:
             db.session.add(aycommittee)
             db.session.commit()
@@ -267,7 +272,9 @@ def ay_committee(ay_committee_id:int=None):
                         end_date=m.end_date,
                         voting=m.voting,
                         allow_edit=m.allow_edit,
-                        notes=f"Copied from {source.academic_year.year}" if hasattr(source, "academic_year") else None
+                        notes=f"Copied from {source.academic_year.year}" if hasattr(source, "academic_year") else None,
+                        create_date = datetime.now(),
+                        create_by =  current_user.id
                     )
                     db.session.add(new_member)
 
@@ -411,7 +418,9 @@ def batch_copy_ay_committees():
                 committee_id=src.committee_id,
                 meeting_frequency_type_id=src.meeting_frequency_type_id,
                 meeting_duration_in_minutes=src.meeting_duration_in_minutes,
-                supplemental_minutes_per_frequency=src.supplemental_minutes_per_frequency
+                supplemental_minutes_per_frequency=src.supplemental_minutes_per_frequency,
+                create_date = datetime.now(),
+                create_by =  current_user.id
             )
             db.session.add(new_aycom)
             db.session.flush()
@@ -428,7 +437,9 @@ def batch_copy_ay_committees():
                         end_date=m.end_date,
                         voting=m.voting,
                         allow_edit=m.allow_edit,
-                        notes=f"Copied from {src.academic_year.year}"
+                        notes=f"Copied from {src.academic_year.year}",
+                        create_date = datetime.now(),
+                        create_by =  current_user.id
                     )
                     db.session.add(new_member)
 
@@ -479,15 +490,17 @@ def save_commitment(ay_committee_id):
     form = AYCommitteeForm()
 
     # Populate choices before validation
-    form.academic_year_id.choices = [(ay.id, ay.year) for ay in get_academic_years()]
-    form.committee_id.choices = [(c.id, f"{c.name} ({c.short_name})" if c.short_name else c.name) for c in get_committees()]
-    form.meeting_frequency_type_id.choices = [(f.id, f.type) for f in get_frequency_types()]
-    
+    form.academic_year_id.choices = [(ay.id, ay.year) for ay in (get_academic_years() or [])]
+    form.committee_id.choices = [(c.id, f"{c.name} ({c.short_name})" if c.short_name else c.name) for c in (get_committees() or [])]
+    form.meeting_frequency_type_id.choices = [(f.id, f"{f.type} ({f.multiplier}x/year)") for f in (get_frequency_types() or [])]
+
     if form.validate_on_submit():
         aycommittee = AYCommittee.query.get_or_404(ay_committee_id)
         aycommittee.meeting_frequency_type_id = form.meeting_frequency_type_id.data
         aycommittee.meeting_duration_in_minutes = form.meeting_duration_in_minutes.data
         aycommittee.supplemental_minutes_per_frequency = form.supplemental_minutes_per_frequency.data
+        aycommittee.modify_date = datetime.now()
+        aycommittee.modify_by =  current_user.id
         db.session.commit()
         return jsonify(success=True, message="Commitment hours updated")
     return jsonify(success=False, error=form.errors)
@@ -497,10 +510,32 @@ def save_commitment(ay_committee_id):
 @committee_edit_required("delete")
 def delete_ay_committee(ay_committee_id):
     try:
-        ay_committee = AYCommittee.query.filter_by(id=ay_committee_id, deleted=False).first_or_404()        
+        ay_committee = AYCommittee.query.filter_by(id=ay_committee_id, deleted=False).first_or_404()
         ay_committee.deleted = True
         ay_committee.delete_date = datetime.now()
+        ay_committee.delete_by =  current_user.id
         db.session.commit()
+        # delete members, meetings, files associated with this AYCommittee
+        for member in ay_committee.members:
+            member.deleted = True
+            member.delete_date = datetime.now()
+            member.delete_by =  current_user.id
+            db.session.commit()
+        for meeting in ay_committee.meetings:
+            meeting.deleted = True
+            meeting.delete_date = datetime.now()
+            meeting.delete_by =  current_user.id
+            db.session.commit()
+            for attendance in meeting.attendance:
+                attendance.deleted = True
+                attendance.delete_date = datetime.now()
+                attendance.delete_by =  current_user.id
+                db.session.commit()
+        for file in ay_committee.fileuploads:
+            file.deleted = True
+            file.delete_date = datetime.now()
+            file.delete_by =  current_user.id
+            db.session.commit()
         flash("Committee deleted.", "success")
         return redirect(url_for('committee.ay_committees'))
     except Exception as e:
@@ -528,6 +563,12 @@ def edit_frequency_type(frequency_type_id:int=None):
     if request.method == "POST":
         ftype.type = request.form['type']
         ftype.multiplier = request.form['multiplier']
+        if frequency_type_id:
+            ftype.modify_date = datetime.now()
+            ftype.modify_by =  current_user.id
+        else:
+            ftype.create_date = datetime.now()
+            ftype.create_by =  current_user.id
         try:
             db.session.add(ftype)
             db.session.commit()
@@ -569,7 +610,7 @@ def delete_frequency_type(frequency_type_id):
             return jsonify({"success": False, "message": "Frequency Type not found"})
         ftype.deleted = True
         ftype.delete_date = datetime.now()
-        # db.session.delete(ftype)
+        ftype.delete_by =  current_user.id
         db.session.commit()
         return jsonify({"success": True, "deleted_frequency_type_id": frequency_type_id})
     except Exception as e:
@@ -594,6 +635,12 @@ def edit_committee_type(committee_type_id:int=None):
     form = CommitteeTypeForm()
     if request.method == "POST":
         ctype.type = request.form['type']
+        if committee_type_id:
+            ctype.modify_date = datetime.now()
+            ctype.modify_by =  current_user.id
+        else:
+            ctype.create_date = datetime.now()
+            ctype.create_by =  current_user.id
         try:
             db.session.add(ctype)
             db.session.commit()
@@ -634,7 +681,7 @@ def delete_committee_type(committee_type_id):
         
         ctype.deleted = True
         ctype.delete_date = datetime.now()
-        # db.session.delete(ctype)
+        ctype.delete_by =  current_user.id
         db.session.commit()
 
         return jsonify({"success": True, "deleted_committee_type_id": committee_type_id})
@@ -661,6 +708,12 @@ def edit_role(role_id:int=None):
     if request.method == "POST":
         mrole.role = request.form['role']
         mrole.description = request.form['description']
+        if role_id:
+            mrole.modify_date = datetime.now()
+            mrole.modify_by =  current_user.id
+        else:
+            mrole.create_date = datetime.now()
+            mrole.create_by =  current_user.id
         try:
             db.session.add(mrole)
             db.session.commit()
@@ -697,14 +750,11 @@ def delete_role(role_id):
         assigned_members = Member.query.filter_by(member_role_id=role.id, deleted=False).count()
     
         if assigned_members > 0:
-            # flash("Cannot delete this member role because it is currently assigned to one or more members.", "danger")
-            # return redirect(url_for('committee.member_roles'))
             return jsonify({"success": False, "message": "Cannot delete this member role because it is currently assigned to one or more members."})
-            return render_template('committee_tracker/member_roles.html', form=form, roles = mroles)
         
         role.deleted = True
         role.delete_date = datetime.now()
-        # db.session.delete(role)
+        role.delete_by =  current_user.id
         db.session.commit()
 
         return jsonify({"success": True, "deleted_role_id": role_id})
@@ -734,7 +784,6 @@ def members(ay_committee_id:int):
             joinedload(AYCommittee.members),
             joinedload(AYCommittee.fileuploads),
             joinedload(AYCommittee.meetings),
-            # with_loader_criteria(Member, lambda m: m.deleted == False),
             with_loader_criteria(FileUpload, lambda f: f.deleted == False),
             with_loader_criteria(Meeting, lambda m: m.deleted == False),
         ).first() if ay_committee_id else AYCommittee()
@@ -786,7 +835,9 @@ def add_member():
             end_date=form.end_date.data,
             voting=form.voting.data,
             allow_edit=form.allow_edit.data,
-            notes=form.notes.data
+            notes=form.notes.data,
+            create_date = datetime.now(),
+            create_by =  current_user.id
         )
 
         try:
@@ -855,6 +906,8 @@ def edit_member(member_id:int):
             db.session.commit()
             member.user = Employee.query.filter_by(employee_id=member.employee_id).first()
             member.member_role = MemberRole.query.filter_by(id=member.member_role_id, deleted=False).first()
+            member.modify_date = datetime.now()
+            member.modify_by =  current_user.id
             add_member_as_user(employee_id=member.employee_id)
 
             return jsonify({
@@ -901,10 +954,10 @@ def delete_member(member_id:int):
         user = Employee.query.filter_by(employee_id=member.employee_id).first()
         form = MemberForm()
         if member:
-            # db.session.delete(member)
             member.notes = form.notes.data
             member.deleted = True
             member.delete_date = datetime.now()
+            member.delete_by =  current_user.id
             
             db.session.commit()
             return jsonify({'success': True, 
@@ -931,9 +984,11 @@ def add_member_as_user(employee_id=None):
         user.role_id = role.id
         user.username = employee.username
         user.employee_id = employee.employee_id
+        user.create_date = datetime.now()
+        user.create_by = current_user.id
         db.session.add(user)
         db.session.commit()
-        # return user
+        
         print("success")
         flash("User saved successfully.", "success")
     else:
@@ -944,6 +999,8 @@ def add_member_as_user(employee_id=None):
         if committee_viewer_perm.id not in combined_permission_ids:
             user_permission_ids.add(committee_viewer_perm.id)
             user.permissions = Permission.query.filter_by(deleted=False).filter(Permission.id.in_(user_permission_ids)).all()
+            user.modify_date = datetime.now()
+            user.modify_by = current_user.id
             db.session.add(user)
             db.session.commit()
     return user
@@ -980,6 +1037,8 @@ def upload_files():
         saved_files.append(unique_filename)
 
         new_file = FileUpload(ay_committee_id=request.form['ay_committee_id'],filename=unique_filename,upload_date=datetime.now())
+        new_file.upload_date = datetime.now()
+        new_file.upload_by =  current_user.id
 
         try:
             db.session.add(new_file)
@@ -995,8 +1054,6 @@ def upload_files():
 def uploaded_files(ay_committee_id:int):
     allfiles = FileUpload.query.filter_by(ay_committee_id=ay_committee_id, deleted=False).all()
     files = [{"ay_committee_id": f.ay_committee_id, "name": f.filename, "size": os.path.getsize(os.path.join(UPLOAD_FOLDER, f.filename)), "id": f.id} for f in allfiles]
-    # print(files)
-    # return jsonify({"files": files, "allow_delete": has_permission('document+delete')})
     return jsonify({"files": files})
 
 # Delete File
@@ -1009,6 +1066,8 @@ def delete_file(file_id:int):
         doc = FileUpload.query.filter_by(id=file_id, deleted=False).first()
         doc.delete_date = datetime.now()
         doc.deleted = True
+        doc.delete_by =  current_user.id
+        
         if not doc:
             return jsonify({"success": False, "message": "File not found"})
         db.session.commit()
@@ -1017,13 +1076,6 @@ def delete_file(file_id:int):
     except Exception as e:
         db.session.rollback()
         return jsonify({"success": False, "message": str(e)})
-
-# @permission_required("meeting+view, meeting+add, meeting+edit, meeting+delete")
-# def meetings(ay_committee_id:int):
-#     allMeetings = Meeting.query.filter_by(ay_committee_id=ay_committee_id, deleted=False).all()
-#     meetings = [{"title": row.title, "date": row.data, "location": row.location, \
-#                 "notes": row.notes, "id": row.id} for row in allMeetings]
-#     return jsonify({"meetings": meetings})
 
 @bp.route("/save_meeting", methods=["POST"])
 # @permission_required("meeting+add, meeting+edit")
@@ -1035,10 +1087,14 @@ def save_meeting():
     if form.validate():
         if meeting_id:
             meeting = Meeting.query.filter_by(id=meeting_id, deleted=False).first()
+            meeting.modify_date = datetime.now()
+            meeting.modify_by =  current_user.id
             if not meeting:
                 return jsonify({"error": "Meeting not found"}), 404
         else:
             meeting = Meeting()
+            meeting.create_date = datetime.now()
+            meeting.create_by =  current_user.id
 
         meeting.ay_committee_id = request.form["ay_committee_id"]
         meeting.title = request.form["title"]
@@ -1055,19 +1111,19 @@ def save_meeting():
         return jsonify({"error": "Invalid data"}), 400
 
 @bp.route("/delete_meeting/<int:meeting_id>", methods=["POST"])
-# @permission_required("meeting+delete")
 @committee_edit_required("edit")
 def delete_meeting(meeting_id:int):
     try:
         ay_committee_id = request.form.get("ay_committee_id")
         meeting = Meeting.query.filter_by(id=meeting_id, ay_committee_id=ay_committee_id, deleted=False).first()
-        # ay_committee_id = meeting.ay_committee_id
 
         if not meeting:
             return jsonify({"error": "Meeting not found"}), 404
 
         meeting.delete_date = datetime.now()
         meeting.deleted = True
+        meeting.delete_by =  current_user.id
+
         db.session.commit()
 
         return jsonify({"success": True, "meetings": get_meetings_json(ay_committee_id)})
@@ -1107,12 +1163,16 @@ def save_attendance():
                 if attendance:
                     # Update existing record
                     attendance.status = status if status else None
+                    attendance.modify_date = datetime.now()
+                    attendance.modify_by = current_user.id
                 else:
                     # Create new record
                     new_attendance = Attendance(
                         meeting_id=meeting_id,
                         member_id=member_id,
-                        status=status if status else None
+                        status=status if status else None,
+                        create_date=datetime.now(),
+                        create_by=current_user.id
                     )
                     db.session.add(new_attendance)
 

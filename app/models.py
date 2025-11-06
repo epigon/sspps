@@ -48,8 +48,12 @@ class User(UserMixin, db.Model):
     is_active = Column(db.Boolean, default=True)
     employee = relationship("Employee", backref="users")  # Link to Employee
     create_date = Column(DateTime, default=datetime.now)
+    create_by = Column(Integer, ForeignKey('USERS.id'))
+    modify_date = Column(DateTime)
+    modify_by = Column(Integer, ForeignKey('USERS.id'))
     deleted = Column(Boolean, default=False)
     delete_date = Column(DateTime)
+    delete_by = Column(Integer, ForeignKey('USERS.id'))
 
     def get_id(self):
         return str(self.id)
@@ -83,8 +87,12 @@ class AcademicYear(db.Model):
     is_current = Column(Boolean, default=False)
     ay_committee = relationship("AYCommittee", back_populates="academic_year")
     create_date = Column(DateTime, default=datetime.now)
+    create_by = Column(Integer, ForeignKey('USERS.id'))
+    modify_date = Column(DateTime)
+    modify_by = Column(Integer, ForeignKey('USERS.id'))
     deleted = Column(Boolean, default=False)
     delete_date = Column(DateTime)
+    delete_by = Column(Integer, ForeignKey('USERS.id'))
     
     def __str__(self):
         return f'Year: {self.year}\nCommittees: {self.ay_committee}'
@@ -95,22 +103,26 @@ class CommitteeType(db.Model):
     type = Column(String(50), nullable=False)
     committees = relationship('Committee', backref='committee_type', lazy=True)
     create_date = Column(DateTime, default=datetime.now)
+    create_by = Column(Integer, ForeignKey('USERS.id'))
+    modify_date = Column(DateTime)
+    modify_by = Column(Integer, ForeignKey('USERS.id'))
     deleted = Column(Boolean, default=False)
     delete_date = Column(DateTime)
-
+    delete_by = Column(Integer, ForeignKey('USERS.id'))
 
 class FrequencyType(db.Model):
     __tablename__ = 'FREQUENCY_TYPES'
     id = Column(Integer, primary_key=True)
     type = Column(String(50), nullable=False)
     multiplier = Column(Integer, nullable=False)
-    # aycommittees = relationship('AYCommittee', backref='frequency_type', lazy=True)
-    # ay_committee = relationship('AYCommittee', backref='meeting_frequency_type', lazy=True)
     ay_committees = relationship("AYCommittee", back_populates="meeting_frequency_type")
     create_date = Column(DateTime, default=datetime.now)
+    create_by = Column(Integer, ForeignKey('USERS.id'))
+    modify_date = Column(DateTime)
+    modify_by = Column(Integer, ForeignKey('USERS.id'))
     deleted = Column(Boolean, default=False)
     delete_date = Column(DateTime)
-
+    delete_by = Column(Integer, ForeignKey('USERS.id'))
 
 class Committee(db.Model):
     __tablename__ = 'BASE_COMMITTEES'
@@ -124,9 +136,12 @@ class Committee(db.Model):
     active = Column(Boolean, default=True)
     ay_committee = relationship('AYCommittee', back_populates='committee', lazy='dynamic')
     create_date = Column(DateTime, default=datetime.now)
+    create_by = Column(Integer, ForeignKey('USERS.id'))
+    modify_date = Column(DateTime)
+    modify_by = Column(Integer, ForeignKey('USERS.id'))
     deleted = Column(Boolean, default=False)
     delete_date = Column(DateTime)
-
+    delete_by = Column(Integer, ForeignKey('USERS.id'))
     def __str__(self):
         return f'ID: {self.id}\nCommittee: {self.name}\nShort name: {self.short_name}\nDescription: {self.description}\nMission: {self.mission} \
         \nReporting start: {self.reporting_start}\nType: {self.committee_type_id}'
@@ -141,8 +156,12 @@ class AYCommittee(db.Model):
     supplemental_minutes_per_frequency = Column(Integer)
     active = Column(Boolean, default=True)
     create_date = Column(DateTime, default=datetime.now)
+    create_by = Column(Integer, ForeignKey('USERS.id'))
+    modify_date = Column(DateTime)
+    modify_by = Column(Integer, ForeignKey('USERS.id'))
     deleted = Column(Boolean, default=False)
     delete_date = Column(DateTime)
+    delete_by = Column(Integer, ForeignKey('USERS.id'))
     # Relationships
     members = relationship(
         "Member",
@@ -153,13 +172,8 @@ class AYCommittee(db.Model):
     meetings = relationship("Meeting", back_populates="ay_committee", cascade="all, delete-orphan")
     academic_year = relationship("AcademicYear", back_populates="ay_committee", cascade="all")
     committee = relationship('Committee', back_populates='ay_committee', lazy='joined')
-    # meeting_frequency_type = relationship("FrequencyType", back_populates="ay_committee", cascade="all")
     meeting_frequency_type = relationship("FrequencyType", back_populates="ay_committees")
-    # meeting_frequency_type = relationship(
-    #     "FrequencyType",
-    #     foreign_keys=[meeting_frequency_type_id],
-    #     overlaps="frequency_type"
-    # )
+
     __table_args__ = (
         UniqueConstraint('committee_id', 'academic_year_id', name='_committee_ay_uc'),
     )
@@ -178,8 +192,12 @@ class Meeting(db.Model):
     ay_committee = relationship("AYCommittee", back_populates="meetings")
     attendance = relationship("Attendance", back_populates="meeting", cascade="all, delete-orphan")
     create_date = Column(DateTime, default=datetime.now)
+    create_by = Column(Integer, ForeignKey('USERS.id'))
+    modify_date = Column(DateTime)
+    modify_by = Column(Integer, ForeignKey('USERS.id'))
     deleted = Column(Boolean, default=False)
     delete_date = Column(DateTime)
+    delete_by = Column(Integer, ForeignKey('USERS.id'))
 
 class Attendance(db.Model):
     __tablename__ = 'ATTENDANCE'
@@ -188,18 +206,18 @@ class Attendance(db.Model):
     member_id = Column(db.Integer, db.ForeignKey("MEMBERS.id"), nullable=False)
     status = Column(db.Enum("Present", "Absent", "Excused", name="attendance_status"))
     meeting = db.relationship("Meeting", back_populates="attendance")
-    # member = db.relationship("Member", backref="attendance")
     member = db.relationship(
         "Member",
         primaryjoin="and_(Attendance.member_id==Member.id, Member.deleted==False, Attendance.deleted==False)",
         backref="attendance"
     )
     create_date = Column(DateTime, default=datetime.now)
+    create_by = Column(Integer, ForeignKey('USERS.id'))
+    modify_date = Column(DateTime)
+    modify_by = Column(Integer, ForeignKey('USERS.id'))
     deleted = Column(Boolean, default=False)
-    delete_date = Column(DateTime)   
-    # __table_args__ = (
-    #     db.UniqueConstraint("meeting_id", "member_id, delete_date", name="uq_meeting_member"),
-    # )
+    delete_date = Column(DateTime)
+    delete_by = Column(Integer, ForeignKey('USERS.id'))
 
 class FileUpload(db.Model):
     __tablename__ = 'FILE_UPLOADS'
@@ -207,11 +225,11 @@ class FileUpload(db.Model):
     filename = Column(String(50), nullable=False)
     ay_committee_id = Column(Integer, ForeignKey("AY_COMMITTEES.id"), nullable=False)
     ay_committee = relationship("AYCommittee", back_populates="fileuploads")
-    # upload_by = Column(Integer, ForeignKey('ADUsers.employee_id'))
     upload_date = Column(DateTime, default=datetime.now)
+    upload_by = Column(Integer, ForeignKey('USERS.id'))
     delete_date = Column(DateTime)
     deleted = Column(Boolean, default=False)
-    delete_by = Column(Integer, ForeignKey('EMPLOYEES.employee_id'))
+    delete_by = Column(Integer, ForeignKey('USERS.id'))
 
 class Employee(db.Model):
     __tablename__ = 'EMPLOYEES'
@@ -284,9 +302,13 @@ class Member(db.Model):
     voting = Column(Boolean, default=True)
     allow_edit = Column(Boolean, default=False)
     create_date = Column(DateTime, default=datetime.now)
+    create_by = Column(Integer, ForeignKey('USERS.id'))
+    modify_date = Column(DateTime)
+    modify_by = Column(Integer, ForeignKey('USERS.id'))
     notes = Column(String(255))
     deleted = Column(Boolean, default=False)
     delete_date = Column(DateTime)
+    delete_by = Column(Integer, ForeignKey('USERS.id'))
 
     # Relationships
     ay_committee = relationship("AYCommittee", back_populates="members")
@@ -298,19 +320,12 @@ class MemberType(db.Model):
     id = Column(Integer, primary_key=True)
     type = Column(String(50), unique=True)
     create_date = Column(DateTime, default=datetime.now)
+    create_by = Column(Integer, ForeignKey('USERS.id'))
+    modify_date = Column(DateTime)
+    modify_by = Column(Integer, ForeignKey('USERS.id'))
     deleted = Column(Boolean, default=False)
     delete_date = Column(DateTime)
-
-
-class MemberTask(db.Model):
-    __tablename__ = 'MEMBER_TASKS'
-    id = Column(Integer, primary_key=True)
-    task = Column(String(50), unique=True, nullable=False)
-    description = Column(String(255))
-    create_date = Column(DateTime, default=datetime.now)
-    deleted = Column(Boolean, default=False)
-    delete_date = Column(DateTime)
-
+    delete_by = Column(Integer, ForeignKey('USERS.id'))
 
 class MemberRole(db.Model):
     __tablename__ = 'MEMBER_ROLES'
@@ -319,8 +334,12 @@ class MemberRole(db.Model):
     description = Column(String(500))
     default_order = Column(Integer)
     create_date = Column(DateTime, default=datetime.now)
+    create_by = Column(Integer, ForeignKey('USERS.id'))
+    modify_date = Column(DateTime)
+    modify_by = Column(Integer, ForeignKey('USERS.id'))
     deleted = Column(Boolean, default=False)
     delete_date = Column(DateTime)
+    delete_by = Column(Integer, ForeignKey('USERS.id'))
 
     # def __str__(self):
     #     return f'Role: {self.role}\nDescription: {self.description}\nVoting: {self.voting}'

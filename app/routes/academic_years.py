@@ -1,11 +1,11 @@
 from app.utils import admin_required, permission_required, has_permission
-from app.models import db, AcademicYear, AYCommittee, Committee, Member, MemberRole, FrequencyType, CommitteeType, Employee, Meeting, FileUpload, MemberTask, MemberType, User, Role, Permission
-from app.forms import AcademicYearForm, AYCommitteeForm, CommitteeForm, CommitteeReportForm, MemberForm, MemberRoleForm, MemberTaskForm, MemberTypeForm, MeetingForm, FileUploadForm, FrequencyTypeForm, CommitteeTypeForm
+from app.models import db, AcademicYear, AYCommittee, Committee, Member, MemberRole, FrequencyType, CommitteeType, Employee, Meeting, FileUpload, MemberType, User, Role, Permission
+from app.forms import AcademicYearForm, AYCommitteeForm, CommitteeForm, CommitteeReportForm, MemberForm, MemberRoleForm, MemberTypeForm, MeetingForm, FileUploadForm, FrequencyTypeForm, CommitteeTypeForm
 from bs4 import BeautifulSoup
 from collections import defaultdict
 from datetime import datetime
 from flask import render_template, redirect, url_for, request, flash, jsonify, Blueprint, send_file, abort, make_response
-from flask_login import login_required
+from flask_login import login_required, current_user
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload, selectinload, with_loader_criteria
 from sqlalchemy.sql import func
@@ -61,6 +61,12 @@ def edit_academic_year(academic_year_id:int=None):
     form = AcademicYearForm()
     if request.method == "POST":
         academic_year.year = request.form['year']
+        if academic_year_id:
+            academic_year.modify_date = datetime.now()
+            academic_year.modify_by =  current_user.id
+        else:
+            academic_year.create_date = datetime.now()
+            academic_year.create_by =  current_user.id
         try:
             db.session.add(academic_year)
             db.session.commit()
@@ -98,6 +104,7 @@ def delete_academic_year(academic_year_id):
         
         academic_year.deleted = True
         academic_year.delete_date = datetime.now()
+        academic_year.delete_by = current_user.id
 
         db.session.commit()
 
@@ -119,6 +126,9 @@ def set_current_academic_year(ay_id):
             AcademicYear.query.update({AcademicYear.is_current: False})
 
         ay.is_current = is_current
+        ay.modify_date = datetime.now()
+        ay.modify_by =  current_user.id
+        
         db.session.commit()
         return jsonify(success=True)
     except Exception as e:

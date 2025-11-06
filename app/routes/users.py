@@ -4,6 +4,7 @@ from app.models import User, Role, Permission, db, Employee
 from collections import defaultdict
 from datetime import datetime
 from flask import Blueprint, render_template, redirect, url_for, request, jsonify, flash
+from flask_login import login_required, current_user
 
 bp = Blueprint('users', __name__, url_prefix='/users')
 
@@ -71,8 +72,12 @@ def edit(user_id=None):
 
             user.username = selected_employee.username
             user.employee_id = selected_employee.employee_id
+            user.create_date = datetime.now()
+            user.create_by =  current_user.id
         else:
             user.employee_id = user.employee_id  # Keep existing link
+            user.modify_date = datetime.now()
+            user.modify_by = current_user.id
 
         user.role_id = form.role_id.data
         user.permissions = Permission.query.filter_by(deleted=False).filter(Permission.id.in_(form.permissions.data)).all()
@@ -98,6 +103,7 @@ def delete(user_id):
     user = User.query.filter_by(id=user_id, deleted=False).first_or_404()
     user.deleted = True  # Set the  deleted flag
     user.delete_date = datetime.now()
+    user.delete_by = current_user.id
     db.session.commit()
     flash("User deleted.", "success")
     return redirect(url_for('users.list_users'))

@@ -1,5 +1,5 @@
 from app.utils import permission_required
-from app.models import db, AcademicYear, Attendance, AYCommittee, Committee, Member, MemberRole, FrequencyType, CommitteeType, Employee, Meeting, FileUpload, MemberTask, MemberType, User, Role, Permission
+from app.models import db, AcademicYear, Attendance, AYCommittee, Committee, Member, MemberRole, FrequencyType, CommitteeType, Employee, Meeting, FileUpload, MemberType, User, Role, Permission
 from app.forms import CommitteeReportForm
 from app.routes.academic_years import get_academic_years
 from app.routes.committee_tracker import get_committees, get_committee_types, get_employees

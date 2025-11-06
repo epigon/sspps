@@ -175,10 +175,6 @@ class MemberRoleForm(FlaskForm):
     description = StringField('Description', validators=[Length(max=500)])
     functions = StringField('Functions', validators=[Length(max=255)])
 
-class MemberTaskForm(FlaskForm):
-    task = StringField('Task', validators=[InputRequired(), Length(max=50)], render_kw={'autofocus': True})
-    description = StringField('Description', validators=[Length(max=50)])
-
 class CommitteeForm(FlaskForm):
     name = StringField('Name', validators=[InputRequired(), Length(max=100)], render_kw={'autofocus': True})
     short_name = StringField('Short Name', validators=[Length(max=50)])
@@ -205,7 +201,7 @@ class AYCommitteeForm(FlaskForm):
     meeting_frequency_type_id = SelectField('Meeting Frequency', choices=[], validators=[DataRequired()])
     meeting_duration_in_minutes = IntegerField('Meeting duration per frequency (in minutes)', default=0)
     supplemental_minutes_per_frequency = IntegerField('Outside meeting workload per frequency (in minutes)', default=0)
-    copy_from_id = SelectField("Copy from Previous Academic Years", coerce=int, default=0)
+    copy_from_id = SelectField("Copy from Previous Academic Years", coerce=int, choices=[(0, "-- Select --")], default=0)
 
 class CommitteeReportForm(FlaskForm):
     academic_year = SelectMultipleField('Academic Year', 
@@ -297,7 +293,6 @@ class InstrumentRequestForm(FlaskForm):
     pi_phone = TelField("PI Phone")
     project_task_code = DataAttributeSelectField("Project-Task Code", validators=[DataRequired()])
     funding_source = DataAttributeSelectField("Funding Source", validators=[DataRequired()])
-    # ad_username = StringField("Requestor AD Username", validators=[DataRequired()])
     requestor_name = StringField("Requestor Name", validators=[DataRequired()])
     requestor_position = StringField("Requestor Position", validators=[DataRequired()])
     requestor_email = StringField("Requestor Email", validators=[DataRequired(), Email()])
