@@ -184,9 +184,9 @@ Dashboard
                                     </td>
                                     {% endif %}
                                     <td class="notes {% if member.deleted %}text-muted fst-italic{% endif %}">
+                                        {{ member.notes }}<br/>
                                         {% if member.deleted %}
-                                        Deleted: {{ member.delete_date.strftime('%Y-%m-%d') }} ({{ member.notes }})
-                                        {% endif %}
+                                        Deleted: {{ member.delete_date.strftime('%Y-%m-%d') }}                                         {% endif %}
                                     </td>
                                 </tr>
                                 {% endfor %}

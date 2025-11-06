@@ -514,6 +514,8 @@ def delete_ay_committee(ay_committee_id):
         ay_committee.deleted = True
         ay_committee.delete_date = datetime.now()
         ay_committee.delete_by =  current_user.id
+        academic_year_id = ay_committee.academic_year_id
+
         db.session.commit()
         # delete members, meetings, files associated with this AYCommittee
         for member in ay_committee.members:
@@ -536,8 +538,8 @@ def delete_ay_committee(ay_committee_id):
             file.delete_date = datetime.now()
             file.delete_by =  current_user.id
             db.session.commit()
-        flash("Committee deleted.", "success")
-        return redirect(url_for('committee.ay_committees'))
+        flash(f"Committee {ay_committee.committee.name} for {ay_committee.academic_year.year} deleted successfully.", "success")
+        return redirect(url_for('committee.ay_committees', academic_year_id=academic_year_id))
     except Exception as e:
         db.session.rollback()
         # return jsonify({"success": False, "message": str(e)})
