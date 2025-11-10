@@ -219,18 +219,16 @@ def get_canvas_events(context_codes=[], start_date=datetime.now(), end_date=None
         params['context_codes[]'] = context_codes 
         
     if start_date or end_date:
-        if start_date:
-            if isinstance(start_date, datetime):
-                start_date = start_date.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+        if start_date and isinstance(start_date, datetime):
+            start_date = start_date.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
             params['start_date'] = start_date
-        # Default end_date to one year after start_date if not provided
-            if not end_date:
-                dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-                end_date = (dt + timedelta(days=365)).astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-        if end_date:
-            if isinstance(end_date, datetime):
-                end_date = end_date.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-            params['end_date'] = end_date
+        if end_date and isinstance(end_date, datetime):
+            end_date = end_date.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+        else:
+            # Default end_date to one year after start_date if not provided
+            dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            end_date = (dt + timedelta(days=365)).astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+        params['end_date'] = end_date
     else:
         params['all_events'] = 'true'
 
