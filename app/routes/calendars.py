@@ -2,7 +2,7 @@ from app.cred import CANVAS_API_BASE, CANVAS_API_TOKEN, PANOPTO_API_BASE, PANOPT
 from app.forms import CalendarGroupForm
 from app.models import db, CalendarGroup, CalendarGroupSelection
 from app.utils import permission_required
-from .canvas import get_canvas_courses, get_canvas_events
+from .canvas import get_canvas_courses, get_canvas_events, get_terms_with_courses
 from bs4 import BeautifulSoup
 from datetime import datetime, timezone
 from flask import render_template, request, Blueprint, jsonify, redirect, url_for, flash
@@ -80,13 +80,20 @@ def delete_calendar_groups(group_id):
 @bp.route("/calendar_groups")
 @permission_required('calendar+add, calendar+edit')
 def calendar_groups():
-    courses1 = get_canvas_courses(account="SSPPS")
-    courses2= get_canvas_courses(account="SOM")
-    courses = sorted(courses1 + courses2, key=lambda c: c["name"])
+    accounts = ["SSPPS", "SOM"]
+    all_terms = []
+    all_courses = []
+    terms_by_account = {}
+
+    for account in accounts:
+        terms_with_courses = get_terms_with_courses(account=account)
+        unique_terms = {t["id"]: t for t in terms_with_courses}.values()
+        terms_by_account[account] = [{"id": t["id"], "name": t["name"]} for t in unique_terms]
+        all_courses.extend(get_canvas_courses(account=account))
+
     groups = CalendarGroup.query.all()
     selections = CalendarGroupSelection.query.order_by(CalendarGroupSelection.course_name).all()
 
-    # Group selections by group name
     grouped_selections = {}
     for sel in selections:
         grouped_selections.setdefault(sel.group_name, []).append({
@@ -94,7 +101,13 @@ def calendar_groups():
             "name": sel.course_name
         })
 
-    return render_template("calendars/calendar_groups.html", courses=courses, groups=groups, selections=grouped_selections)
+    return render_template(
+        "calendars/calendar_groups.html",
+        groups=groups,
+        selections=grouped_selections,
+        terms_by_account=terms_by_account,
+        default_account=accounts[0],
+    )
 
 @bp.route("/save_selections", methods=["POST"])
 @permission_required('calendar+add, calendar+edit')
@@ -135,13 +148,6 @@ def generate_scheduled_ics():
                 course['end_at'] 
                 if course.get('end_at') else
                 datetime(datetime.now().year, 1, 1, tzinfo=timezone.utc)
-
-                # datetime(datetime.now().year+5, 1, 1, tzinfo=timezone.utc) 
-                # if course.get("term", {}).get("sis_term_id") == "term_default"
-                # else (
-                #     course.get('end_at') or
-                #     datetime(datetime.now().year, 1, 1, tzinfo=timezone.utc)
-                # )
             )
         }
         for course in courses if 'id' in course 

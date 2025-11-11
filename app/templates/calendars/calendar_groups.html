@@ -37,6 +37,27 @@
     <div class="row">
         <div class="col-md-4">
             <h4>Canvas Courses</h4>
+            <div class="d-flex gap-2 mb-2">
+                <select id="account-select" class="form-select">
+                    <option value="SSPPS">SSPPS</option>
+                    <option value="SOM">SOM</option>
+                </select>
+
+                <select id="term-select" class="form-select">
+                    <option value="">-- Select Term --</option>
+                    {% for term in terms %}
+                    <option value="{{ term.id }}">
+                        {{ term.name }}
+                        <!-- {% if term.accounts|length > 1 %}
+                        ({{ term.accounts | join(', ') }})
+                        {% else %}
+                        ({{ term.accounts[0] }})
+                        {% endif %} -->
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
             <input type="text" id="course-search" class="form-control mb-2" placeholder="Search courses...">
             <div id="course-list">
                 {% for course in courses %}
@@ -47,7 +68,8 @@
             </div>
         </div>
         <div class="col-md-4">
-            <button class="btn btn-primary btn-sm float-end save-selection-btn" onclick="saveSelection()">Save Selections</button>
+            <button class="btn btn-primary btn-sm float-end save-selection-btn" onclick="saveSelection()">Save
+                Selections</button>
             <h4 class=" mb-2">Curriculum Calendars</h4>
             {% for group in groups %}
             <div class="calendar-group mb-3" id="calendar-group-{{ group.id }}">
@@ -62,11 +84,13 @@
             </div>
             {% endfor %}
             <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                <button class="btn btn-primary btn-sm save-selection-btn" onclick="saveSelection()">Save Selections</button>
+                <button class="btn btn-primary btn-sm save-selection-btn" onclick="saveSelection()">Save
+                    Selections</button>
             </div>
         </div>
         <div class="col-md-4">
-            <button class="btn btn-primary btn-sm float-end refresh-btn" onclick="refreshCalendars()">Refresh Calendar Files</button>
+            <button class="btn btn-primary btn-sm float-end refresh-btn" onclick="refreshCalendars()">Refresh Calendar
+                Files</button>
             <h4>Calendar Files</h4>
             <ul>
                 {% for group in groups %}
@@ -85,5 +109,10 @@
 
 {% block scripts %}
 {{ super() }}
+<script>
+const termsByAccount = {{ terms_by_account | tojson }};
+const defaultAccount = "{{ default_account }}";
+</script>
+
 <script src="/static/scripts/calendar-groups.js"></script>
 {% endblock %}

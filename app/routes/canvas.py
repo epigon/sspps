@@ -194,6 +194,22 @@ def get_terms_with_courses(account="SSPPS"):
 
     return terms_with_courses
 
+@bp.route("/courses")
+@permission_required('calendar+add, calendar+edit')
+def canvas_courses_by_term():
+    term_id = request.args.get("term_id", type=int)
+    account = request.args.get("account", default="SSPPS", type=str)
+
+    if term_id:
+        courses = get_canvas_courses_by_term(term_id=term_id, account=account)
+    else:
+        courses = get_canvas_courses(account=account)
+
+    return jsonify([
+        {"id": c.get("id"), "name": c.get("name")}
+        for c in courses
+    ])
+
 def get_canvas_courses_by_term(term_id, account="SSPPS"):
     """
     Fetch Canvas courses for a given term ID.
@@ -221,7 +237,9 @@ def get_canvas_events(context_codes=[], start_date=datetime.now(), end_date=None
     if start_date or end_date:
         if start_date and isinstance(start_date, datetime):
             start_date = start_date.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-            params['start_date'] = start_date
+        else:
+            start_date = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+        params['start_date'] = start_date
         if end_date and isinstance(end_date, datetime):
             end_date = end_date.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
         else:
