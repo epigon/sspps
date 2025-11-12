@@ -35,6 +35,15 @@
     <div class="card p-3 mb-3 bg-body-secondary">
         <form id="enrollForm">
             <div class="row mb-2 align-items-end">
+                <label for="account" class="form-label col-2">Account:</label>
+                <select id="account" class="form-select col">
+                    {% for acc in available_accounts %}
+                    <option value="{{ acc }}" {% if acc==account %}selected{% endif %}>{{ acc }}</option>
+                    {% endfor %}
+                </select>
+                <div class="col-7">&nbsp;</div>
+            </div>            
+            <div class="row mb-2 align-items-end">
                 <label for="enroll_term_id" class="form-label col-2">Term:</label>
                 <select id="enroll_term_id" class="form-select col">
                     <option value="">-- Select Term --</option>
