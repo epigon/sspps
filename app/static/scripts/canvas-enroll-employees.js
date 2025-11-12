@@ -140,7 +140,7 @@ $(document).ready(() => {
                 </div>
             </div>
         `);
-        
+
         fetch("/canvas/enroll_users_bulk_api", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -175,4 +175,15 @@ $(document).ready(() => {
             $targetSelect.append($option);
         });
     }
+
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+    const accountSelect = document.getElementById("account");
+    accountSelect?.addEventListener("change", () => {
+        const selectedAccount = accountSelect.value;
+        const params = new URLSearchParams(window.location.search);
+        params.set("account", selectedAccount);
+        window.location.href = `${window.location.pathname}?${params.toString()}`;
+    });
 });

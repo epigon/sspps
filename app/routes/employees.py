@@ -39,8 +39,10 @@ def before_request():
 @bp.route('/enroll')
 @permission_required('canvas_enrollments+add')
 def enroll_employees():
+    account = request.args.get('account', 'SSPPS')
+    
     terms = get_enrollment_terms()
-    terms_with_courses = get_terms_with_courses()
+    terms_with_courses = get_terms_with_courses(account=account)
 
     for term in terms_with_courses:
         term['id'] = str(term['id'])
@@ -48,12 +50,16 @@ def enroll_employees():
             course['id'] = str(course['id'])
             course['course_code'] = course.get('course_code') or ""
 
-    employees = get_canvas_users(account="SSPPS")
+    employees = get_canvas_users(account=account)
+
+    available_accounts = ["HS", "SSPPS", "SOM"]
     # print(employees)
 
     return render_template(
         'employees/canvas_enroll.html',
         employees=employees,
         terms=terms,
-        terms_with_courses=terms_with_courses
+        terms_with_courses=terms_with_courses,
+        account=account,
+        available_accounts=available_accounts
     )
