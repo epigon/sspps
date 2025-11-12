@@ -9,6 +9,8 @@ from flask import render_template, request, Blueprint, jsonify, redirect, url_fo
 from flask_login import login_required
 from icalendar import Calendar, Event, vText
 from os.path import dirname, join, abspath
+import dateutil.parser
+import dateutil.tz
 import os
 import pytz
 import re
@@ -140,18 +142,21 @@ def generate_scheduled_ics():
             "course_id": course['id'],
             "course_name": course.get('name', 'Unnamed Course'),
             "start_at": (
-                course['start_at'] 
+                convert_utc_to_local(course['start_at'])
                 if course.get('start_at') else
-                datetime(datetime.now().year, 1, 1, tzinfo=timezone.utc)
+                # Provide a default local datetime if the field is missing
+                datetime.now(dateutil.tz.gettz()).replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
             ),
             "end_at": (
-                course['end_at'] 
+                convert_utc_to_local(course['end_at'])
                 if course.get('end_at') else
-                datetime(datetime.now().year, 1, 1, tzinfo=timezone.utc)
+                # Provide a default local datetime if the field is missing
+                datetime.now(dateutil.tz.gettz()).replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
             )
         }
         for course in courses if 'id' in course 
     }
+    # print(course_map)
 
     selections = CalendarGroupSelection.query.all()
     group_data = {}
@@ -172,8 +177,13 @@ def generate_scheduled_ics():
         calendar.add('calscale', 'GREGORIAN')  # Optional but recommended
         for course in courses:            
             course_info = course_map.get(course['id'])
+            print(course_info['course_id'])
+            print(course_info['start_at'],"start_at")
+            print(course_info['end_at'],"end_at")
+
             if course_info:
                 course_events = get_canvas_events(context_codes=f"course_{course_info['course_id']}", start_date = course_info['start_at'], end_date = course_info['end_at'])
+
                 for item in course_events:
                     event = Event()
                     event.add('uid', f"canvas-eventid-{item['id']}")
@@ -200,6 +210,7 @@ def generate_scheduled_ics():
                     event['X-ALT-DESC'] = vText(item.get("description", ""))
                     event['X-ALT-DESC'].params['FMTTYPE'] = 'text/html'
                     calendar.add_component(event)
+                    print(event)
                     
         filename = filename_map.get(group_name, f"{group_name}.ics")
         full_path = os.path.join(CALENDAR_FOLDER, filename)
@@ -224,3 +235,18 @@ def html_to_text(html):
     text = text.replace('\\', '\\\\').replace('\n', '\\n').replace(',', '\\,').replace(';', '\\;')
     
     return text
+
+def convert_utc_to_local(utc_string):
+    """Parses a UTC ISO string and converts it to the local timezone datetime object."""
+    if not utc_string:
+        # Handle the case where the string is empty/None by returning None or a default
+        return None
+    try:
+        # Use dateutil.parser for robust parsing of ISO strings with 'Z'
+        utc_dt = dateutil.parser.parse(utc_string)
+        # Convert to the local system timezone
+        local_dt = utc_dt.astimezone(dateutil.tz.gettz())
+        return local_dt
+    except ValueError:
+        # Handle cases where the string isn't a valid date format
+        return None

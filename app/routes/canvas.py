@@ -229,7 +229,9 @@ def get_canvas_events(context_codes=[], start_date=datetime.now(), end_date=None
     page = 1
     page_size = 100
     params = {'per_page': page_size, "state[]":"available"}    
-
+    print("start_date",start_date)
+    print("end_date",end_date)
+    
     # ✅ Correctly add multiple context_codes
     if context_codes:
         params['context_codes[]'] = context_codes 
@@ -250,6 +252,9 @@ def get_canvas_events(context_codes=[], start_date=datetime.now(), end_date=None
     else:
         params['all_events'] = 'true'
 
+    print("context_codes",context_codes)
+    print("params",params)
+    
     url = f"{CANVAS_API_BASE}/calendar_events"
     events = []
     repeat = True
