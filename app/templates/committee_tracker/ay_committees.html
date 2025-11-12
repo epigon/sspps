@@ -74,7 +74,7 @@ Dashboard
                                 <i class="bi bi-trash"></i> Delete
                             </a>
                             {% endif %}
-                            {% if has_permission('ay_committee+edit') %}
+                            {% if can_edit_committee(com.id, "edit") %}
                             {% if not com.finalized %}
                             <form action="{{ url_for('committee.finalize_ay_committee', ay_committee_id=com.id) }}"
                                 method="POST" class="d-inline">
