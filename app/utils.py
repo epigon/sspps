@@ -1,9 +1,8 @@
-from app.models import Member, Employee
+from app.models import Member, Employee, AYCommittee
 from flask_login import current_user
 from flask import current_app, request, abort, jsonify, render_template, flash, redirect, url_for
 from flask_login import current_user
 from functools import wraps
-
 
 def admin_required(f):
     @wraps(f)
@@ -113,15 +112,51 @@ def committee_edit_required(action="edit"):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            from flask import request, jsonify, redirect, url_for, flash
             ay_committee_id = kwargs.get("ay_committee_id") or request.form.get("ay_committee_id", type=int)
-
             if not ay_committee_id or not can_edit_committee(ay_committee_id, action):
                 if request.headers.get("X-Requested-With") == "XMLHttpRequest":
                     return jsonify(success=False, message=f"You do not have permission to {action} this committee."), 403
                 flash(f"You do not have permission to {action} this committee.", "danger")
                 return redirect(request.referrer or url_for("committee.ay_committees"))
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
 
+def committee_edit_required(action="edit"):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            ay_committee_id = kwargs.get("ay_committee_id") or request.form.get("ay_committee_id", type=int)
+            if not ay_committee_id:
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return jsonify(success=False, message="No committee specified."), 400
+                flash("No committee specified.", "danger")
+                return redirect(request.referrer or url_for("committee.ay_committees"))
+
+            aycommittee = AYCommittee.query.filter_by(id=ay_committee_id, deleted=False).first()
+
+            # 🚫 Check if committee is finalized
+            if aycommittee and aycommittee.finalized:
+                msg = (
+                    f"This committee was finalized on "
+                    f"{aycommittee.finalized_date.strftime('%Y-%m-%d') if aycommittee.finalized_date else 'a previous date'} "
+                    f"by {aycommittee.finalized_user.username if aycommittee.finalized_user else 'an administrator'} "
+                    f"and can no longer be modified."
+                )
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return jsonify(success=False, message=msg), 403
+                flash(msg, "warning")
+                return redirect(request.referrer or url_for("committee.ay_committees"))
+
+            # 🔒 Existing permission check
+            if not can_edit_committee(ay_committee_id, action):
+                msg = f"You do not have permission to {action} this committee."
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return jsonify(success=False, message=msg), 403
+                flash(msg, "danger")
+                return redirect(request.referrer or url_for("committee.ay_committees"))
+
+            # ✅ All checks passed
             return f(*args, **kwargs)
         return decorated_function
     return decorator

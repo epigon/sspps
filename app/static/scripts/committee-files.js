@@ -16,7 +16,7 @@ $(document).ready(function () {
         return;
     }
 
-    const canEditFiles = filesTableEl.dataset.canEdit === "true";
+    const canEditFiles = filesTableEl.dataset.canEdit === "true" && filesTableEl.dataset.finalized === "false";
 
     let ay_committee_id = uploadForm.find('[name="ay_committee_id"]').val();
 

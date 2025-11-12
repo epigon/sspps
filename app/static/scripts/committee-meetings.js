@@ -9,7 +9,7 @@ $(document).ready(function () {
     }
 
     const committeeId = tableEl.dataset.ayCommitteeId;
-    const canEdit = tableEl.dataset.canEdit === "true";
+    const canEdit = tableEl.dataset.canEdit === "true" && tableEl.dataset.finalized === "false";
     // console.log("committeeId", committeeId, "canEdit", canEdit);
     meetingsTable = $('#meetingsTable').DataTable({
         columns: [
@@ -268,7 +268,7 @@ $(document).ready(function () {
                     data-location="${meeting.location}" data-notes="${meeting.notes}">Edit</button>
             <button class="btn btn-danger btn-sm delete-meeting-btn"
                     data-id="${meeting.id}" data-ay-committee-id="${meeting.ay_committee_id}">Delete</button>
-        `;
+            `;
             }
             return {
                 title: meeting.title,

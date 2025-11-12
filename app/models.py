@@ -155,6 +155,9 @@ class AYCommittee(db.Model):
     meeting_duration_in_minutes = Column(Integer)
     supplemental_minutes_per_frequency = Column(Integer)
     active = Column(Boolean, default=True)
+    finalized = Column(Boolean, default=False)
+    finalized_date = Column(DateTime, nullable=True)
+    finalized_by = Column(Integer, ForeignKey('USERS.id'))
     create_date = Column(DateTime, default=datetime.now)
     create_by = Column(Integer, ForeignKey('USERS.id'))
     modify_date = Column(DateTime)
@@ -173,6 +176,7 @@ class AYCommittee(db.Model):
     academic_year = relationship("AcademicYear", back_populates="ay_committee", cascade="all")
     committee = relationship('Committee', back_populates='ay_committee', lazy='joined')
     meeting_frequency_type = relationship("FrequencyType", back_populates="ay_committees")
+    finalized_user = relationship("User", foreign_keys=[finalized_by])
 
     __table_args__ = (
         UniqueConstraint('committee_id', 'academic_year_id', name='_committee_ay_uc'),

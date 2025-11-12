@@ -36,10 +36,11 @@ Dashboard
                         {% endfor %}
                     </ul>
                 </div>
-                <table class="table table-striped mb-3">
+                <table class="table table-sm table-striped mb-3">
                     <thead>
                         <tr>
                             <th>Committees</th>
+                            <th>Finalized</th>
                             {% if has_permission('ay_committee+view,ay_committee+edit,ay_committee+delete') %}
                             <th>Manage</th>
                             {% endif %}
@@ -49,14 +50,48 @@ Dashboard
                     {% for com in ay_committees %}
                     <tr>
                         <td>{{ com.committee.name }} {% if com.committee.short_name %}({{ com.committee.short_name }}){%
-                            endif %}</td>
+                            endif %} -- {{com.member_count}} member(s)</td>
                         <td>
-                            <a href="{{url_for('committee.members', ay_committee_id = com.id)}}" class="btn btn-primary me-2"><i class="bi bi-people"></i> Members</a>
-                            {% if can_edit_committee(com.id, "delete") %} 
-                            <a href="{{ url_for('committee.delete_ay_committee', ay_committee_id=com.id) }}"  class="btn btn-danger"
+                            {% if com.finalized %}
+                            <span class="badge rounded-pill bg-success">Finalized</span><br>
+                            <small>
+                                {{ com.finalized_date.strftime("%Y-%m-%d") if com.finalized_date else "" }}<br>
+                                by {{ com.finalized_user.username if com.finalized_user else "Unknown" }}
+                            </small>
+                            {% else %}
+                            <span class="badge rounded-pill bg-secondary">Open</span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            <a href="{{url_for('committee.members', ay_committee_id = com.id)}}"
+                                class="btn btn-sm btn-primary me-2"><i class="bi bi-people"></i>
+                                Members</a>
+                            {% if can_edit_committee(com.id, "delete") %}
+                            <a href="{{ url_for('committee.delete_ay_committee', ay_committee_id=com.id) }}"
+                                class="btn btn-sm btn-danger me-2"
                                 onclick="return confirm('Are you sure you want to delete this committee? This action cannot be undone.');">
                                 <i class="bi bi-trash"></i> Delete
                             </a>
+                            {% endif %}
+                            {% if has_permission('ay_committee+edit') %}
+                            {% if not com.finalized %}
+                            <form action="{{ url_for('committee.finalize_ay_committee', ay_committee_id=com.id) }}"
+                                method="POST" class="d-inline">
+                                <button class="btn btn-sm btn-warning"
+                                    onclick="return confirm('Finalize this committee? No further edits will be allowed.')">
+                                    <i class="bi bi-lock"></i> Finalize
+                                </button>
+                            </form>
+                            {% else %}
+                            <form action="{{ url_for('committee.unfinalize_ay_committee', ay_committee_id=com.id) }}"
+                                method="POST" class="d-inline">
+                                <button class="btn btn-sm btn-secondary"
+                                    onclick="return confirm('Unlock this committee for editing?')">
+                                    <i class="bi bi-unlock"></i> Unfinalize
+                                </button>
+                            </form>
+                            {% endif %}
                             {% endif %}
                         </td>
                     </tr>

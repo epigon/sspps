@@ -130,6 +130,9 @@ def ay_committees(academic_year_id:int=None):
     else:
         current_ay_committees = []
 
+    for c in current_ay_committees:
+        c.member_count = sum(1 for m in c.members if not m.deleted)
+
     custom_breadcrumbs = [
         {'name': 'Committees Home', 'url': '/committee_tracker'},
         {'name': f'Committess for {current_year.year}', 'url': f'/committee_tracker/{academic_year_id}/ay_committees/'}
@@ -301,6 +304,42 @@ def ay_committee(ay_committee_id:int=None):
         form=form,
         disable_academic_year=disable_academic_year
     )
+
+@bp.route("/ay_committee/<int:ay_committee_id>/finalize", methods=["POST"])
+@permission_required("ay_committee+edit")
+def finalize_ay_committee(ay_committee_id):
+    aycommittee = AYCommittee.query.filter_by(id=ay_committee_id, deleted=False).first_or_404()
+
+    aycommittee.finalized = True
+    aycommittee.finalized_date = datetime.now()
+    aycommittee.finalized_by = current_user.id
+
+    db.session.commit()
+
+    flash(
+        f"Committee '{aycommittee.committee.name}' for {aycommittee.academic_year.year} has been finalized by {current_user.username}.",
+        "success"
+    )
+    return redirect(url_for("committee.members", ay_committee_id=ay_committee_id))
+
+
+@bp.route("/ay_committee/<int:ay_committee_id>/unfinalize", methods=["POST"])
+@permission_required("ay_committee+edit")
+def unfinalize_ay_committee(ay_committee_id):
+    aycommittee = AYCommittee.query.filter_by(id=ay_committee_id, deleted=False).first_or_404()
+
+    aycommittee.finalized = False
+    aycommittee.finalized_date = None
+    aycommittee.finalized_by = None
+
+    db.session.commit()
+
+    flash(
+        f"Committee '{aycommittee.committee.name}' has been unlocked for editing.",
+        "info"
+    )
+    return redirect(url_for("committee.members", ay_committee_id=ay_committee_id))
+
 
 @bp.route('/get_previous_committees/<int:committee_id>/<int:current_ay_id>')
 def get_previous_committees(committee_id, current_ay_id):

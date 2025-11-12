@@ -9,6 +9,15 @@ $(document).ready(function () {
         responsive: true,
         order: [[0, 'asc']]
     });
+    
+    const tableEl = document.getElementById("memberTable");
+    if (!tableEl) {
+        console.error("memberTable element not found");
+        return;
+    }
+
+    const committeeId = tableEl.dataset.ayCommitteeId;
+    const canEdit = tableEl.dataset.canEdit === "true" && tableEl.dataset.finalized === "false";
 
     // Spacing tweak for DataTables filter
     $('.dt-input').addClass("me-1");
@@ -120,6 +129,13 @@ $(document).ready(function () {
             success: function (data) {
                 if (data.success) {
                     if (!memberId) {
+                        let actionsHtml = "";
+
+                        if (canEdit) {
+                            actionsHtml +=  `<button class="btn btn-warning btn-sm edit-btn" data-bs-toggle="modal" data-bs-target="#memberModal" data-id="${data.member.id}">Edit</button> 
+                            <button class="btn btn-danger btn-sm delete-btn" data-bs-toggle="modal" data-bs-target="#deleteMemberModal" data-id="${data.member.id}">Delete</button>`;
+                        }
+                        
                         // Adding new member
                         let row = table.row.add([
                             data.member.user,
@@ -128,8 +144,7 @@ $(document).ready(function () {
                             data.member.end_date,
                             displayYesNo(data.member.voting),
                             displayYesNo(data.member.allow_edit),
-                            `<button class="btn btn-warning btn-sm edit-btn" data-bs-toggle="modal" data-bs-target="#memberModal" data-id="${data.member.id}">Edit</button> 
-                            <button class="btn btn-danger btn-sm delete-btn" data-bs-toggle="modal" data-bs-target="#deleteMemberModal" data-id="${data.member.id}">Delete</button>`,
+                            actionsHtml,
                             data.member.notes
                         ]).draw().node();
 
