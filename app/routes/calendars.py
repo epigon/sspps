@@ -177,9 +177,6 @@ def generate_scheduled_ics():
         calendar.add('calscale', 'GREGORIAN')  # Optional but recommended
         for course in courses:            
             course_info = course_map.get(course['id'])
-            print(course_info['course_id'])
-            print(course_info['start_at'],"start_at")
-            print(course_info['end_at'],"end_at")
 
             if course_info:
                 course_events = get_canvas_events(context_codes=f"course_{course_info['course_id']}", start_date = course_info['start_at'], end_date = course_info['end_at'])
@@ -210,8 +207,7 @@ def generate_scheduled_ics():
                     event['X-ALT-DESC'] = vText(item.get("description", ""))
                     event['X-ALT-DESC'].params['FMTTYPE'] = 'text/html'
                     calendar.add_component(event)
-                    print(event)
-                    
+
         filename = filename_map.get(group_name, f"{group_name}.ics")
         full_path = os.path.join(CALENDAR_FOLDER, filename)
 
