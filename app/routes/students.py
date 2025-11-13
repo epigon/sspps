@@ -665,7 +665,7 @@ def get_filtered_students_context():
     else:
         courses = get_canvas_courses(account="SSPPS")
 
-    print("courses",courses)
+    # print("courses",courses)
     # print("terms_with_courses",terms_with_courses)
 
     students = Student.query

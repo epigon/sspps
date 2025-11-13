@@ -22,13 +22,24 @@
 <script>
     window.embeddedTermsWithCourses = {{ terms_with_courses | tojson }};
 </script>
+{% block styles %}
+{{ super() }}
+<style>
+    /* Make DataTables v2 length + custom filters inline */
+    .dt-length {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+        /* allows wrapping on smaller screens */
+    }
+</style>
+{% endblock %}
 {% endblock %}
 
 {% block content %}
-<div class="container">
-    <h2>All Students</h2>
-
-    {% include "/students/_filter_section.html" %}
+<div class="container mt-4">
+    <h2>Bulk Enroll Users in Canvas Courses</h2>
 
     <div id="client-alert" class="alert alert-warning d-none" role="alert">
         Please select at least one student.
@@ -37,11 +48,6 @@
     <!-- Enroll Canvas Course Selection -->
 
     <div class="card p-3 mb-3 bg-info-subtle">
-        <div class="row mb-2">
-            <div class="col">
-                <h5 class="mb-0">Bulk Enroll Users in Canvas Course:</h5>
-            </div>
-        </div>
         <form id="enrollForm">
             <div class="row mb-2 align-items-end">
                 <!-- Enrollment Term Dropdown -->
@@ -130,6 +136,9 @@
 
 {% block scripts %}
 {{ super() }}
-
-<script type="module" src="{{ url_for('static', filename='scripts/students.js') }}"></script>
+<script>
+    window.classYears = {{ class_years | tojson }};
+    window.selectedClass = {{ selected_class | tojson }};
+</script>
+<script type="module" src="{{ url_for('static', filename='scripts/canvas-enroll-students.js') }}"></script>
 {% endblock %}
