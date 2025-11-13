@@ -324,7 +324,7 @@ def finalize_ay_committee(ay_committee_id):
 
 
 @bp.route("/ay_committee/<int:ay_committee_id>/unfinalize", methods=["POST"])
-@committee_edit_required("edit")
+@permission_required('ay_committee+add, ay_committee+edit')
 def unfinalize_ay_committee(ay_committee_id):
     aycommittee = AYCommittee.query.filter_by(id=ay_committee_id, deleted=False).first_or_404()
 

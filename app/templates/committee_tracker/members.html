@@ -118,27 +118,27 @@ Dashboard
                                 {{ aycommittee.committee.description }}
                             </div>
                             {% endif %}
-                            
-                            {% if can_edit_committee(com.id, "edit") %}
-                                {% if aycommittee.finalized %}
-                                <div class="alert alert-warning my-3">
-                                    <strong>Finalized:</strong> This committee cannot be edited or deleted.
-                                </div>
-                                {% endif %}
-
-                                {% if not aycommittee.finalized %}
-                                <form
-                                    action="{{ url_for('committee.finalize_ay_committee', ay_committee_id=aycommittee.id) }}"
-                                    method="POST">
-                                    <button class="btn btn-danger btn-sm my-3">Finalize</button>
-                                </form>
-                                {% else %}
-                                <form
-                                    action="{{ url_for('committee.unfinalize_ay_committee', ay_committee_id=aycommittee.id) }}"
-                                    method="POST">
-                                    <button class="btn btn-secondary btn-sm my-3">Unfinalize</button>
-                                </form>
-                                {% endif %}
+                            {% if aycommittee.finalized %}
+                            <div class="alert alert-warning my-3">
+                                <strong>Finalized:</strong> This committee cannot be edited or deleted.
+                            </div>
+                            {% endif %}
+                            {% if not aycommittee.finalized %}
+                            {% if can_edit_committee(aycommittee.id, "edit") %}
+                            <form
+                                action="{{ url_for('committee.finalize_ay_committee', ay_committee_id=aycommittee.id) }}"
+                                method="POST">
+                                <button class="btn btn-danger btn-sm my-3">Finalize</button>
+                            </form>
+                            {% endif %}
+                            {% else %}
+                            {% if has_permission('committee+add') or has_permission('committee+edit') %}
+                            <form
+                                action="{{ url_for('committee.unfinalize_ay_committee', ay_committee_id=aycommittee.id) }}"
+                                method="POST">
+                                <button class="btn btn-secondary btn-sm my-3">Unfinalize</button>
+                            </form>
+                            {% endif %}
                             {% endif %}
                         </div>
                     </div>
@@ -160,8 +160,7 @@ Dashboard
                             <input type="checkbox" id="toggleActive"> Show "Deleted" Members
                         </label> -->
                         <table class="table table-striped table-sm table-responsive" id="memberTable"
-                            data-order='[[ 0, "asc" ]]'
-                            data-ay-committee-id="{{ aycommittee.id }}"
+                            data-order='[[ 0, "asc" ]]' data-ay-committee-id="{{ aycommittee.id }}"
                             data-can-edit="{{ 'true' if can_edit_committee(aycommittee.id) else 'false' }}"
                             data-finalized="{{ 'true' if aycommittee.finalized else 'false' }}">
                             <thead>

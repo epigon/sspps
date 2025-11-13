@@ -74,24 +74,28 @@ Dashboard
                                 <i class="bi bi-trash"></i> Delete
                             </a>
                             {% endif %}
-                            {% if can_edit_committee(com.id, "edit") %}
+                            
+                            
                             {% if not com.finalized %}
-                            <form action="{{ url_for('committee.finalize_ay_committee', ay_committee_id=com.id) }}"
-                                method="POST" class="d-inline">
-                                <button class="btn btn-sm btn-warning"
-                                    onclick="return confirm('Finalize this committee? No further edits will be allowed.')">
-                                    <i class="bi bi-lock"></i> Finalize
-                                </button>
-                            </form>
+                                {% if can_edit_committee(com.id, "edit") %}
+                                <form action="{{ url_for('committee.finalize_ay_committee', ay_committee_id=com.id) }}"
+                                    method="POST" class="d-inline">
+                                    <button class="btn btn-sm btn-warning"
+                                        onclick="return confirm('Finalize this committee? No further edits will be allowed.')">
+                                        <i class="bi bi-lock"></i> Finalize
+                                    </button>
+                                </form>
+                                {% endif %}
                             {% else %}
-                            <form action="{{ url_for('committee.unfinalize_ay_committee', ay_committee_id=com.id) }}"
-                                method="POST" class="d-inline">
-                                <button class="btn btn-sm btn-secondary"
-                                    onclick="return confirm('Unlock this committee for editing?')">
-                                    <i class="bi bi-unlock"></i> Unfinalize
-                                </button>
-                            </form>
-                            {% endif %}
+                                {% if has_permission('committee+add') or has_permission('committee+edit') %}
+                                <form action="{{ url_for('committee.unfinalize_ay_committee', ay_committee_id=com.id) }}"
+                                    method="POST" class="d-inline">
+                                    <button class="btn btn-sm btn-secondary"
+                                        onclick="return confirm('Unlock this committee for editing?')">
+                                        <i class="bi bi-unlock"></i> Unfinalize
+                                    </button>
+                                </form>
+                                {% endif %}                            
                             {% endif %}
                         </td>
                     </tr>
