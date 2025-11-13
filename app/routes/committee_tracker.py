@@ -481,6 +481,9 @@ def batch_copy_ay_committees():
                         create_by =  current_user.id
                     )
                     db.session.add(new_member)
+                    new_member.user = Employee.query.filter_by(employee_id=new_member.employee_id).first()
+                    new_member.member_role = MemberRole.query.filter_by(id=new_member.member_role_id, deleted=False).first()
+                    add_member_as_user(employee_id=new_member.employee_id)
 
             created.append(src.committee.name)
 
@@ -1030,8 +1033,8 @@ def add_member_as_user(employee_id=None):
         db.session.add(user)
         db.session.commit()
         
-        print("success")
-        flash("User saved successfully.", "success")
+        # print("success")
+        # flash("User saved successfully.", "success")
     else:
         committee_viewer_perm = Permission.query.filter_by(deleted=False).filter(Permission.resource=="committee", Permission.action=="view").first()
         role_permission_ids = set(p.id for p in user.role.permissions) if user.role else set()

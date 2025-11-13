@@ -1,54 +1,79 @@
 {% extends 'base.html' %}
+
+{% block title%}Users{% endblock %}
+{% block head %}
+{{super()}}
+<!-- DataTables CSS -->
+<link
+    href="https://cdn.datatables.net/v/dt/jszip-3.10.1/dt-2.2.2/af-2.7.0/b-3.2.2/b-colvis-3.2.2/b-html5-3.2.2/b-print-3.2.2/cr-2.0.4/date-1.5.5/fc-5.0.4/fh-4.0.1/kt-2.12.1/r-3.0.4/rg-1.5.1/rr-1.5.0/sc-2.4.3/sb-1.8.2/sp-2.3.3/sl-3.0.0/sr-1.4.1/datatables.min.css"
+    rel="stylesheet" integrity="sha384-Ds1Vklai96R25BXbTa08O+OjpAevmakmGFQNAQECNryYdQ0qbN4CJSMwUSFT+NYe"
+    crossorigin="anonymous">
+
+<!-- DataTables JS -->
+<script
+    src="https://cdn.datatables.net/v/dt/jszip-3.10.1/dt-2.2.2/af-2.7.0/b-3.2.2/b-colvis-3.2.2/b-html5-3.2.2/b-print-3.2.2/cr-2.0.4/date-1.5.5/fc-5.0.4/fh-4.0.1/kt-2.12.1/r-3.0.4/rg-1.5.1/rr-1.5.0/sc-2.4.3/sb-1.8.2/sp-2.3.3/sl-3.0.0/sr-1.4.1/datatables.min.js"
+    integrity="sha384-lGlyEraPH4ouPKo2ethY8Xic4JlIXN/CUbMNpOce3EjRhLuGH732aMGDH7Cv8+VY"
+    crossorigin="anonymous"></script>
+{% endblock %}
 {% block content %}
 <div class="container my-2">
     <h2>Users</h2>
 
     <a href="{{ url_for('users.edit') }}" class="btn btn-primary mb-3">Create New User</a>
-    <table class="table table-striped">
-        <tr>
-            <th>Name</th>
-            <th>Username</th>
-            <th>Role</th>
-            <th>Manage</th>
-        </tr>
-        {% for user in users %}
-        <tr>
-            <td>{{ user.employee.employee_name }}</td>
-            <td>{{ user.username }}</td>
-            <td>{{ user.role.name if user.role else 'None' }}</td>
-            <td>
-                <a href="{{ url_for('users.edit', user_id=user.id) }}">Edit</a> |
-                <a href="{{ url_for('users.delete', user_id=user.id) }}"
-                    onclick="return confirm('Are you sure you want to delete the user \'{{ user.employee.employee_name }}\'? This action cannot be undone.')">
-                    Delete
-                </a>
-            </td>
-        </tr>
-        {% endfor %}
+    <!-- Role Filter -->
+    <div class="form-inline">
+        <label for="role-filter" class="me-2 fw-bold">Filter by Role:</label>
+        <select id="role-filter" class="form-select">
+            <option value="">All Roles</option>
+            {% for role in roles %}
+            <option value="{{ role.name }}">{{ role.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <table class="table table-striped" id="users-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Username</th>
+                <th>Role</th>
+                <th>Manage</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td>{{ user.employee.employee_name }}</td>
+                <td>{{ user.username }}</td>
+                <td>{{ user.role.name if user.role else 'None' }}</td>
+                <td>
+                    <a href="{{ url_for('users.edit', user_id=user.id) }}">Edit</a> |
+                    <a href="{{ url_for('users.delete', user_id=user.id) }}"
+                        onclick="return confirm('Are you sure you want to delete the user \'{{ user.employee.employee_name }}\'? This action cannot be undone.')">
+                        Delete
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
     </table>
-
-
-    <!-- <h3>All Defined Permissions</h3>
-  <table class="table table-bordered">
-    <thead>
-      <tr>
-        <th>Resource</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for resource, perms in grouped_permissions.items() %}
-      <tr>
-        <td>{{ resource }}</td>
-        <td>
-          {% set all_actions = [] %}
-          {% for p in perms %}
-          {{ p.action }} {% if not loop.last %} | {% endif %}
-          {% endfor %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table> -->
 </div>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        // Initialize DataTable
+        const table = $('#users-table').DataTable({
+            pageLength: 25,
+            lengthMenu: [10, 25, 50, 100],
+            order: [[1, 'asc']] // sort by Name
+        });
+
+        // Filter by Role
+        $('#role-filter').on('change', function () {
+            const role = $(this).val();
+            table.column(2).search(role || '', true, false).draw(); // column index 2 = Role
+        });
+    });
+</script>
 {% endblock %}

@@ -18,14 +18,9 @@ def before_request():
 # @permission_required('user+view')
 def list_users():
     all_users = User.query.filter_by(deleted=False).all()
-    # Fetch all permissions
-    all_permissions = Permission.query.filter_by(deleted=False).all()
-    # Group by resource
-    grouped_permissions = defaultdict(list)
-    print(grouped_permissions)
-    for perm in all_permissions:
-        grouped_permissions[perm.resource].append(perm)
-    return render_template('users/list.html', users=all_users, permissions=all_permissions, grouped_permissions=grouped_permissions)
+    roles = Role.query.filter_by(deleted=False).order_by(Role.name).all()
+
+    return render_template('users/list.html', users=all_users, roles=roles)
 
 @bp.route('/new', methods=['GET', 'POST'])
 @bp.route('/<int:user_id>/edit', methods=['GET', 'POST'])
