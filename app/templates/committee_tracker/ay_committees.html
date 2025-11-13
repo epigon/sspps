@@ -39,9 +39,7 @@ Dashboard
                     <tr>
                         <th>Committees</th>
                         <th>Finalized</th>
-                        {% if has_permission('ay_committee+view,ay_committee+edit,ay_committee+delete') %}
                         <th>Manage</th>
-                        {% endif %}
                     </tr>
                 </thead>
 
@@ -60,7 +58,6 @@ Dashboard
                         <span class="badge rounded-pill bg-secondary">Open</span>
                         {% endif %}
                     </td>
-
                     <td>
                         <a href="{{url_for('committee.members', ay_committee_id = com.id)}}"
                             class="btn btn-sm btn-primary me-2"><i class="bi bi-people"></i>
@@ -72,8 +69,6 @@ Dashboard
                             <i class="bi bi-trash"></i> Delete
                         </a>
                         {% endif %}
-
-
                         {% if not com.finalized %}
                         {% if can_edit_committee(com.id, "edit") %}
                         <form action="{{ url_for('committee.finalize_ay_committee', ay_committee_id=com.id) }}"
@@ -99,7 +94,7 @@ Dashboard
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="2">No committees</td>
+                    <td colspan="3">No committees</td>
                 </tr>
                 {% endfor %}
             </table>
