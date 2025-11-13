@@ -306,7 +306,7 @@ def ay_committee(ay_committee_id:int=None):
     )
 
 @bp.route("/ay_committee/<int:ay_committee_id>/finalize", methods=["POST"])
-@permission_required("ay_committee+edit")
+@committee_edit_required("edit")
 def finalize_ay_committee(ay_committee_id):
     aycommittee = AYCommittee.query.filter_by(id=ay_committee_id, deleted=False).first_or_404()
 
@@ -324,7 +324,7 @@ def finalize_ay_committee(ay_committee_id):
 
 
 @bp.route("/ay_committee/<int:ay_committee_id>/unfinalize", methods=["POST"])
-@permission_required("ay_committee+edit")
+@committee_edit_required("edit")
 def unfinalize_ay_committee(ay_committee_id):
     aycommittee = AYCommittee.query.filter_by(id=ay_committee_id, deleted=False).first_or_404()
 
@@ -395,7 +395,7 @@ def get_source_committee(ay_committee_id):
     return jsonify(details)
 
 @bp.route("/ay_committees/batch_copy", methods=["GET", "POST"])
-@permission_required("ay_committee+add, ay_committee+edit")
+@permission_required('ay_committee+add, ay_committee+edit')
 def batch_copy_ay_committees():
     academic_years = AcademicYear.query.filter_by(deleted=False).order_by(AcademicYear.year.desc()).all()
 
@@ -501,7 +501,7 @@ def batch_copy_ay_committees():
     )
 
 @bp.route("/ay_committee/<int:ay_committee_id>/members/json")
-@permission_required("ay_committee+view")
+@committee_edit_required("view")
 def get_committee_members_json(ay_committee_id):
     """Return JSON list of members for a given AYCommittee."""
     aycom = AYCommittee.query.filter_by(id=ay_committee_id, deleted=False).first()
