@@ -23,6 +23,7 @@ Committees
             <thead>
                 <tr>
                     <th>Committees</th>
+                    <th>Type</th>
                     <th>Academic Years</th>
                     {% if has_permission('committee+edit,committee+delete') %}
                     <th>Manage</th>
@@ -40,6 +41,7 @@ Committees
                     <br />{{ com.mission }}
                     {% endif %}-->
                 </td>
+                <td>{{ com.committee_type.type if com.committee_type else 'N/A' }}</td>
                 <td class="col-2">
                     <div class="dropdown">
                         <button class="btn btn-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown"
