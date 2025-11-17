@@ -25,7 +25,7 @@ $(document).ready(() => {
     }
 
     $termFilter.on('change', function () {
-        populateCourses(this.value, $courseFilter, '-- All --');
+        populateCourses(this.value, $courseFilter, '-- Select Course --');
         $('#pdf_title, #pdf_filename').val('');
     });
 
@@ -243,9 +243,13 @@ function populateCourses(termId, $targetSelect, defaultOptionText = '-- Select C
     $targetSelect.empty().append($('<option>').val('').text(defaultOptionText));
     $('#enroll_section_id').empty().append($('<option>').val('').text('-- Entire Course --'));
 
+    console.log(termId.toString());
     const term = termsWithCourses.find(t => t.id.toString() === termId.toString());
-    console.log(term);
+    
     if (!term) return;
+
+    console.log(`📋 Populating courses for term: ${term.name}`);
+    console.log(term.courses);
 
     term.courses.forEach(course => {
         const $option = $('<option>').val(course.id).attr('data-course-code', course.course_code || '').text(course.name);

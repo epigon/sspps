@@ -22,34 +22,7 @@ $(document).ready(function () {
     // Spacing tweak for DataTables filter
     $('.dt-input').addClass("me-1");
 
-    // Custom filter for "Active / Deleted"
-    // $.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
-    //     if (settings.nTable.id !== 'memberTable') {
-    //         return true; // Skip if it's not the right table
-    //     }
-    //     // If checkbox is checked we show everything
-    //     const showDeleted = $('#toggleActive').prop('checked');
-    //     if (showDeleted) return true;
-
-    //     // Prefer sanity: try notes column (index 7 in your row array), but fallback safely
-    //     let notesRaw = data[7] || '';
-
-    //     // If notesRaw contains HTML, strip tags before searching
-    //     notesRaw = $('<div>').html(notesRaw).text().trim().toLowerCase();
-
-    //     // Return true to include row; false to exclude (we exclude rows that contain "deleted")
-    //     return notesRaw.indexOf('deleted') === -1;
-    //     // if (!$('#toggleActive').prop('checked')) {
-    //     //     return !data[7].toLowerCase().includes('deleted'); // Exclude "Deleted" (Actions column at index 7)
-    //     // }
-    //     // return true; // Show all if filter is off
-    // });
-
     table.draw();
-
-    // $('#toggleActive').on('click', function () {
-    //     table.draw(); // Apply or reset the filter
-    // });
 
     function resetForm() {
         $('#addformResponseMessage').html("").removeClass('alert alert-danger alert-success');
@@ -155,7 +128,7 @@ $(document).ready(function () {
                         $(row).find('td').eq(2).addClass("start-date"); // 3rd column
                         $(row).find('td').eq(3).addClass("end-date"); // 4th column
                         $(row).find('td').eq(4).addClass("voting"); // 5th column
-                        $(row).find('td').eq(5).addClass("allow-edit"); // 6th column
+                        $(row).find('td').eq(5).addClass("allow_edit"); // 6th column
                         $(row).find('td').eq(6).addClass("actions"); // 7th column
                         $(row).find('td').eq(7).addClass("notes"); // 8th column
                         // Redraw the table to refresh sorting
@@ -228,18 +201,10 @@ $(document).ready(function () {
                     let row = $(`tr[data-id='${memberId}']`);
                     let rowIndex = table.row(row).index(); // Get the row index
 
-                    // let rowData = table.row(rowIndex).data();
-                    // rowData[6] = ``;  // Update actions column
-                    // rowData[7] = `Deleted: ${data.member.delete_date} (${data.member.notes})`;  // Update notes column
-                    // $(row).addClass("table-success");
-                    // $(row).find('td').addClass("text-muted fst-italic");
-
-                    // table.row(rowIndex).data(rowData).draw(false); // Update the row in DataTable
                     // Remove the row completely instead of updating it
                     table.row(rowIndex).remove().draw(false);
 
                     $('#member-status').text(data.message).removeClass('alert-danger').addClass('alert alert-success');
-                    // $(`.delete-btn[data-id='${memberId}'], .edit-btn[data-id='${memberId}']`).addClass("d-none");
 
                 } else {
                     $('#member-status').text(data.message).removeClass('alert-success').addClass('alert alert-danger');
