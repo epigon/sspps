@@ -9,6 +9,15 @@ Dashboard
 {{super()}}
 {% block styles %}
 {{super()}}
+<style>
+    .status-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 6px;
+}
+</style>
 {% endblock %}
 {% endblock %}
 
@@ -49,13 +58,13 @@ Dashboard
                         endif %} -- {{com.member_count}} member(s)</td>
                     <td>
                         {% if com.finalized %}
-                        <span class="badge rounded-pill bg-success">Finalized</span><br>
+                        <span class="status-dot bg-success"></span>Finalized<br>
                         <small>
                             {{ com.finalized_date.strftime("%Y-%m-%d") if com.finalized_date else "" }}<br>
                             by {{ com.finalized_user.username if com.finalized_user else "Unknown" }}
                         </small>
                         {% else %}
-                        <span class="badge rounded-pill bg-secondary">Open</span>
+                        Open
                         {% endif %}
                     </td>
                     <td>
