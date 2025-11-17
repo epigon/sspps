@@ -320,7 +320,7 @@ def finalize_ay_committee(ay_committee_id):
         f"Committee '{aycommittee.committee.name}' for {aycommittee.academic_year.year} has been finalized by {current_user.username}.",
         "success"
     )
-    return redirect(url_for("committee.members", ay_committee_id=ay_committee_id))
+    return redirect(url_for("committee.ay_committees", academic_year_id=aycommittee.academic_year_id))
 
 
 @bp.route("/ay_committee/<int:ay_committee_id>/unfinalize", methods=["POST"])
@@ -338,7 +338,7 @@ def unfinalize_ay_committee(ay_committee_id):
         f"Committee '{aycommittee.committee.name}' has been unlocked for editing.",
         "info"
     )
-    return redirect(url_for("committee.members", ay_committee_id=ay_committee_id))
+    return redirect(url_for("committee.ay_committees", academic_year_id=aycommittee.academic_year_id))
 
 
 @bp.route('/get_previous_committees/<int:committee_id>/<int:current_ay_id>')
