@@ -275,7 +275,7 @@ def ay_committee(ay_committee_id:int=None):
                         end_date=m.end_date,
                         voting=m.voting,
                         allow_edit=m.allow_edit,
-                        notes=f"Copied from {source.academic_year.year}" if hasattr(source, "academic_year") else None,
+                        notes=f"Copied from {source.academic_year.year}" if hasattr(source, "academic_year") else '',
                         create_date = datetime.now(),
                         create_by =  current_user.id
                     )
@@ -1025,6 +1025,8 @@ def add_member_as_user(employee_id=None):
     
     if not user.id:
         employee = Employee.query.filter_by(employee_id=employee_id).first()
+        if employee.username is None:
+            return None
         user.role_id = role.id
         user.username = employee.username
         user.employee_id = employee.employee_id
@@ -1032,9 +1034,6 @@ def add_member_as_user(employee_id=None):
         user.create_by = current_user.id
         db.session.add(user)
         db.session.commit()
-        
-        # print("success")
-        # flash("User saved successfully.", "success")
     else:
         committee_viewer_perm = Permission.query.filter_by(deleted=False).filter(Permission.resource=="committee", Permission.action=="view").first()
         role_permission_ids = set(p.id for p in user.role.permissions) if user.role else set()
