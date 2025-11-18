@@ -15,12 +15,10 @@ def import_employees():
         'Employee_First_Name_Current': 'employee_first_name',
         'Employee_Last_Name_Current': 'employee_last_name',
         'Identity_Active_Directory_ID_Current': 'username',
-        'Identity_Subdomain_Email_Address_Current': 'email',
         'Identity_Email_Address_Current': 'email2',
         'Reports_To_Employee_ID': 'reports_to_id',
         'Pay_Group': 'employee_type',
         'Employee_PPS_ID_Current': 'employee_pps_id',
-        'Identity_Mail_Drop_Current': 'mail_code',
         'Identity_Building_Location_Current': 'building',
         'Identity_Room_Number_Current': 'room',
         'Identity_Building_Code_Current': 'building_code',
@@ -32,160 +30,108 @@ def import_employees():
     df = df.rename(columns=rename_map)
     # Convert all column names to lowercase
     df.columns = df.columns.str.lower()
-    filtered_df = df[df['job_indicator'] == 'Primary']
+
+    # Step 2: Load the second file with updated email and mail drop info
+    contact_df = pd.read_csv('app/static/files/eahWorkforceIdentity.csv')
+
+    # Rename columns for consistency
+    contact_df = contact_df.rename(columns={
+        'Employee_ID': 'employee_id',
+        'Job_Indicator': 'job_indicator',
+        'Identity_Subdomain_Email_Address_Current': 'email',
+        'Identity_Mail_Drop_Current': 'mail_code'
+    })
+
+    # Convert to lowercase
+    contact_df.columns = contact_df.columns.str.lower()
+
+    # Step 3: Load pay frequency file
+    pay_df = pd.read_csv('app/static/files/eahWorkforceJobExtended.csv')
+    pay_df = pay_df.rename(columns={
+        'Employee_ID': 'employee_id',
+        'Job_Indicator': 'job_indicator',
+        'Pay_Frequency': 'pay_frequency'
+    })
+    pay_df.columns = pay_df.columns.str.lower()
+
+    # filtered_df = df[df['job_indicator'] == 'Primary']
+
+    # Merge contact info
+    filtered_df = df.merge(
+        contact_df[['employee_id', 'job_indicator', 'email', 'mail_code']],
+        on=['employee_id', 'job_indicator'],
+        how='left'
+    )
+
+    # Merge pay frequency
+    filtered_df = filtered_df.merge(
+        pay_df[['employee_id', 'job_indicator', 'pay_frequency']],
+        on=['employee_id', 'job_indicator'],
+        how='left'
+    )
+
+    print(f"{filtered_df['email'].isnull().sum()} employees missing email from contact file.")
+    # with pd.option_context('display.max_rows', None):
+    #     print(filtered_df.loc[filtered_df['email'].isnull(), ['employee_id', 'employee_name', 'email']])
+
+    print(f"{filtered_df['pay_frequency'].isnull().sum()} employees missing pay frequency from pay file.")
+
+    filtered_df = filtered_df.drop_duplicates(
+        subset=["employee_id", "job_indicator"],
+        keep="first"
+    )   
 
     staging_table = 'STAGING_EMPLOYEES'
     filtered_df.to_sql(staging_table, con=engine, if_exists='replace', index=False)
 
-    # print(filtered_df)
-    # # Upload to temporary table
-    # temp_table = "##temp_employees"
-    # filtered_df.to_sql(temp_table[2:], con=engine, if_exists='replace', index=False)
+    # filtered_df = filtered_df.sort_values("employee_id")
+    # filtered_df = filtered_df.drop_duplicates(subset=["employee_id"], keep="first")
 
-    # with engine.connect() as conn:
-    #     merge_sql = text(f"""
-    #     MERGE INTO EMPLOYEES AS target
-    #     USING {staging_table} AS source
-    #     ON target.employee_id = source.employee_id
-    #     WHEN MATCHED THEN
-    #         UPDATE SET
-    #             employee_first_name = source.employee_first_name,
-    #             employee_last_name = source.employee_last_name,
-    #             employee_name = source.employee_name,
-    #             employee_id = source.employee_id,
-    #             username = source.username,
-    #             job_action_effective_date = source.job_action_effective_date,
-    #             job_indicator = source.job_indicator,
-    #             employee_record = source.employee_record,
-    #             employee_status = source.employee_status,
-    #             employee_pps_id = source.employee_pps_id,
-    #             student_pid = source.student_pid,
-    #             email2 = source.email2,
-    #             employee_work_phone_number = source.employee_work_phone_number,
-    #             department_code = source.department_code,
-    #             department = source.department,
-    #             vice_chancellor_code = source.vice_chancellor_code,
-    #             vice_chancellor = source.vice_chancellor,
-    #             flsa_status = source.flsa_status,
-    #             position_number = source.position_number,
-    #             working_title = source.working_title,
-    #             reports_to_employee = source.reports_to_employee,
-    #             reports_to_id = source.reports_to_id,
-    #             reports_to_employee_status_code = source.reports_to_employee_status_code,
-    #             reports_to_position_number = source.reports_to_position_number,
-    #             occupational_subgroup = source.occupational_subgroup,
-    #             employee_start_date = source.employee_start_date,
-    #             employee_original_start_date = source.employee_original_start_date,
-    #             department_start_date = source.department_start_date,
-    #             employee_restart_date = source.employee_restart_date,
-    #             last_separation_date = source.last_separation_date,
-    #             job_expected_end_date = source.job_expected_end_date,
-    #             job_start_date = source.job_start_date,
-    #             job_end_date = source.job_end_date,
-    #             job_automatically_end_flag = source.job_automatically_end_flag,
-    #             pay_group_code = source.pay_group_code,
-    #             employee_type = source.employee_type,
-    #             job_compensation_frequency_code = source.job_compensation_frequency_code,
-    #             job_compensation_frequency = source.job_compensation_frequency,
-    #             job_code = source.job_code,
-    #             job_code_description = source.job_code_description,
-    #             employee_class_code = source.employee_class_code,
-    #             employee_class = source.employee_class,
-    #             position_class_code = source.position_class_code,
-    #             position_class = source.position_class,
-    #             position_employee_relations_code = source.position_employee_relations_code,
-    #             position_employee_relations = source.position_employee_relations,
-    #             position_special_training_code = source.position_special_training_code,
-    #             position_start_date = source.position_start_date,
-    #             union_code = source.union_code,
-    #             union_name = source.union_name,
-    #             job_fte = source.job_fte,
-    #             salary_grade = source.salary_grade,
-    #             salary_step_number = source.salary_step_number,
-    #             next_salary_review_date = source.next_salary_review_date,
-    #             building = source.building,
-    #             building_code = source.building_code,
-    #             room = source.room
-    #     WHEN NOT MATCHED THEN
-    #         INSERT ({', '.join(filtered_df.columns)})
-    #         VALUES ({', '.join(['source.' + col for col in filtered_df.columns])});
-    #     """)
-        # adding email, mail_code
-        # merge_sql = text(f"""
-        # MERGE INTO EMPLOYEES AS target
-        # USING {staging_table} AS source
-        # ON target.employee_id = source.employee_id
-        # WHEN MATCHED THEN
-        #     UPDATE SET
-        #         employee_first_name = source.employee_first_name,
-        #         employee_last_name = source.employee_last_name,
-        #         employee_name = source.employee_name,
-        #         employee_id = source.employee_id,
-        #         username = source.username,
-        #         job_action_effective_date = source.job_action_effective_date,
-        #         job_indicator = source.job_indicator,
-        #         employee_record = source.employee_record,
-        #         employee_status = source.employee_status,
-        #         employee_pps_id = source.employee_pps_id,
-        #         student_pid = source.student_pid,
-        #         email = source.email,
-        #         email2 = source.email2,
-        #         employee_work_phone_number = source.employee_work_phone_number,
-        #         department_code = source.department_code,
-        #         department = source.department,
-        #         vice_chancellor_code = source.vice_chancellor_code,
-        #         vice_chancellor = source.vice_chancellor,
-        #         flsa_status = source.flsa_status,
-        #         position_number = source.position_number,
-        #         working_title = source.working_title,
-        #         reports_to_employee = source.reports_to_employee,
-        #         reports_to_id = source.reports_to_id,
-        #         reports_to_employee_status_code = source.reports_to_employee_status_code,
-        #         reports_to_position_number = source.reports_to_position_number,
-        #         occupational_subgroup = source.occupational_subgroup,
-        #         employee_start_date = source.employee_start_date,
-        #         employee_original_start_date = source.employee_original_start_date,
-        #         department_start_date = source.department_start_date,
-        #         employee_restart_date = source.employee_restart_date,
-        #         last_separation_date = source.last_separation_date,
-        #         job_expected_end_date = source.job_expected_end_date,
-        #         job_start_date = source.job_start_date,
-        #         job_end_date = source.job_end_date,
-        #         job_automatically_end_flag = source.job_automatically_end_flag,
-        #         pay_group_code = source.pay_group_code,
-        #         employee_type = source.employee_type,
-        #         job_compensation_frequency_code = source.job_compensation_frequency_code,
-        #         job_compensation_frequency = source.job_compensation_frequency,
-        #         job_code = source.job_code,
-        #         job_code_description = source.job_code_description,
-        #         employee_class_code = source.employee_class_code,
-        #         employee_class = source.employee_class,
-        #         position_class_code = source.position_class_code,
-        #         position_class = source.position_class,
-        #         position_employee_relations_code = source.position_employee_relations_code,
-        #         position_employee_relations = source.position_employee_relations,
-        #         position_special_training_code = source.position_special_training_code,
-        #         position_start_date = source.position_start_date,
-        #         union_code = source.union_code,
-        #         union_name = source.union_name,
-        #         job_fte = source.job_fte,
-        #         salary_grade = source.salary_grade,
-        #         salary_step_number = source.salary_step_number,
-        #         next_salary_review_date = source.next_salary_review_date,
-        #         building = source.building,
-        #         building_code = source.building_code,
-        #         room = source.room,
-        #         mail_code = source.mail_code
-        # WHEN NOT MATCHED THEN
-        #     INSERT ({', '.join(filtered_df.columns)})
-        #     VALUES ({', '.join(['source.' + col for col in filtered_df.columns])});
-        # """)
-        # conn.execute(merge_sql)
+    # staging = pd.read_sql(
+    #     "SELECT employee_id, job_indicator FROM STAGING_EMPLOYEES",
+    #     engine
+    # )
 
+    # dupes_in_staging = staging[
+    #     staging.duplicated(subset=["employee_id", "job_indicator"], keep=False)
+    # ]
+
+    # print(dupes_in_staging)
+    # return
+
+
+    # db_count = pd.read_sql("SELECT COUNT(*) AS cnt FROM STAGING_EMPLOYEES", engine).iloc[0]["cnt"]
+    # df_count = len(filtered_df)
+
+    # print(f"Rows in DataFrame: {df_count}")
+    # print(f"Rows in STAGING_EMPLOYEES: {db_count}")
+    # print(f"Missing rows: {df_count - db_count}")
+    # return
+    # Display employee ID, first name, and last name columns
+    # cols = ['employee_id', 'employee_first_name', 'employee_last_name']
+    # existing = [c for c in cols if c in filtered_df.columns]
+    # with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+    #     # select rows where last name is Anderson or Suhandynata
+    #     mask = filtered_df['employee_last_name'].isin(['Anderson', 'Suhandynata'])
+    #     if mask.any():
+    #         print(filtered_df.loc[mask, existing])
+    # return
+
+    # return ""
     merge_sql = f"""
+        ;WITH Staging AS (
+            SELECT *
+            FROM STAGING_EMPLOYEES
+        )
+        -- Step 1: Merge Primary records first
         MERGE INTO EMPLOYEES AS target
-        USING {staging_table} AS source
+        USING (
+            SELECT *
+            FROM Staging
+            WHERE job_indicator = 'Primary'
+        ) AS source
         ON target.employee_id = source.employee_id
+        
         WHEN MATCHED THEN 
             UPDATE SET 
                 target.employee_first_name = source.employee_first_name,
@@ -194,7 +140,6 @@ def import_employees():
                 target.employee_id = source.employee_id,
                 target.username = source.username,
                 target.job_action_effective_date = source.job_action_effective_date,
-                target.job_indicator = source.job_indicator,
                 target.employee_record = source.employee_record,
                 target.employee_status = source.employee_status,
                 target.employee_pps_id = source.employee_pps_id,
@@ -227,6 +172,7 @@ def import_employees():
                 target.employee_type = source.employee_type,
                 target.job_compensation_frequency_code = source.job_compensation_frequency_code,
                 target.job_compensation_frequency = source.job_compensation_frequency,
+                target.pay_frequency = source.pay_frequency,
                 target.job_code = source.job_code,
                 target.job_code_description = source.job_code_description,
                 target.employee_class_code = source.employee_class_code,
@@ -246,7 +192,7 @@ def import_employees():
                 target.building = source.building,
                 target.building_code = source.building_code,
                 target.room = source.room,
-                target.mail_code = ''
+                target.mail_code = source.mail_code
 
         WHEN NOT MATCHED THEN 
             INSERT (employee_first_name,
@@ -255,7 +201,6 @@ def import_employees():
                 employee_id,
                 username,
                 job_action_effective_date,
-                job_indicator,
                 employee_record,
                 employee_status,
                 employee_pps_id,
@@ -287,7 +232,8 @@ def import_employees():
                 pay_group_code,
                 employee_type,
                 job_compensation_frequency_code,
-                job_compensation_frequency,
+                job_compensation_frequency,                
+                pay_frequency,
                 job_code,
                 job_code_description,
                 employee_class_code,
@@ -315,7 +261,6 @@ def import_employees():
             source.employee_id,
             source.username,
             source.job_action_effective_date,
-            source.job_indicator,
             source.employee_record,
             source.employee_status,
             source.employee_pps_id,
@@ -348,6 +293,7 @@ def import_employees():
             source.employee_type,
             source.job_compensation_frequency_code,
             source.job_compensation_frequency,
+            source.pay_frequency,
             source.job_code,
             source.job_code_description,
             source.employee_class_code,
@@ -370,6 +316,135 @@ def import_employees():
             ''
         )
         OUTPUT $action AS merge_action;
+                
+        -- Step 2: Insert non-primary records only if they don't exist yet
+        INSERT INTO EMPLOYEES (
+            employee_first_name,
+                employee_last_name,
+                employee_name,
+                employee_id,
+                username,
+                job_action_effective_date,
+                employee_record,
+                employee_status,
+                employee_pps_id,
+                student_pid,
+                email,
+                email2,
+                employee_work_phone_number,
+                department_code,
+                department,
+                vice_chancellor_code,
+                vice_chancellor,
+                flsa_status,
+                position_number,
+                working_title,
+                reports_to_employee,
+                reports_to_id,
+                reports_to_employee_status_code,
+                reports_to_position_number,
+                occupational_subgroup,
+                employee_start_date,
+                employee_original_start_date,
+                department_start_date,
+                employee_restart_date,
+                last_separation_date,
+                job_expected_end_date,
+                job_start_date,
+                job_end_date,
+                job_automatically_end_flag,
+                pay_group_code,
+                employee_type,
+                job_compensation_frequency_code,
+                job_compensation_frequency,                
+                pay_frequency,
+                job_code,
+                job_code_description,
+                employee_class_code,
+                employee_class,
+                position_class_code,
+                position_class,
+                position_employee_relations_code,
+                position_employee_relations,
+                position_special_training_code,
+                position_start_date,
+                union_code,
+                union_name,
+                job_fte,
+                next_salary_review_date,
+                salary_grade,
+                salary_step_number,
+                building,
+                building_code,
+                room,
+                mail_code
+        )
+        SELECT s.employee_first_name,
+                s.employee_last_name,
+                s.employee_name,
+                s.employee_id,
+                s.username,
+                s.job_action_effective_date,
+                s.employee_record,
+                s.employee_status,
+                s.employee_pps_id,
+                s.student_pid,
+                s.email,
+                s.email2,
+                s.employee_work_phone_number,
+                s.department_code,
+                s.department,
+                s.vice_chancellor_code,
+                s.vice_chancellor,
+                s.flsa_status,
+                s.position_number,
+                s.working_title,
+                s.reports_to_employee,
+                s.reports_to_id,
+                s.reports_to_employee_status_code,
+                s.reports_to_position_number,
+                s.occupational_subgroup,
+                s.employee_start_date,
+                s.employee_original_start_date,
+                s.department_start_date,
+                s.employee_restart_date,
+                s.last_separation_date,
+                s.job_expected_end_date,
+                s.job_start_date,
+                s.job_end_date,
+                s.job_automatically_end_flag,
+                s.pay_group_code,
+                s.employee_type,
+                s.job_compensation_frequency_code,
+                s.job_compensation_frequency,                
+                s.pay_frequency,
+                s.job_code,
+                s.job_code_description,
+                s.employee_class_code,
+                s.employee_class,
+                s.position_class_code,
+                s.position_class,
+                s.position_employee_relations_code,
+                s.position_employee_relations,
+                s.position_special_training_code,
+                s.position_start_date,
+                s.union_code,
+                s.union_name,
+                s.job_fte,
+                s.next_salary_review_date,
+                s.salary_grade,
+                s.salary_step_number,
+                s.building,
+                s.building_code,
+                s.room,
+                s.mail_code
+        FROM STAGING_EMPLOYEES s
+        WHERE s.job_indicator <> 'Primary'
+        AND NOT EXISTS (
+            SELECT 1 
+            FROM EMPLOYEES e
+            WHERE e.employee_id = s.employee_id
+        );
     """
 
     with engine.begin() as conn:
@@ -384,149 +459,5 @@ def import_employees():
     # with engine.begin() as conn:
     #     conn.execute(text("TRUNCATE TABLE STAGING_EMPLOYEES"))
 
-# def import_employees():
-#     # Step 1: Load the CSV files
-#     df1 = pd.read_csv('static/files/vchs_sspps_employee.csv')
-#     # df2 = pd.read_csv('static/files/vchs_sspps_job_location.csv')
-#     # print(len(df1))
-#     # print(len(df2))
-#     # , usecols=['EmployeeID', 'ad_username', 'Name']
-
-#     # 'ad_username','building','department','email','employee_id','employee_first_name','employee_last_name',
-#     # 'employee_name','employee_status','employee_type','job_code','job_code_description','job_code_start_date',
-#     # 'mail_code','position_class','reports_to_ID','reports_to_employee','room'
-
-
-#     # 'employee_id',	'job_action_end_effective_date'	'job_code'	'job_expected_end_date'	'job_location'	'position_class'	
-#     # 'position_number'	'position'
-
-
-#     # Step 2: Perform a left join on a common key (e.g., employee_id)
-#     # merged_df = pd.merge(df1, df2, on='Employee_ID', how='left')  # or 'left', 'right', 'outer'
-#     # print(len(merged_df))
-#     # # Step 3: Remove rows with blank or missing ad_username
-#     # # This filters out both empty strings and NaNs
-#     # merged_df = merged_df[merged_df['ad_username'].notna() & (merged_df['ad_username'].str.strip() != '')]
-#     # print(merged_df)
-
-#     # Rename column in DataFrame
-#     # merged_df = merged_df.rename(columns={'ad_username': 'username'})
-#     # Convert all column names to lowercase
-    
-#     # df1 = df1.rename(columns={'Employee_ID': 'employee_id'})
-#     df1 = df1.rename(columns={'Employee_Name_Current': 'employee_name'})
-#     df1 = df1.rename(columns={'Employee_First_Name_Current': 'employee_first_name'})
-#     df1 = df1.rename(columns={'Employee_Last_Name_Current': 'employee_last_name'})
-#     df1 = df1.rename(columns={'Identity_Active_Directory_ID_Current': 'username'})
-#     df1 = df1.rename(columns={'Identity_Subdomain_Email_Address_Current': 'email'})
-#     df1 = df1.rename(columns={'Identity_Email_Address_Current': 'email2'})
-#     df1 = df1.rename(columns={'Reports_To_Employee_ID': 'reports_to_id'})
-#     df1 = df1.rename(columns={'Pay_Group': 'employee_type'})
-#     df1 = df1.rename(columns={'Employee_PPS_ID_Current': 'employee_pps_id'})
-#     df1 = df1.rename(columns={'Identity_Mail_Drop_Current': 'mail_code'})
-#     df1 = df1.rename(columns={'Identity_Building_Location_Current': 'building'})
-#     df1 = df1.rename(columns={'Identity_Room_Number_Current': 'room'})
-#     df1 = df1.rename(columns={'Identity_Building_Code_Current': 'building_code'})
-#     df1 = df1.rename(columns={'Identity_Working_Title_Current': 'working_title'})
-#     df1 = df1.rename(columns={'Employee_Work_Phone_Number_Current': 'employee_work_phone_number'})
-#     df1 = df1.rename(columns={'Identity_Student_PID_Current': 'student_pid'})
-#     df1 = df1.rename(columns={'Union': 'union_name'})
-   
-#     df1.columns = df1.columns.str.lower()
-#     # print(df1.head())
-#     # Import to 'Employee' table
-#     # merged_df.to_sql('NEW_EMPLOYEES', con=engine, if_exists='append', index=False)
-
-#     # Define the list of statuses to exclude
-#     excluded_statuses = ['Terminated', 'Deceased', 'Retired']
-
-#     # Filter the DataFrame
-#     # filtered_df = df1[~df1['employee_status'].isin(excluded_statuses) & (df1['job_indicator'] == 'Primary')]
-#     filtered_df = df1[df1['job_indicator'] == 'Primary']
-
-#     # Now, append the filtered_df to the SQL table
-#     filtered_df.to_sql('EMPLOYEES', con=engine, if_exists='append', index=False)
-#     # df2.to_sql('NEW_EMPLOYEES2', con=engine, if_exists='append', index=False)
-
-# # def transfer2db(csv, table):
-
-# #     with open(csv, 'rb',) as file:
-# #         data = file.read()
-
-# #         # Step 3: Detect Encoding using chardet Library
-# #         encoding_result = chardet.detect(data)
-
-# #         # Step 4: Retrieve Encoding Information
-# #         encoding = encoding_result['encoding']
-
-# #         # Step 5: Print Detected Encoding Information
-# #         print("Detected Encoding:", encoding)
-
-# #     with open(csv, 'rb') as file:
-# #         # data_df = pd.read_csv(file, encoding = encoding.upper())
-# #         df = pd.read_csv(csv, encoding = encoding.upper())
-
-# #         # Insert data into the table (replace 'your_table' with actual table name)
-# #         df.to_sql(table, db.engine, if_exists='append', index=False)
-
-# #         print("Data inserted successfully!")
-
-#     # data_df.to_sql(table, con=db.engine,  if_exists="replace")
-#     # print(data_df)
-#     # with open(csv, 'rb') as file:
-#     #     data_df = pd.read_csv(file, encoding = encoding)
-#     # # data_df.to_sql(table, con=db.engine,  if_exists='replace')
-#     # print(data_df)
-
 if __name__ == '__main__':
     import_employees()
-    
-    # csv_file_path = 'static/files/vchs_sspps_employee.csv'
-    # transfer2db(csv_file_path, 'Members')
-
-    # csv_file_path = 'static/files/vchs_sspps_job_location.csv'
-    # transfer2db(csv_file_path, 'Members')
-
-    # csv_file_path = 'static/files/Members.csv'
-    # transfer2db(csv_file_path, 'Members')
-
-    # csv_file_path = 'static/files/Committees.csv'
-    # transfer2db(csv_file_path, 'Committees')
-
-    # csv_file_path = 'static/files/SSPPS-current-workforce.csv'
-    # transfer2db(csv_file_path, 'ADUsers')
-
-    # csv_file_path = 'static/files/AcademicYear.csv'
-    # transfer2db(csv_file_path, 'AcademicYears')
-    
-    # csv_file_path = 'static/files/FrequencyTypes.csv'
-    # transfer2db(csv_file_path, 'FrequencyTypes')
-    
-    # csv_file_path = 'static/files/MemberRoles.csv'
-    # transfer2db(csv_file_path, 'MemberRoles')
-    
-    # csv_file_path = 'static/files/MemberTasks.csv'
-    # transfer2db(csv_file_path, 'MemberTasks')
-    
-    # csv_file_path = 'static/files/MemberTypes.csv'
-    # transfer2db(csv_file_path, 'MemberTypes')
-    
-    # csv_file_path = 'static/files/CommitteeTypes.csv'
-    # transfer2db(csv_file_path, 'CommitteeTypes')
-
-# import pandas as pd
-# import chardet
-
-# csv_file_path = 'static/files/AcademicYear.csv'
-# # Step 2: Read CSV File in Binary Mode
-# with open(csv_file_path, 'rb') as f:
-#     data = f.read()
-
-# # Step 3: Detect Encoding using chardet Library
-# encoding_result = chardet.detect(data)
-
-# # Step 4: Retrieve Encoding Information
-# encoding = encoding_result['encoding']
-
-# # Step 5: Print Detected Encoding Information
-# print("Detected Encoding:", encoding)
