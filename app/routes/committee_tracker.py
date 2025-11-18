@@ -26,7 +26,6 @@ if not os.path.exists(UPLOAD_FOLDER):
 
 # Routes to Webpages
 @bp.before_request
-@login_required
 def before_request():
     # pass
     excluded_endpoints = ['committee.list_ay_committees']  # full endpoint name: blueprint_name.view_function_name
