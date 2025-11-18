@@ -28,7 +28,11 @@ if not os.path.exists(UPLOAD_FOLDER):
 @bp.before_request
 @login_required
 def before_request():
-    pass
+    # pass
+    excluded_endpoints = ['committee.list_ay_committees']  # full endpoint name: blueprint_name.view_function_name
+    if request.endpoint in excluded_endpoints:
+        return  # Skip login_required check
+    return login_required(lambda: None)()  # Call login_required manually
 
 # List Committees
 @bp.route('/dashboard')
@@ -113,6 +117,33 @@ def delete_base(committee_id):
         flash(str(e), "danger")
         return redirect(url_for('committee.base_committees'))
     
+@bp.route('/list_ay_committees')
+@bp.route('<int:academic_year_id>/list_ay_committees')
+# @permission_required('ay_committee+view, ay_committee+add, ay_committee+edit, ay_committee+delete')
+def list_ay_committees(academic_year_id:int=None):
+
+    academic_years = AcademicYear.query.filter_by(deleted=False).order_by(AcademicYear.year.desc()).all()
+
+    if academic_year_id:
+        current_year = AcademicYear.query.filter_by(id=academic_year_id, deleted=False).first()
+    else:
+        current_year = AcademicYear.query.filter_by(is_current=True, deleted=False).first()
+
+    if current_year:
+        current_ay_committees = AYCommittee.query.filter_by(academic_year_id=current_year.id, deleted=False).all()
+    else:
+        current_ay_committees = []
+
+    for c in current_ay_committees:
+        c.member_count = sum(1 for m in c.members if not m.deleted)
+
+    custom_breadcrumbs = [
+        {'name': 'Committees Home', 'url': '/committee_tracker'},
+        {'name': f'Committess for {current_year.year}', 'url': f'/committee_tracker/{academic_year_id}/ay_committees/view'}
+    ]
+
+    return render_template('committee_tracker/list_ay_committees.html', ay_committees=current_ay_committees, current_year=current_year, academic_years=academic_years, breadcrumbs=custom_breadcrumbs)
+
 @bp.route('/ay_committees/')
 @bp.route('<int:academic_year_id>/ay_committees/')
 @permission_required('ay_committee+view, ay_committee+add, ay_committee+edit, ay_committee+delete')

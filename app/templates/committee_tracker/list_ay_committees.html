@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% from 'bootstrap4/utils.html' import render_messages %}
+
+{% block title%}
+Dashboard
+{% endblock %}
+
+{% block head %}
+{{super()}}
+{% block styles %}
+{{super()}}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/committee-files.css') }}">
+<link href="https://fonts.googleapis.com/css?family=Teko" rel="stylesheet" />
+<style>
+    :root {
+        --brand: #0f3d5e;
+        /* Primary brand color */
+        --brand-2: #0a7aa6;
+        /* Accent */
+        --neutral: #f6f8fb;
+        /* Background tint */
+    }
+
+    body {
+        background-color: var(--neutral);
+    }
+
+    .hero {
+        background: url("{{ url_for('static', filename='img/hero-default.jpg') }}");
+        background-size: cover;
+        background-repeat: no-repeat;
+        background-position: center 75%;
+        color: #fff;
+        min-height: 40vh;
+    }
+
+    .section-card {
+        border: 0;
+        border-radius: 1rem;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, .06);
+    }
+
+    .card-title {
+        font-family: 'Teko', sans-serif;
+        font-size: 2rem;
+        text-align: center;
+    }
+</style>
+{% endblock %}
+{% endblock %}
+
+{% block content %}
+<!-- Main content -->
+<div class="container-fluid p-0">
+    <!-- Hero -->
+    <header class="hero py-3 py-lg-6">
+        <div class="container py-4">
+            <h2>{{current_year.year}} Committees</h2>
+            <!-- <div class="dropdown">
+                <button class="btn btn-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown"
+                    aria-expanded="false">
+                    View Academic Year
+                </button>
+                <ul class="dropdown-menu">
+                    {% for ay in academic_years if not ay.id == current_year.id %}
+                    <li>
+                        <a class="dropdown-item"
+                            href="{{url_for('committee.list_ay_committees', academic_year_id = ay.id)}}">
+                            {{ ay.year }}
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div> -->
+        </div>
+    </header>
+</div>
+<div class="container p-0">
+    <div class="my-3">
+
+        {% if ay_committees %}
+        <div class="row">
+            {% for com in ay_committees %}
+            <div class="col-md-4 mb-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3 text-align-center text-primary">
+                            {{ com.committee.name }}
+                            {% if com.committee.short_name %}<small class="text-muted">({{
+                                com.committee.short_name }})</small>{% endif %}
+                        </h5>
+
+                        {% if com.committee.mission %}
+                        <p class="card-text mb-1">
+                            <strong>Mission:</strong>
+                            {{ com.committee.mission }}
+                        </p>
+                        {% endif %}
+
+                        {% if com.committee.committee_type.type %}
+                        <p class="card-text mb-1">
+                            <strong>Committee Type:</strong>
+                            {{ com.committee.committee_type.type }}
+                        </p>
+                        {% endif %}
+
+                        {% if com.committee.description %}
+                        <p class="card-text mb-1">
+                            <strong>Description</strong>
+                            {{ com.committee.description }}
+                        </p>
+                        {% endif %}
+
+
+                        <p class="card-text mb-1">
+                            <strong>Commitment Hours:</strong>
+                            {% if com.committee.commitment_hours is not none %}
+                            {{ com.committee.commitment_hours }}
+                            {% elif com.commitment_hours is not none %}
+                            {{ com.commitment_hours }}
+                            {% else %}
+                            <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </p>
+                        <p class="card-text mb-1">
+
+                            <strong>Meeting Frequency:</strong>
+                            {% if com.meeting_frequency_type and com.meeting_frequency_type.multiplier %}
+                            {{ com.meeting_frequency_type.type}} ({{ com.meeting_frequency_type.multiplier }}x per year)
+                            {% else %}
+                            <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </p>
+                        <p class="card-text mb-1">
+                            <strong>Meeting Duration:</strong>
+                            {% if com.meeting_duration_in_minutes %}
+                            {{ com.meeting_duration_in_minutes }} minutes
+                            {% else %}
+                            <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </p>
+                        <p class="card-text mb-1">
+                            <strong>Supplemental Minutes per Frequency:</strong>
+                            {{ com.supplemental_minutes_per_frequency if
+                            com.supplemental_minutes_per_frequency else 'N/A' }} minutes
+
+                        </p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p>No committees to display.</p>
+        {% endif %}
+    </div>
+
+
+
+</div>
+</div>
+</div>
+<!-- End Main content -->
+{% endblock %}
