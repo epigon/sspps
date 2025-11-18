@@ -846,7 +846,12 @@ def members(ay_committee_id:int):
     memberForm.employee_id.choices = [('', 'Select one')]
     memberForm.member_role_id.choices = [('', 'Select one')]
 
-    for row in get_employees():
+    # Combine employees
+    all_employees = list(get_employees()) + list(get_inactive_employees())
+    # Sort by last name, then first name
+    all_employees.sort(key=lambda x: x.employee_last_name + x.employee_first_name)
+    
+    for row in all_employees:
         memberForm.employee_id.choices.append(
             (row.employee_id, f"{row.employee_last_name}, {row.employee_first_name} ({row.username})")
         )
@@ -896,8 +901,16 @@ def add_member():
     form = MemberForm(request.form)
     form.employee_id.choices = [(['', 'Select one'])]
     form.member_role_id.choices = [(['', 'Select one'])]
-    for row in get_employees():
-        form.employee_id.choices.append([row.employee_id, row.employee_last_name+', '+row.employee_first_name])
+    # Combine employees
+    all_employees = list(get_employees()) + list(get_inactive_employees())
+    # Sort by last name, then first name
+    all_employees.sort(key=lambda x: x.employee_last_name + x.employee_first_name)
+    
+    for row in all_employees:
+        form.employee_id.choices.append(
+            (row.employee_id, f"{row.employee_last_name}, {row.employee_first_name} ({row.username})")
+        )
+
     for row in get_member_roles():
         form.member_role_id.choices.append([row.id, row.role])
     if form.validate_on_submit():
@@ -965,8 +978,15 @@ def edit_member(member_id:int):
     form = MemberForm()
     form.employee_id.choices = [(['', 'Select one'])]
     form.member_role_id.choices = [(['', 'Select one'])]
-    for row in get_employees():
-        form.employee_id.choices.append([row.employee_id, row.employee_last_name+', '+row.employee_first_name])
+    # Combine employees
+    all_employees = list(get_employees()) + list(get_inactive_employees())
+    # Sort by last name, then first name
+    all_employees.sort(key=lambda x: x.employee_last_name + x.employee_first_name)
+    
+    for row in all_employees:
+        form.employee_id.choices.append(
+            (row.employee_id, f"{row.employee_last_name}, {row.employee_first_name} ({row.username})")
+        )
     for row in get_member_roles():
         form.member_role_id.choices.append([row.id, row.role])
     if form.validate_on_submit():
@@ -1324,4 +1344,8 @@ def get_committees():
 
 def get_employees():
     data = Employee.query.filter(Employee.username.isnot(None),Employee.employee_status == 'Active').order_by(Employee.employee_last_name,Employee.employee_first_name).all()
+    return data
+
+def get_inactive_employees():
+    data = Employee.query.filter(Employee.username.isnot(None),Employee.employee_status != 'Active').order_by(Employee.employee_last_name,Employee.employee_first_name).all()
     return data
