@@ -6,21 +6,35 @@ Home Page
 {% block styles %}
 {{super()}}
 <style>
-    :root{
-      --brand: #0f3d5e;      /* Primary brand color */
-      --brand-2: #0a7aa6;    /* Accent */
-      --neutral: #f6f8fb;    /* Background tint */
+    :root {
+        --brand: #0f3d5e;
+        /* Primary brand color */
+        --brand-2: #0a7aa6;
+        /* Accent */
+        --neutral: #f6f8fb;
+        /* Background tint */
     }
-    body{ background-color: var(--neutral); }
-    .navbar{ background: #ffffff; }
-    .brand-bar{ background: linear-gradient(90deg, var(--brand), var(--brand-2)); }
-    .hero{
-      background: linear-gradient(90deg, rgba(15,61,94,.6), rgba(10,122,166,.4)),
-                  url("{{ url_for('static', filename='img/co2025grads_0.jpg') }}");
-      background-size: cover; background-position: center;
-      color:#fff;
+
+    body {
+        background-color: var(--neutral);
     }
-    
+
+    .navbar {
+        background: #ffffff;
+    }
+
+    .brand-bar {
+        background: linear-gradient(90deg, var(--brand), var(--brand-2));
+    }
+
+    .hero {
+        background: linear-gradient(90deg, rgba(15, 61, 94, .6), rgba(10, 122, 166, .4)),
+        url("{{ url_for('static', filename='img/co2025grads_0.jpg') }}");
+        background-size: cover;
+        background-position: center;
+        color: #fff;
+    }
+
     .hero h1,
     .hero h2 {
         font-family: Teko-SemiBold, sans-serif;
@@ -36,32 +50,81 @@ Home Page
     .hero h2 {
         font-size: 2.5rem;
     }
-    .section-card{ border: 0; border-radius: 1rem; box-shadow: 0 10px 25px rgba(0,0,0,.06); }
-    .icon-circle{ width: 3rem; height: 3rem; border-radius: 50%; display: grid; place-items:center; background: rgba(10,122,166,.1); color: var(--brand-2); }
-    .kpi{ font-weight: 700; font-size: 1.25rem; }
-    .footer{ background: #0e2f47; color: #cfe1ef; }
-    .table thead th{ background:#f0f5f9; }
-    .badge-soft{ background: rgba(10,122,166,.12); color: var(--brand-2); }
-    .skip-link{ position:absolute; left:-10000px; top:auto; width:1px; height:1px; overflow:hidden; }
-    .skip-link:focus{ position:static; width:auto; height:auto; padding:.5rem 1rem; background:#000; color:#fff; z-index:1000; }
-  </style>
+
+    .section-card {
+        border: 0;
+        border-radius: 1rem;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, .06);
+    }
+
+    .icon-circle {
+        width: 3rem;
+        height: 3rem;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: rgba(10, 122, 166, .1);
+        color: var(--brand-2);
+    }
+
+    .kpi {
+        font-weight: 700;
+        font-size: 1.25rem;
+    }
+
+    .footer {
+        background: #0e2f47;
+        color: #cfe1ef;
+    }
+
+    .table thead th {
+        background: #f0f5f9;
+    }
+
+    .badge-soft {
+        background: rgba(10, 122, 166, .12);
+        color: var(--brand-2);
+    }
+
+    .skip-link {
+        position: absolute;
+        left: -10000px;
+        top: auto;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+    }
+
+    .skip-link:focus {
+        position: static;
+        width: auto;
+        height: auto;
+        padding: .5rem 1rem;
+        background: #000;
+        color: #fff;
+        z-index: 1000;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
 <!-- Main content -->
- <!-- Hero -->
-  <header class="hero py-5 py-lg-6">
-    <div class="container py-4">
-      <div class="row align-items-center gy-4">
-        <div class="col-lg-7">
-          <h1>Welcome to<br/>Skaggs School of Pharmacy and Pharmaceutical Sciences</h1>
-          <h2 class="text-warning">University of California San Diego</h2>
-          <!-- <div class="d-flex gap-2 mt-2">
+<!-- Hero -->
+
+<div class="container-fluid p-0">
+    <!-- Hero -->
+    <header class="hero py-3 py-lg-6">
+        <div class="container py-4">
+            <div class="row align-items-center gy-4">
+                <div class="col-lg-7">
+                    <h1>Welcome to<br />Skaggs School of Pharmacy and Pharmaceutical Sciences</h1>
+                    <h2 class="text-warning">University of California San Diego</h2>
+                    <!-- <div class="d-flex gap-2 mt-2">
             <a href="#services" class="btn btn-light btn-lg"><i class="bi bi-diagram-3 me-2"></i>Our Services</a>
             <a href="#resources" class="btn btn-outline-light btn-lg"><i class="bi bi-journal-text me-2"></i>Guides & Templates</a>
           </div> -->
-        </div>
-        <!-- <div class="col-lg-5">
+                </div>
+                <!-- <div class="col-lg-5">
           <div class="card section-card">
             <div class="card-body p-4">
               <h2 class="h5">Quick Facts</h2>
@@ -91,9 +154,10 @@ Home Page
             </div>
           </div>
         </div> -->
-      </div>
-    </div>
-  </header>
+            </div>
+        </div>
+    </header>
+</div>
 <!-- <div class="container">
     <div class="jumbotron">
         <h1 class="display-4">Hello, world </h1>
