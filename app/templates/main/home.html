@@ -92,19 +92,29 @@ Home Page
 </div> -->
 <div class="container pt-3">
     <div class="row">
-        <div class="col-xl-3 col-sm-6 col-xs-12">
+        <div class="col-xl-4 col-sm-6 col-xs-12">
             <div class="card px-0">
                 <img src="{{ url_for('static', filename='img/research.jpg') }}" alt="Request form"
                     class="card-img-top" />
                 <div class="card-body">
                     <h5 class="card-title">Instrument Request Form</h5>
-                    <p class="card-text">Request form for Echo360, ImageXpress, Biomek, IVIS</p>
+                    <p class="card-text">Request form for Echo360, ImageXpress, Envision, Biomek, IVIS</p>
                     <a href="/recharge/request_instrument/" class="btn btn-primary">Request Now</a>
                 </div>
             </div>
         </div>
-        <div class="col-3"> </div>
-        <div class="col-3"> </div>
+        <div class="col-xl-4 col-sm-6 col-xs-12">
+            <div class="card px-0">
+                <img src="{{ url_for('static', filename='img/Skaggs-SOP-Ext-202409-1.jpg') }}" alt="Request form"
+                    class="card-img-top" />
+                <div class="card-body">
+                    <h5 class="card-title">2025-2026 SSPPS Committees</h5>
+                    <p class="card-text">SSPPS has numerous committees to support its educational and research missions</p>
+                    <a href="/committee_tracker/list_ay_committees" class="btn btn-primary">Learn more</a>
+                </div>
+            </div>           
+        </div>
+        <!-- <div class="col-3"> </div> -->
     </div>
 </div>
 <!-- End Main content -->
