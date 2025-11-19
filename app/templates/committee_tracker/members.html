@@ -43,6 +43,22 @@
     .badge {
         font-weight: normal !important;
     }
+
+    .hero h1,
+    .hero h2 {
+        font-family: Teko-SemiBold, sans-serif;
+        letter-spacing: .5px;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.6);
+    }
+
+    .hero h1 {
+        font-size: 3.25rem;
+        line-height: 1.1;
+    }
+
+    .hero h2 {
+        font-size: 3rem;
+    }
 </style>
 {% endblock %}
 <!-- Datatables -->
@@ -69,10 +85,11 @@
         <div class="container py-4">
             <div class="row align-items-center gy-4">
                 <div class="col-lg-7">
-                    <h1 class="display-5 fw-semibold">{{ aycommittee.committee.name }} {% if
+                    <h1>{{ aycommittee.committee.name }} {% if
                         aycommittee.committee.short_name %}({{aycommittee.committee.short_name}}){% endif %}
-                        <br />{{aycommittee.academic_year.year}}<br />
+                        
                     </h1>
+                    <h2 class="text-warning">{{aycommittee.academic_year.year}}</h2>
                     {% if aycommittee.committee.description %}<p class="lead mt-3">{{aycommittee.committee.description}}
                     </p>{% endif %}
 
