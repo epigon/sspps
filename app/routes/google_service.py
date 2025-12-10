@@ -65,7 +65,7 @@ def groups_page():
             db.session.add(new_group)
             db.session.commit()
             flash('Group added successfully!', 'success')
-        return redirect(url_for('google.groups'))
+        return redirect(url_for('google.groups_page'))
     
     groups = Listserv.query.filter_by(deleted=False).order_by(Listserv.group_name.asc()).all()
     return render_template('google/list_groups.html', form=form, groups=groups, breadcrumbs=custom_breadcrumbs)
@@ -82,7 +82,7 @@ def delete_group(group_id):
         flash('Group soft-deleted.', 'info')
     else:
         flash('Group already deleted.', 'warning')
-    return redirect(url_for('google.groups'))
+    return redirect(url_for('google.groups_page'))
 
 @bp.route("/groups/<string:group_email>/members")
 @permission_required('listserv+view')
