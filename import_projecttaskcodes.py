@@ -17,6 +17,7 @@ project_task_codes_table = Table(
     'ProjectTaskCodes', metadata,
     Column('entity_code', String(20), primary_key=True),
     Column('project_task_code', String(20), primary_key=True),
+    Column('project_description', String(255), primary_key=True),
     Column('funding_source_code', String(50), primary_key=True),
     Column('funding_source', String(500), primary_key=True),
     Column('pi_email', String(50), nullable=False),
@@ -45,6 +46,7 @@ def import_project_task_codes(csv_path):
     required_columns = [
         'Entity_Code',
         'Project-Task_Code',
+        'Project_Description',
         'Award_External_Funding_Source_Code',
         'Award_External_Funding_Source',
         'Project_Status',
@@ -92,6 +94,7 @@ def import_project_task_codes(csv_path):
     df = df.rename(columns={
         'Entity_Code': 'entity_code',
         'Project-Task_Code': 'project_task_code',
+        'Project_Description': 'project_description',
         'Award_External_Funding_Source_Code': 'funding_source_code',
         'Award_External_Funding_Source': 'funding_source',
         'Project_Status': 'status',
