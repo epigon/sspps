@@ -2,7 +2,7 @@ from app.utils import permission_required
 from app.models import db, AcademicYear, Attendance, AYCommittee, Committee, Member, MemberRole, FrequencyType, CommitteeType, Employee, Meeting, FileUpload, MemberType, User, Role, Permission
 from app.forms import CommitteeReportForm
 from app.routes.academic_years import get_academic_years
-from app.routes.committee_tracker import get_committees, get_committee_types, get_employees
+from app.routes.committee_tracker import get_committees, get_committee_types, get_employees, get_member_roles
 from collections import defaultdict
 from flask import render_template, request, jsonify, Blueprint, send_file
 from flask_login import login_required
@@ -83,14 +83,42 @@ def get_all_committees():
     # Fetch results    
     aycommittees = query.all()
 
+    # Only show filtered members without modifying the relationship
+    for committee in aycommittees:
+        if filter_user and filter_user != "0":
+            members_filtered = [m for m in committee.members if m.employee_id in employee_ids]
+        else:
+            members_filtered = committee.members
+
+        # Same idea for roles
+        filter_role = request.args.get("roles", "")
+        if filter_role and filter_role != "0":
+            role_ids = [int(r) for r in filter_role.split(",")]
+            members_filtered = [m for m in members_filtered if m.member_role_id in role_ids]
+
+        # Sort but DON’T assign back
+        members_filtered.sort(
+            key=lambda m: m.member_role.default_order
+            if m.member_role and m.member_role.default_order is not None else 999
+        )
+
+        committee.filtered_members = members_filtered
+
     # Only show filtered members
-    if filter_user and filter_user != "0":
-        for committee in aycommittees:
-            committee.members = [m for m in committee.members if m.employee_id in employee_ids]
+    # if filter_user and filter_user != "0":
+    #     for committee in aycommittees:
+    #         committee.members = [m for m in committee.members if m.employee_id in employee_ids]
+
+    # # Only show filtered roles
+    # filter_role = request.args.get("roles", "")
+    # if filter_role and filter_role != "0":
+    #     role_ids = [int(r) for r in filter_role.split(",")]
+    #     for committee in aycommittees:
+    #         committee.members = [m for m in committee.members if m.member_role_id in role_ids]
 
     # Sort members by role default_order
-    for committee in aycommittees:
-        committee.members.sort(key=lambda m: m.member_role.default_order if m.member_role and m.member_role.default_order is not None else 999)
+    # for committee in aycommittees:
+    #     committee.members.sort(key=lambda m: m.member_role.default_order if m.member_role and m.member_role.default_order is not None else 999)
 
     # Build results
     committees = []
@@ -109,19 +137,14 @@ def get_all_committees():
             "name": com.committee.name + (f" ({com.committee.short_name})" if com.committee.short_name else ""),
             "mission": com.committee.mission,
             "total_expected_hours": total_expected_hours,
-            # "members": [
-            #     f"{member.employee.employee_name} ({member.member_role.role}) ({member.employee.job_code_description})"
-            #     for member in com.members
-            # ],
             "members": [
-                # f"{member.employee.employee_name} ({member.member_role.role}) ({member.employee.job_code_description})"
                 {
                     "first_name": member.employee.employee_first_name,
                     "last_name": member.employee.employee_last_name,
                     "job_code": member.employee.job_code_description,
                     "role": member.member_role.role
                 }
-                for member in com.members
+                for member in com.filtered_members
             ],
             "meetings": [
                 f"{meeting.title} ({meeting.date.strftime('%Y-%m-%d')})"
@@ -208,6 +231,11 @@ def get_committees_by_member():
     if filter_committee_type and filter_committee_type != "0":
         type_ids = [int(ct) for ct in filter_committee_type.split(",")]
         query = query.filter(Committee.committee_type_id.in_(type_ids))
+
+    filter_role = request.args.get("roles", "")
+    if filter_role and filter_role != "0":
+        role_ids = [int(r) for r in filter_role.split(",")]
+        query = query.filter(Member.member_role_id.in_(role_ids))
 
     # Grouping (member + committee + academic year)
     query = query.group_by(
@@ -308,6 +336,7 @@ def get_committees_by_assignment():
             Member.employee_id.label("employee_id"),
             Employee.employee_first_name.label("first_name"),
             Employee.employee_last_name.label("last_name"),
+            Employee.email.label("email"),
             Employee.job_code_description.label("job_code"),
             Committee.id.label("committee_id"),
             Committee.name.label("committee_name"),
@@ -372,10 +401,15 @@ def get_committees_by_assignment():
         type_ids = [int(ct) for ct in filter_committee_type.split(",")]
         q = q.filter(Committee.committee_type_id.in_(type_ids))
 
+    filter_role = request.args.get("roles", "")
+    if filter_role and filter_role != "0":
+        role_ids = [int(r) for r in filter_role.split(",")]
+        q = q.filter(Member.member_role_id.in_(role_ids))
+
     q = q.group_by(
         Committee.id, Committee.name, Committee.short_name, CommitteeType.type,
         AcademicYear.year,
-        Member.employee_id, Employee.employee_first_name, Employee.employee_last_name, Employee.job_code_description,
+        Member.employee_id, Employee.employee_first_name, Employee.employee_last_name, Employee.job_code_description, Employee.email,
         MemberRole.role,
         FrequencyType.multiplier, AYCommittee.meeting_duration_in_minutes, AYCommittee.supplemental_minutes_per_frequency
     )
@@ -389,7 +423,7 @@ def get_committees_by_assignment():
         "committee_type": None,
         "years": set(),
         # members keyed by employee id
-        "members": defaultdict(lambda: {"employee_id": "", "first_name": "", "last_name": "", "job_code": "", "roles": {}, "stats": {}})
+        "members": defaultdict(lambda: {"employee_id": "", "first_name": "", "last_name": "", "job_code": "", "email": "", "roles": {}, "stats": {}})
     })
 
     for r in rows:
@@ -411,6 +445,7 @@ def get_committees_by_assignment():
         m["first_name"] = r.first_name
         m["last_name"] = r.last_name
         m["job_code"] = r.job_code
+        m["email"] = r.email
         m["roles"][r.ay_year] = r.role or ""
         m["stats"][r.ay_year] = {
             "total_expected_hours": total_expected_hours,
@@ -483,6 +518,11 @@ def report_all_committees():
     form.users.choices += [(row.employee_id, f"{row.employee_last_name}, {row.employee_first_name}") for row in get_employees()]
     form.users.data = [0]
 
+    # Member Roles choices
+    form.roles.choices = [(0, "All")]
+    form.roles.choices += [(row.id, row.role) for row in get_member_roles()]
+    form.roles.data = [0]
+
     return render_template('reports/report_all_committees.html', form=form)
 
 @bp.route('/member_report/')
@@ -510,6 +550,11 @@ def member_report():
     form.users.choices += [(row.employee_id, f"{row.employee_last_name}, {row.employee_first_name}") for row in get_employees()]
     form.users.data = [0]
 
+    # Member Roles choices
+    form.roles.choices = [(0, "All")]
+    form.roles.choices += [(row.id, row.role) for row in get_member_roles()]
+    form.roles.data = [0]
+
     return render_template('reports/report_by_member.html', form=form)
 
 @bp.route('/assignment_report/')
@@ -536,5 +581,10 @@ def assignment_report():
     form.users.choices = [(0, "All")]
     form.users.choices += [(row.employee_id, f"{row.employee_last_name}, {row.employee_first_name}") for row in get_employees()]
     form.users.data = [0]
+
+    # Member Roles choices
+    form.roles.choices = [(0, "All")]
+    form.roles.choices += [(row.id, row.role) for row in get_member_roles()]
+    form.roles.data = [0]
 
     return render_template('reports/report_by_assignment.html', form=form)

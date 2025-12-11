@@ -412,11 +412,12 @@ Dashboard
         let academicYear = $("#academic_year").val();
         let committee = $("#committee").val();
         let users = $("#users").val();
+        let roles = $("#roles").val();
         let committeeTypes = $("#committee_type").val();
 
         // Fetch filtered data
         $.ajax({
-            url: `/reports/get_committees_by_member?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}`,
+            url: `/reports/get_committees_by_member?years=${academicYear}&committees=${committee}&users=${users}&roles=${roles}&types=${committeeTypes}`,
             method: 'GET',
             success: function (data) {
                 // Clear any previous tables
@@ -431,11 +432,12 @@ Dashboard
             let academicYear = $("#academic_year").val();
             let committee = $("#committee").val();
             let users = $("#users").val();
+            let roles = $("#roles").val();
             let committeeTypes = $("#committee_type").val();
 
             // Fetch filtered data
             $.ajax({
-                url: `/reports/get_committees_by_member?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}`,
+                url: `/reports/get_committees_by_member?years=${academicYear}&committees=${committee}&users=${users}&roles=${roles}&types=${committeeTypes}`,
                 method: 'GET',
                 success: function (data) {
                     // Clear any previous tables

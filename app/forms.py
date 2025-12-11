@@ -219,6 +219,11 @@ class CommitteeReportForm(FlaskForm):
                             coerce=int, 
                             choices=[]
                             ) 
+    roles = SelectMultipleField('Member Role', 
+                        validators=[DataRequired()], 
+                        coerce=int, 
+                        choices=[]
+                        ) 
     committee_type = SelectMultipleField('Committee Type', 
                             validators=[DataRequired()], 
                             coerce=int, 

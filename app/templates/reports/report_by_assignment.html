@@ -84,6 +84,15 @@ Dashboard
             aria-hidden="true"></span>
     </button>
 
+    <div class="col-auto d-flex align-items-center">
+        <div class="form-check mt-1">
+            <input class="form-check-input" type="checkbox" id="showEmail" checked>
+            <label class="form-check-label small" for="showEmail">
+                Show Email
+            </label>
+        </div>
+    </div>
+
     <div id="tablesContainer" class="mt-3">
         <!-- Dynamically generated tables will go here -->
     </div>
@@ -348,7 +357,8 @@ Dashboard
                 let tableHtml = `<h2>${committee.name}</h2>
                         <table id="${tableId}" class="display table table-bordered table-sm academic-year-table" data-committee="${committee.name}">
                             <thead>
-                                <th><strong>${committee.name} ${short_name}</strong> ${committee.committee_type}</th>`
+                                <th><strong>${committee.name} ${short_name}</strong> ${committee.committee_type}</th>
+                                <th class="email-col">Email</th>`;
                 years.forEach(year => {
                     tableHtml += `<th class="${colstyle}">${year}</th>`
                 })
@@ -356,7 +366,7 @@ Dashboard
                             </thead>
                             <tbody>`
                 members.forEach(member => {
-                    let row = `<tr data-id="${member.employee_id}"><td>${member.first_name} ${member.last_name} (${member.job_code})</td>`;
+                    let row = `<tr data-id="${member.employee_id}"><td>${member.first_name} ${member.last_name} (${member.job_code})</td><td class="email-col">${member.email}</td>`;
                     years.forEach(year => {
                         const role = member.roles[year] || '';
                         const s = (member.stats && member.stats[year]) || {};
@@ -390,17 +400,29 @@ Dashboard
                     }
                 );
             })
+            // Show/hide email columns based on checkbox
+            document.getElementById("showEmail").addEventListener("change", function () {
+                const show = this.checked;
+
+                // Loop all DataTable instances
+                $.fn.dataTable.tables().forEach(function (tableEl) {
+                    const dt = $(tableEl).DataTable();
+                    dt.column('.email-col').visible(show);  // hide by class selector
+                });
+            });
+
             $(".dt-button").removeClass("dt-button").addClass("btn btn-outline-primary");
         }
 
         let academicYear = $("#academic_year").val();
         let committee = $("#committee").val();
         let users = $("#users").val();
+        let roles = $("#roles").val();
         let committeeTypes = $("#committee_type").val();
 
         // Fetch filtered data
         $.ajax({
-            url: `/reports/get_committees_by_assignment?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}`,
+            url: `/reports/get_committees_by_assignment?years=${academicYear}&committees=${committee}&users=${users}&roles=${roles}&types=${committeeTypes}`,
             method: 'GET',
             success: function (data) {
                 // Clear any previous tables
@@ -415,11 +437,12 @@ Dashboard
             let academicYear = $("#academic_year").val();
             let committee = $("#committee").val();
             let users = $("#users").val();
+            let roles = $("#roles").val();
             let committeeTypes = $("#committee_type").val();
 
             // Fetch filtered data
             $.ajax({
-                url: `/reports/get_committees_by_assignment?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}`,
+                url: `/reports/get_committees_by_assignment?years=${academicYear}&committees=${committee}&users=${users}&roles=${roles}&types=${committeeTypes}`,
                 method: 'GET',
                 success: function (data) {
                     // Clear any previous tables
@@ -431,7 +454,7 @@ Dashboard
     });
 
     document.addEventListener("DOMContentLoaded", function () {
-        const multiSelects = ["academic_year", "committee", "committee_type", "users"];
+        const multiSelects = ["academic_year", "committee", "committee_type", "users", "roles"];
 
         multiSelects.forEach(id => {
             const select = document.getElementById(id);

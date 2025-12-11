@@ -289,17 +289,19 @@ Each Summer, SSPPS Committee Chairs will be contacted to reconfirm faculty commi
         let academicYear = $("#academic_year").val();
         let committee = $("#committee").val();
         let users = $("#users").val();
+        let roles = $("#roles").val();
         let committeeTypes = $("#committee_type").val();
 
-        let showMission = $("#show_mission").prop("checked");
-        let showMembers = $("#show_members").prop("checked");
-        let showMeetings = $("#show_meetings").prop("checked");
-        let showDocuments = $("#show_documents").prop("checked");
-        let sortRole = $("#sort_by_role").prop("checked");
+        // let showMission = $("#show_mission").prop("checked");
+        // let showMembers = $("#show_members").prop("checked");
+        // let showMeetings = $("#show_meetings").prop("checked");
+        // let showDocuments = $("#show_documents").prop("checked");
+        // let sortRole = $("#sort_by_role").prop("checked");
 
         // Fetch filtered data
         $.ajax({
-            url: `/reports/get_all_committees?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}&sortRole=${sortRole ? 1 : 0}&mission=${showMission ? 1 : 0}&members=${showMembers ? 1 : 0}&meetings=${showMeetings ? 1 : 0}&documents=${showDocuments ? 1 : 0}`,
+            // url: `/reports/get_all_committees?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}&sortRole=${sortRole ? 1 : 0}&mission=${showMission ? 1 : 0}&members=${showMembers ? 1 : 0}&meetings=${showMeetings ? 1 : 0}&documents=${showDocuments ? 1 : 0}`,
+            url: `/reports/get_all_committees?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}&roles=${roles}`,
             method: 'GET',
             success: function (data) {
                 // Clear any previous tables
@@ -324,7 +326,8 @@ Each Summer, SSPPS Committee Chairs will be contacted to reconfirm faculty commi
 
             let academicYear = $("#academic_year").val();
             let committee = $("#committee").val();
-            let users = $("#users").val();
+            let users = $("#users").val();          
+            let roles = $("#roles").val();
             let committeeTypes = $("#committee_type").val();
 
             let showMission = $("#show_mission").prop("checked");
@@ -335,7 +338,8 @@ Each Summer, SSPPS Committee Chairs will be contacted to reconfirm faculty commi
 
             // Fetch filtered data
             $.ajax({
-                url: `/reports/get_all_committees?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}&sortRole=${sortRole ? 1 : 0}&mission=${showMission ? 1 : 0}&members=${showMembers ? 1 : 0}&meetings=${showMeetings ? 1 : 0}&documents=${showDocuments ? 1 : 0}`,
+                // url: `/reports/get_all_committees?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}&sortRole=${sortRole ? 1 : 0}&mission=${showMission ? 1 : 0}&members=${showMembers ? 1 : 0}&meetings=${showMeetings ? 1 : 0}&documents=${showDocuments ? 1 : 0}`,
+                url: `/reports/get_all_committees?years=${academicYear}&committees=${committee}&users=${users}&types=${committeeTypes}&roles=${roles}`,
                 method: 'GET',
                 success: function (data) {
                     // Clear any previous tables
