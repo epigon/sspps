@@ -453,7 +453,7 @@ class Chartstring(db.Model):
 class InstrumentRequest(db.Model):
     __bind_key__ = 'rechargedb' 
     __tablename__ = 'InstrumentRequests'
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4())) # For general UUID handling   
+    id = Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4())) # For general UUID handling   
     machine_name = Column(db.String(255), nullable=False)
     department_code = Column( db.String(20), db.ForeignKey("DEPARTMENTS.code"), nullable=False )
     department = db.relationship( "Department", back_populates="instrument_requests" )
@@ -503,3 +503,22 @@ class Department(db.Model):
         "InstrumentRequest",
         back_populates="department"
     )
+
+class InstrumentCalendarEvent(db.Model):
+    __bind_key__ = 'rechargedb'
+    __tablename__ = 'InstrumentCalendarEvents'
+    id = db.Column(db.Integer, primary_key=True)
+
+    title = db.Column(db.String(255), nullable=False)
+    start = db.Column(db.DateTime, nullable=False)
+    end = db.Column(db.DateTime, nullable=False)
+
+    machine_name = db.Column(db.String(255), nullable=False)
+
+    request_id = db.Column(
+        db.String(36),
+        db.ForeignKey("InstrumentRequests.id"),
+        nullable=False
+    )
+
+    

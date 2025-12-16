@@ -2,12 +2,13 @@ from app import db
 from app import config
 # from app.email import send_email_via_powershell
 from app.forms import InstrumentRequestForm
-from app.models import Department, Employee, InstrumentRequest, Instrument, ProjectTaskCode, User
-from app.utils import permission_required
-from datetime import datetime, timedelta
+from app.models import Department, Employee, InstrumentRequest, Instrument, ProjectTaskCode, User, InstrumentCalendarEvent as CalendarEvent
+from app.utils import permission_required, has_permission
+from datetime import datetime, timezone
 from flask import Blueprint, flash, jsonify, redirect, render_template, request, send_file, url_for, render_template_string
 from flask_login import login_required, current_user
 from PIL import Image, ImageDraw, ImageFont
+import hashlib
 import io
 import os
 import qrcode
@@ -16,15 +17,35 @@ import tempfile
 
 bp = Blueprint('recharge', __name__, url_prefix='/recharge')
 
+UCSD_COLORS = [
+    "#182B49",  # UCSD Blue (Primary)
+    "#C69214",  # UCSD Gold (Primary)
+    "#006A96",  # Ocean Blue
+    "#6E963B",  # Green
+    "#FC8900",  # Orange
+    "#747678",  # Dark Gray
+    "#AFAFAF",  # Medium Gray
+    "#D2C7A1",  # Sand
+    ]
+
 @bp.before_request
 def before_request():
-    excluded_endpoints = ['recharge.request_instrument']  # full endpoint name: blueprint_name.view_function_name
+    excluded_endpoints = ['recharge.request_instrument','recharge.public_calendar']  # full endpoint name: blueprint_name.view_function_name
     if request.endpoint in excluded_endpoints:
         return  # Skip login_required check
     return login_required(lambda: None)()  # Call login_required manually
 
 def aligned_to_15(dt: datetime) -> bool:
     return dt.minute % 15 == 0 and dt.second == 0 and dt.microsecond == 0
+
+def machine_color(machine_name: str) -> str:
+    h = hashlib.md5(machine_name.encode()).hexdigest()
+    index = int(h[:8], 16) % len(UCSD_COLORS)
+    return UCSD_COLORS[index]
+
+def parse_iso_utc(value: str) -> datetime:
+    dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return dt.astimezone(timezone.utc).replace(tzinfo=None)
 
 # --- Requestor form ---
 @bp.route("/request_instrument/", methods=["GET", "POST"])
@@ -377,3 +398,262 @@ def send_email_via_powershell(to_address, to_cc=None, from_address=None, subject
         print("Error sending mail:", completed.stderr)
     else:
         print("Mail sent successfully")
+
+def is_admin():
+    return current_user.is_authenticated and has_permission("screeningcore_approve+add")
+
+@bp.route("/calendar/")
+@bp.route("/calendar/<string:request_id>")
+def calendar(request_id=None):
+    return render_template(
+        "recharge/calendar.html",
+        request_id=request_id,
+        admin=is_admin(),
+        public=False
+    )
+
+# @bp.route("/admin/calendar/")
+# # @permission_required("calendar+admin")
+# @permission_required('screeningcore_approve+add')
+# def admin_calendar():
+#     return render_template(
+#         "recharge/calendar.html",
+#         request_id=None,
+#         admin=True,
+#         public=False
+#     )
+
+# @bp.route("/calendar/public")
+# def public_calendar():
+#     return render_template(
+#         "recharge/calendar.html",
+#         request_id=None,
+#         admin=False,
+#         public=True
+#     )
+
+
+
+##################################
+# Get Instrument Request (Locking + Context)
+##################################
+@bp.route("/api/instrument-request/<string:request_id>")
+def get_instrument_request(request_id):
+    req = InstrumentRequest.query.get_or_404(request_id)
+
+    return jsonify({
+        "id": req.id,
+        "requestor_name": req.requestor_name,
+        "machine_name": req.machine_name,
+        "status": req.status
+    })
+
+##################################
+# Get ALL Events (Multi-Machine Combined View)
+##################################
+@bp.route("/api/events")
+def get_events():
+    machines = request.args.getlist("machine")
+
+    query = CalendarEvent.query
+    if machines:
+        query = query.filter(CalendarEvent.machine_name.in_(machines))
+
+    events = query.all()
+
+    return jsonify([
+        {
+            "id": e.id,
+            "title": f"{e.title}",
+            "start": e.start.replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z"),
+            "end": e.end.replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z"),
+            "backgroundColor": machine_color(e.machine_name),
+            "borderColor": machine_color(e.machine_name),
+            "extendedProps": {
+                "machine_name": e.machine_name,
+                "request_id": e.request_id
+            }
+        }
+        for e in events
+    ])
+
+##################################
+# List Machines for Filters
+##################################
+@bp.route("/api/machines")
+def get_machines():
+    machines = (
+        db.session.query(CalendarEvent.machine_name)
+        .distinct()
+        .order_by(CalendarEvent.machine_name)
+        .all()
+    )
+
+    return jsonify([m[0] for m in machines])
+
+##################################
+# Add Event (Machine-Specific Conflict Rule)
+##################################
+@bp.route("/api/events", methods=["POST"])
+# @permission_required('screeningcore_approve+add')
+def add_event():
+    data = request.get_json()
+    print(data)
+
+    title = data.get("title")
+    machine_name = data.get("machine_name")
+    request_id = data.get("request_id")
+
+    start = parse_iso_utc(data["start"])
+    end = parse_iso_utc(data["end"])
+
+    override = bool(data.get("override", False))
+    admin = is_admin()
+
+    # ----------------------------------
+    # ✅ REQUEST VALIDATION GOES HERE
+    # ----------------------------------
+    if request_id:
+        req = InstrumentRequest.query.get_or_404(request_id)
+
+        if req.status != "Approved":
+            return jsonify({"error": "Request is not approved."}), 400
+
+        if req.machine_name != machine_name:
+            return jsonify({"error": "Machine mismatch."}), 400
+
+    # ----------------------------------
+    # CONFLICT CHECK
+    # ----------------------------------
+    if not (admin and override):
+        conflicts = (
+            CalendarEvent.query
+            .filter(
+                CalendarEvent.machine_name == machine_name,
+                CalendarEvent.start < end,
+                CalendarEvent.end > start
+            )
+            .all()
+        )
+
+        if conflicts:
+            return jsonify({
+                "error": "This machine is already booked.",
+                "conflict": True
+            }), 400
+
+    # ----------------------------------
+    # CREATE EVENT
+    # ----------------------------------
+    event = CalendarEvent(
+        title=title,
+        machine_name=machine_name,
+        start=start,
+        end=end,
+        request_id=request_id
+    )
+
+    db.session.add(event)
+    db.session.commit()
+    
+    return jsonify({
+        "id": event.id,
+        "title": f"{title}",
+        "start": event.start.replace(tzinfo=timezone.utc)
+                            .isoformat()
+                            .replace("+00:00", "Z"),
+        "end": event.end.replace(tzinfo=timezone.utc)
+                          .isoformat()
+                          .replace("+00:00", "Z"),
+        "backgroundColor": machine_color(machine_name),
+        "borderColor": machine_color(machine_name),
+        "extendedProps": {
+            "machine_name": machine_name,
+            "request_id": request_id
+        }
+    })
+
+
+##################################
+# Update Event (Machine-Specific Conflict Rule)
+##################################
+@bp.route("/api/events/update", methods=["POST"])
+@permission_required('screeningcore_approve+add')
+def update_event():
+    data = request.get_json()
+
+    event = CalendarEvent.query.get_or_404(data["id"])
+
+    start = parse_iso_utc(data["start"])
+    end = parse_iso_utc(data["end"])
+    machine = data["machine_name"]
+
+    # ✅ Explicit boolean handling
+    override = bool(data.get("override", False))
+    admin = is_admin()
+
+    # ---------------------------
+    # CONFLICT CHECK
+    # ---------------------------
+    if not (admin and override):
+        conflicts = (
+            CalendarEvent.query
+            .filter(
+                CalendarEvent.machine_name == machine,
+                CalendarEvent.id != event.id,  # exclude self
+                CalendarEvent.start < end,
+                CalendarEvent.end > start
+            )
+            .all()
+        )
+
+        if conflicts:
+            return jsonify({
+                "error": "This machine is already booked.",
+                "conflict": True
+            }), 400
+
+    # ---------------------------
+    # UPDATE EVENT
+    # ---------------------------
+    event.start = start
+    event.end = end
+
+    db.session.commit()
+
+    return jsonify({
+        "id": event.id,
+        "title": event.title,
+        "start": event.start.replace(tzinfo=timezone.utc)
+                            .isoformat()
+                            .replace("+00:00", "Z"),
+        "end": event.end.replace(tzinfo=timezone.utc)
+                          .isoformat()
+                          .replace("+00:00", "Z"),
+        "backgroundColor": machine_color(event.machine_name),
+        "borderColor": machine_color(event.machine_name),
+        "extendedProps": {
+            "machine_name": event.machine_name,
+            "request_id": event.request_id
+        }
+    })
+
+@bp.route("/api/approved-requests")
+@permission_required('screeningcore_approve+add')
+def approved_requests():
+    requests = (
+        InstrumentRequest.query
+        .filter(InstrumentRequest.status == "Approved")
+        .order_by(InstrumentRequest.machine_name, InstrumentRequest.requestor_name)
+        .all()
+    )
+
+    return jsonify([
+        {
+            "id": r.id,
+            "machine_name": r.machine_name,
+            "requestor_name": r.requestor_name,
+            "pi_name": r.pi_name
+        }
+        for r in requests
+    ])

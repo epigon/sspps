@@ -1,0 +1,522 @@
+{% extends "base.html" %}
+
+{% block title %}
+Instrument Scheduler
+{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<!-- FullCalendar CSS -->
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css" rel="stylesheet">
+<style>
+    #calendar {
+        max-width: 100%;
+        margin: 20px auto;
+    }
+
+    #error {
+        color: red;
+        margin-top: 10px;
+    }
+
+    @keyframes pulse-danger {
+        0% {
+            box-shadow: 0 0 0 0 rgba(220, 53, 69, .6);
+        }
+
+        70% {
+            box-shadow: 0 0 0 10px rgba(220, 53, 69, 0);
+        }
+
+        100% {
+            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
+        }
+    }
+
+    .pulse {
+        animation: pulse-danger 1.5s infinite;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-3" id="filtersWrapper">
+    <strong>Machines:</strong>
+    <div id="machineFilters" class="d-flex flex-wrap gap-2 mt-2"></div>
+</div>
+
+{% if admin %}
+<div class="form-check mb-2" id="overrideWrapper">
+    <input class="form-check-input" type="checkbox" id="overrideToggle">
+    <label class="form-check-label fw-bold text-danger">
+        Admin Override (ignore conflicts)
+    </label>
+</div>
+{% endif %}
+
+<div id="calendar"></div>
+
+<!-- Modal -->
+<div class="modal fade" id="eventModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 class="modal-title">Add Booking</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+                {% if admin %}
+                <div class="mb-2">
+                    <label class="form-label fw-bold">Approved Request</label>
+                    <select id="requestSelect" class="form-select">
+                        <option value="">— Select Approved Request —</option>
+                    </select>
+                </div>
+                {% endif %}
+                <div class="mb-2">
+                    <label class="form-label fw-bold">Event Title</label>
+                    <input type="text" id="eventTitle" class="form-control mb-2" readonly>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label fw-bold">Start Time</label>
+                    <input type="datetime-local" id="eventStart" class="form-control mb-2">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label fw-bold">End Time</label>
+                    <input type="datetime-local" id="eventEnd" class="form-control mb-2">
+                </div>
+
+                <div id="eventError" class="text-danger fw-bold"></div>
+
+                {% if admin %}
+                <div id="overrideSection" class="d-none mt-3 border-top pt-3 alert alert-warning">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="modalOverrideToggle">
+                        <label class="form-check-label fw-bold text-danger">
+                            Admin Override (ignore conflicts)
+                        </label>
+                    </div>
+                    <div class="small text-muted">
+                        This will force scheduling even if the machine is already booked.
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <div id="eventError" class="text-danger fw-bold"></div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button id="saveEventBtn" class="btn btn-primary">Save</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<!-- FullCalendar -->
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+
+{{ super() }}
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+
+        const requestID = {{ request_id| tojson }};
+        const isAdmin = {{ admin| tojson }};
+        const isPublic = {{ public| tojson }};
+
+        let calendar;
+        let selectedMachines = new Set();
+        let request = null;
+
+        // -----------------------------
+        // REQUEST MODE: if requestID exists
+        // -----------------------------
+        if (requestID) {
+            fetch(`/recharge/api/instrument-request/${requestID}`)
+                .then(res => res.json())
+                .then(req => {
+                    request = req;
+
+                    // Set event title in modal
+                    document.getElementById("eventTitle").value = req.machine_name + " - " + req.requestor_name;
+
+                    // Hide machine filters since only one machine is relevant
+                    document.getElementById("filtersWrapper").style.display = "none";
+
+                    // Only this machine is selected
+                    selectedMachines.clear();
+                    selectedMachines.add(req.machine_name);
+
+                    // Initialize calendar after setting selected machine
+                    bootstrapCalendar();
+                });
+            }
+
+            // -----------------------------
+            // ADMIN / PUBLIC MODE: fetch all machines
+            // -----------------------------
+            else {
+                fetch("/recharge/api/machines")
+                    .then(res => res.json())
+                    .then(machines => {
+                        machines.forEach((m, i) => selectedMachines.add(m));
+                        buildMachineLegend(machines);
+                        bootstrapCalendar(); 
+                        // initCalendar();
+                    });
+            }
+
+            // --------------------
+            // Admin override UI
+            // --------------------
+            const overrideSection = document.getElementById("overrideSection");
+            const modalOverride = document.getElementById("modalOverrideToggle");
+            const saveBtn = document.getElementById("saveEventBtn");
+
+            modalOverride?.addEventListener("change", () => {
+                document.getElementById("overrideToggle").checked = modalOverride.checked;
+                saveBtn.disabled = !modalOverride.checked;
+            });
+
+            document.getElementById("eventModal")?.addEventListener("shown.bs.modal", () => {
+                const errorDiv = document.getElementById("eventError");
+                if (errorDiv) errorDiv.textContent = "";
+
+                resetOverrideUI(); // already safe after our fix
+
+                const isEditing = !!saveBtn.dataset.eventId;
+
+                // ✅ Only clear fields when creating a NEW event
+                if (!isEditing) {
+                    const requestSelect = document.getElementById("requestSelect");
+                    if (requestSelect) requestSelect.value = "";
+
+                    const eventTitle = document.getElementById("eventTitle");
+                    if (eventTitle) eventTitle.value = "";
+                }     
+            });
+
+            ["eventStart", "eventEnd"].forEach(id => {
+                document.getElementById(id)?.addEventListener("change", () => {
+                document.getElementById("eventError").textContent = "";
+            });
+        });
+
+
+    function getOverrideEls() {
+        return {
+            section: document.getElementById("overrideSection"),
+            toggle: document.getElementById("modalOverrideToggle"),
+            save: document.getElementById("saveEventBtn")
+        };
+    }
+
+    function showOverrideUI() {
+        if (!isAdmin) return;
+
+        const { section, toggle, save } = getOverrideEls();
+        if (!section || !toggle || !save) return;
+
+        section.classList.remove("d-none");
+        toggle.classList.add("pulse");
+        save.disabled = true;
+    }
+
+    function resetOverrideUI() {
+        if (!isAdmin) return;
+
+        const { section, toggle, save } = getOverrideEls();
+        if (!section || !toggle || !save) return;
+
+        section.classList.add("d-none");
+        toggle.checked = false;
+        toggle.classList.remove("pulse");
+        save.disabled = false;
+    }
+
+    // --------------------
+    // Helper: JS machine color (match backend)
+    // --------------------
+    
+    let UCSD_COLORS = [
+        "#182B49",  // UCSD Blue (Primary)
+        "#C69214",  // UCSD Gold (Primary)
+        "#006A96",  // Ocean Blue
+        "#6E963B",  // Green
+        "#FC8900",  // Orange
+        "#747678",  // Dark Gray
+        "#AFAFAF",  // Medium Gray
+        "#D2C7A1",  // Sand
+    ]
+    function machine_color(machine_name) {
+        const h = md5(machine_name);           
+        // Take first 8 chars to stay within JS safe number range
+        const shortHash = h.slice(0, 8);  
+        const index = parseInt(shortHash, 16) % UCSD_COLORS.length;
+        return UCSD_COLORS[index];
+    }
+
+    // Minimal MD5 function for color hashing
+    function md5(str) {
+        // Use a simple JS hash function for consistency
+        // For production, include a proper MD5 library
+        return CryptoJS.MD5(str).toString();
+    }
+
+    function buildMachineLegend(machines) {
+        const container = document.getElementById("machineFilters");
+
+        machines.forEach(m => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "btn btn-sm me-1 mb-1";
+            btn.style.backgroundColor = machine_color(m);
+            btn.style.color = "#fff";
+            btn.textContent = m;
+            btn.dataset.active = "true";
+
+            btn.addEventListener("click", () => {
+                const active = btn.dataset.active === "true";
+                btn.dataset.active = (!active).toString();
+                btn.style.opacity = active ? "0.5" : "1";
+
+                active ? selectedMachines.delete(m) : selectedMachines.add(m);
+                calendar.refetchEvents();
+            });
+
+            container.appendChild(btn);
+        });
+    }
+
+
+    function bootstrapCalendar() {
+        if (calendar) return; // SAFETY GUARD
+        initCalendar();
+    }
+    
+    // --------------------
+    // Admin Approved Request dropdown
+    // --------------------
+    if (isAdmin) {
+        fetch("/recharge/api/approved-requests")
+            .then(res => res.json())
+            .then(requests => {
+                const select = document.getElementById("requestSelect");
+                if (!select) return;
+
+                requests.forEach(r => {
+                    const opt = document.createElement("option");
+                    opt.value = r.id;
+                    opt.dataset.machine = r.machine_name;
+                    opt.dataset.requestor = r.requestor_name;
+                    opt.textContent = `${r.machine_name} — ${r.requestor_name}`;
+                    select.appendChild(opt);
+                });
+
+                select.addEventListener("change", function () {
+                    const option = this.selectedOptions[0];
+                    if (!option) return;
+
+                    document.getElementById("eventTitle").value = option.textContent;
+                    this.dataset.machine = option.dataset.machine;
+                    this.dataset.requestor = option.dataset.requestor;
+                });
+            });
+    }
+
+    // --------------------
+    // Initialize calendar
+    // --------------------
+    function initCalendar() {
+        calendar = new FullCalendar.Calendar(document.getElementById("calendar"), {
+            initialView: "timeGridWeek",
+            selectable: isAdmin || (request && request.status === "Approved"),
+            editable: isAdmin,
+
+            events: function(fetchInfo, success) {
+                const params = new URLSearchParams();
+
+                if (request) {
+                    // Only fetch events for the request's machine
+                    params.append("machine", request.machine_name);
+                } else {
+                    if (selectedMachines.size === 0) {
+                        success([]); // nothing selected
+                        return;
+                    }
+                    selectedMachines.forEach(m => params.append("machine", m));
+                }
+
+                fetch(`/recharge/api/events?${params}`)
+                    .then(res => res.json())
+                    .then(events => {
+                        events.forEach((e, i) => {
+                            e.backgroundColor = machine_color(e.extendedProps.machine_name, i);
+                            e.borderColor = machine_color(e.extendedProps.machine_name, i);
+                        });
+                        success(events);
+                    });
+            },
+
+            select: function (info) {
+                if (isPublic) return;
+                document.getElementById("eventStart").value = info.startStr.slice(0, 16);
+                document.getElementById("eventEnd").value = info.endStr.slice(0, 16);
+                bootstrap.Modal.getOrCreateInstance(document.getElementById("eventModal")).show();
+            },
+            eventClick: function(info) {
+                const e = info.event;
+                const props = e.extendedProps;
+                
+                // Pull from extendedProps
+                const machineName = props.machine_name;
+                const requestId = props.request_id;
+                const requestorName = props.requestor_name || "";
+                document.getElementById("requestSelect").value = requestId || "";
+
+                console.log("Event clicked:", e, props);
+                // Prefill modal with event info
+                document.getElementById("eventTitle").value = e.title ? e.title : requestorName && machineName ? `${machineName} — ${requestorName}` : "" ;
+                document.getElementById("eventStart").value = e.startStr.slice(0, 16);
+                document.getElementById("eventEnd").value = e.endStr.slice(0, 16);
+
+                // If admin, enable override section if necessary
+                resetOverrideUI();
+
+                // Store event ID on modal save button for editing
+                saveBtn.dataset.eventId = e.id;
+
+                bootstrap.Modal.getOrCreateInstance(document.getElementById("eventModal")).show();
+            },
+            eventDrop: handleEventMove,
+            eventResize: handleEventMove
+        });
+
+        function handleEventMove(info) {
+            // First attempt: no override
+            attemptMove(info, false);
+        }
+
+        function attemptMove(info, override) {
+            fetch("/recharge/api/events/update", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    id: info.event.id,
+                    start: info.event.start.toISOString(),
+                    end: info.event.end.toISOString(),
+                    machine_name: info.event.extendedProps.machine_name,
+                    override: override
+                })
+            })
+            .then(res => res.json().then(d => ({ ok: res.ok, body: d })))
+            .then(res => {
+                // Conflict detected
+                if (!res.ok && res.body.conflict) {
+
+                    // Non-admins can’t override
+                    if (!isAdmin) {
+                        alert(res.body.error);
+                        info.revert();
+                        return;
+                    }
+
+                    // Ask admin to confirm override
+                    const confirmed = confirm(
+                        "This move conflicts with an existing booking.\n\nOverride and force the move?"
+                    );
+
+                    if (confirmed) {
+                        // Retry WITH override
+                        attemptMove(info, true);
+                    } else {
+                        info.revert();
+                    }
+                    return;
+                }
+
+                // Other error
+                if (!res.ok) {
+                    alert(res.body.error || "Unable to move event.");
+                    info.revert();
+                }
+            })
+            .catch(() => {
+                alert("Unexpected error while moving event.");
+                info.revert();
+            });
+        }
+
+
+        calendar.render();
+    }
+
+    // --------------------
+    // Save Event
+    // --------------------
+    saveBtn.addEventListener("click", function () {
+        const reqSelect = document.getElementById("requestSelect");
+        const requestId = requestID || reqSelect?.value || null;
+        const machineName = request?.machine_name || reqSelect?.selectedOptions[0]?.dataset.machine;
+        const requestorName = request?.requestorName || reqSelect?.selectedOptions[0]?.dataset.requestor;
+
+        const override = isAdmin && modalOverride?.checked;
+        if (override) {
+            const confirmed = confirm("You are overriding an existing booking.\n\nDo you want to continue?");
+            if (!confirmed) return;
+        }
+
+        const eventId = saveBtn.dataset.eventId || null; // ✅ check if editing
+
+        fetch(eventId ? "/recharge/api/events/update" : "/recharge/api/events", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                id: eventId,
+                title: machineName && requestorName ? `${machineName} — ${requestorName}` : document.getElementById("eventTitle").value,
+                start: document.getElementById("eventStart").value,
+                end: document.getElementById("eventEnd").value,
+                machine_name: machineName,
+                request_id: requestId,
+                override
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) {
+                document.getElementById("eventError").textContent = data.error;
+                if (data.conflict) showOverrideUI();
+                return;
+            }
+
+            if (eventId) {
+                // Update existing event
+                const event = calendar.getEventById(eventId);
+                event.setProp("title", data.title);
+                event.setStart(data.start);
+                event.setEnd(data.end);
+            } else {
+                calendar.addEvent(data); // new event
+            }
+
+            resetOverrideUI();
+            delete saveBtn.dataset.eventId; // clear edit state
+            bootstrap.Modal.getInstance(document.getElementById("eventModal")).hide();
+        });
+    });
+
+});
+
+
+</script>
+
+
+{% endblock %}
