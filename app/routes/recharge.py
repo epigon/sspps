@@ -1,6 +1,6 @@
 from app import db
 from app import config
-# from app.email import send_email_via_powershell
+from app.cred import GOOGLE_RECAPTCHA_SECRET, GOOGLE_RECAPTCHA_SITEKEY
 from app.forms import InstrumentRequestForm
 from app.models import Department, Employee, InstrumentRequest, Instrument, ProjectTaskCode, User, InstrumentCalendarEvent as CalendarEvent
 from app.utils import permission_required, has_permission
@@ -9,10 +9,10 @@ from flask import Blueprint, flash, jsonify, redirect, render_template, request,
 from flask_login import login_required, current_user
 from PIL import Image, ImageDraw, ImageFont
 import hashlib
-import io
 import os
 import qrcode
 import subprocess
+import requests
 import tempfile
 
 bp = Blueprint('recharge', __name__, url_prefix='/recharge')
@@ -28,12 +28,15 @@ UCSD_COLORS = [
     "#D2C7A1",  # Sand
     ]
 
-@bp.before_request
-def before_request():
-    excluded_endpoints = ['recharge.request_instrument','recharge.public_calendar']  # full endpoint name: blueprint_name.view_function_name
-    if request.endpoint in excluded_endpoints:
-        return  # Skip login_required check
-    return login_required(lambda: None)()  # Call login_required manually
+RECAPTCHA_SECRET = GOOGLE_RECAPTCHA_SECRET
+RECAPTCHA_SITEKEY = GOOGLE_RECAPTCHA_SITEKEY
+
+# @bp.before_request
+# def before_request():
+#     excluded_endpoints = ['recharge.request_instrument','recharge.calendar','recharge.get_events']  # full endpoint name: blueprint_name.view_function_name
+#     if request.endpoint in excluded_endpoints:
+#         return  # Skip login_required check
+#     return login_required(lambda: None)()  # Call login_required manually
 
 def aligned_to_15(dt: datetime) -> bool:
     return dt.minute % 15 == 0 and dt.second == 0 and dt.microsecond == 0
@@ -46,6 +49,14 @@ def machine_color(machine_name: str) -> str:
 def parse_iso_utc(value: str) -> datetime:
     dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
     return dt.astimezone(timezone.utc).replace(tzinfo=None)
+
+def verify_captcha(captcha_response):
+    r = requests.post(
+        "https://www.google.com/recaptcha/api/siteverify",
+        data={"secret": RECAPTCHA_SECRET, "response": captcha_response}
+    )
+    print(r.json())
+    return r.json().get("success", False)
 
 # --- Requestor form ---
 @bp.route("/request_instrument/", methods=["GET", "POST"])
@@ -115,12 +126,12 @@ def request_instrument():
         body_html = render_template_string(body_template, request_data=request_data, review_url=review_url)
 
         send_email_via_powershell(recipients, cc, sender, subject, body_html)
-        # flash("Your request has been submitted for review.", "success")
-        # return redirect(url_for("recharge.request_instrument"))
+
     return render_template("recharge/request_instrument.html", form=form, request_data=request_data)
 
 # --- Reviewer list ---
 @bp.route("/review_requests")
+@login_required
 @permission_required('screeningcore_approve+add')
 def review_requests():
 
@@ -142,6 +153,7 @@ def review_requests():
     return render_template("recharge/review_requests.html", requests=requests_list, machines=machines_list)
 
 @bp.route('/handle_request/<string:request_id>', methods=['POST'])
+@login_required
 @permission_required('screeningcore_approve+add')
 def handle_request(request_id):
     notes = request.form.get('notes')
@@ -170,6 +182,7 @@ def handle_request(request_id):
 
     return redirect(url_for("recharge.review_requests"))
 
+@login_required
 def email_request(request_id):
 
     """Generates barcode and sends it via email."""
@@ -270,6 +283,7 @@ def email_request(request_id):
     return req
 
 @bp.route("/email-request-barcode/<string:request_id>")
+@login_required
 @permission_required('screeningcore_approve+add')
 def email_request_barcode(request_id):
 
@@ -371,6 +385,7 @@ def email_request_barcode(request_id):
     return req
 
 @bp.route("/resend-email/<string:request_id>")
+@login_required
 @permission_required('screeningcore_approve+add')
 def resend_email(request_id):
     req = InstrumentRequest.query.get_or_404(request_id)
@@ -382,6 +397,7 @@ def resend_email(request_id):
     flash(f"Request #{req.id} barcode emailed to {req.requestor_email}.", "success")
     return redirect(url_for("recharge.review_requests"))
 
+@login_required
 def send_email_via_powershell(to_address, to_cc=None, from_address=None, subject=None, body=None, attachment_path=None):
     """Sends email using PowerShell's Send-MailMessage cmdlet."""
 
@@ -402,41 +418,45 @@ def send_email_via_powershell(to_address, to_cc=None, from_address=None, subject
 def is_admin():
     return current_user.is_authenticated and has_permission("screeningcore_approve+add")
 
-@bp.route("/calendar/")
+@bp.route("/calendar")
 @bp.route("/calendar/<string:request_id>")
 def calendar(request_id=None):
+    # print("In calendar route", request)
+    # request_id = request.args.get("request_id")
+    # print("Request ID from args:", request_id)
+    # request_id = request.args.get("request_id")
+
+    if request_id:
+        req = InstrumentRequest.query.get(request_id)
+
+        # ❌ Invalid or missing request or ❌ Not approved
+        if not req or req.status != "Approved":
+            flash(
+                "Invalid request. Please submit a request to schedule an instrument.",
+                "warning"
+            )
+            return redirect(url_for("recharge.public_calendar"))
+
     return render_template(
         "recharge/calendar.html",
         request_id=request_id,
         admin=is_admin(),
-        public=False
+        public=False,
+        recaptcha_site_key=RECAPTCHA_SITEKEY
     )
 
-# @bp.route("/admin/calendar/")
-# # @permission_required("calendar+admin")
-# @permission_required('screeningcore_approve+add')
-# def admin_calendar():
-#     return render_template(
-#         "recharge/calendar.html",
-#         request_id=None,
-#         admin=True,
-#         public=False
-#     )
+@bp.route("/calendar/public")
+def public_calendar():
+    return render_template(
+        "recharge/calendar.html",
+        request_id=None,
+        admin=False,
+        public=True
+    )
 
-# @bp.route("/calendar/public")
-# def public_calendar():
-#     return render_template(
-#         "recharge/calendar.html",
-#         request_id=None,
-#         admin=False,
-#         public=True
-#     )
-
-
-
-##################################
-# Get Instrument Request (Locking + Context)
-##################################
+"""
+Get Instrument Request (Locking + Context)
+"""
 @bp.route("/api/instrument-request/<string:request_id>")
 def get_instrument_request(request_id):
     req = InstrumentRequest.query.get_or_404(request_id)
@@ -448,18 +468,23 @@ def get_instrument_request(request_id):
         "status": req.status
     })
 
-##################################
-# Get ALL Events (Multi-Machine Combined View)
-##################################
+"""
+Get ALL Events (Multi-Machine Combined View)
+"""
 @bp.route("/api/events")
 def get_events():
     machines = request.args.getlist("machine")
 
     query = CalendarEvent.query
     if machines:
-        query = query.filter(CalendarEvent.machine_name.in_(machines))
+        query = query.filter(CalendarEvent.machine_name.in_(machines)).filter_by(deleted=False)
 
     events = query.all()
+
+    for e in events:
+        if e.request_id:
+            req = InstrumentRequest.query.get_or_404(e.request_id)
+            e.requestor_name = req.requestor_name
 
     return jsonify([
         {
@@ -471,15 +496,16 @@ def get_events():
             "borderColor": machine_color(e.machine_name),
             "extendedProps": {
                 "machine_name": e.machine_name,
-                "request_id": e.request_id
+                "request_id": e.request_id,
+                "requestor_name": e.requestor_name
             }
         }
         for e in events
     ])
 
-##################################
-# List Machines for Filters
-##################################
+"""
+List Machines for Filters
+"""
 @bp.route("/api/machines")
 def get_machines():
     machines = (
@@ -491,14 +517,15 @@ def get_machines():
 
     return jsonify([m[0] for m in machines])
 
-##################################
-# Add Event (Machine-Specific Conflict Rule)
-##################################
+"""
+Add Event (Machine-Specific Conflict Rule)
+"""
 @bp.route("/api/events", methods=["POST"])
-# @permission_required('screeningcore_approve+add')
 def add_event():
     data = request.get_json()
-    print(data)
+
+    if not verify_captcha(data.get("recaptcha_token", "")):
+        return jsonify({"error": "CAPTCHA verification failed"}), 400
 
     title = data.get("title")
     machine_name = data.get("machine_name")
@@ -531,7 +558,8 @@ def add_event():
             .filter(
                 CalendarEvent.machine_name == machine_name,
                 CalendarEvent.start < end,
-                CalendarEvent.end > start
+                CalendarEvent.end > start,
+                CalendarEvent.deleted == False
             )
             .all()
         )
@@ -569,20 +597,29 @@ def add_event():
         "borderColor": machine_color(machine_name),
         "extendedProps": {
             "machine_name": machine_name,
-            "request_id": request_id
+            "request_id": request_id,
+            "requestor_name": req.requestor_name
         }
     })
 
 
-##################################
-# Update Event (Machine-Specific Conflict Rule)
-##################################
+"""
+Update Event (Machine-Specific Conflict Rule)
+"""
 @bp.route("/api/events/update", methods=["POST"])
+@login_required
 @permission_required('screeningcore_approve+add')
 def update_event():
     data = request.get_json()
 
-    event = CalendarEvent.query.get_or_404(data["id"])
+    if not verify_captcha(data.get("recaptcha_token", "")):
+        return jsonify({"error": "CAPTCHA verification failed"}), 400
+    
+    event_id = data.get("id")
+    if not event_id:
+        return jsonify({"error": "Missing event id"}), 400
+
+    event = CalendarEvent.query.filter_by(id=event_id, deleted=False).first()
 
     start = parse_iso_utc(data["start"])
     end = parse_iso_utc(data["end"])
@@ -602,7 +639,8 @@ def update_event():
                 CalendarEvent.machine_name == machine,
                 CalendarEvent.id != event.id,  # exclude self
                 CalendarEvent.start < end,
-                CalendarEvent.end > start
+                CalendarEvent.end > start,
+                CalendarEvent.deleted == False
             )
             .all()
         )
@@ -621,6 +659,8 @@ def update_event():
 
     db.session.commit()
 
+    req = InstrumentRequest.query.get_or_404(event.request_id)
+
     return jsonify({
         "id": event.id,
         "title": event.title,
@@ -634,11 +674,44 @@ def update_event():
         "borderColor": machine_color(event.machine_name),
         "extendedProps": {
             "machine_name": event.machine_name,
-            "request_id": event.request_id
+            "request_id": event.request_id,
+            "requestor_name": req.requestor_name
         }
     })
 
+@bp.route("/api/events/delete", methods=["POST"])
+@login_required
+@permission_required('screeningcore_approve+add')
+def soft_delete_event():
+    data = request.get_json()
+
+    if not verify_captcha(data.get("recaptcha_token", "")):
+        return jsonify({"error": "CAPTCHA verification failed"}), 400
+
+    event_id = data.get("id")
+    if not event_id:
+        return jsonify({"error": "Missing event id"}), 400
+
+    event = CalendarEvent.query.filter_by(id=event_id, deleted=False).first()
+
+    if not event:
+        return jsonify({"error": "Event not found"}), 404
+
+    # 👇 Soft delete
+    event.deleted = True
+    event.deleted_date = datetime.now()
+    event.deleted_by = current_user.username  # or id / email
+
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "id": event_id
+    })
+
+
 @bp.route("/api/approved-requests")
+@login_required
 @permission_required('screeningcore_approve+add')
 def approved_requests():
     requests = (

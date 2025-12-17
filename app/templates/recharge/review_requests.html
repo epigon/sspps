@@ -116,6 +116,9 @@
                         class="btn btn-secondary btn-sm">
                         Resend Email
                     </a>
+                    <br/>
+                    <a href="{{ url_for('recharge.calendar', request_id=req.id) }}" class="mt-2 btn btn-outline-primary btn-sm">View Calendar</a>
+                    
                     {% endif %}
                 </td>
                 <td>
@@ -143,6 +146,7 @@
                             Revoke Approval
                         </button>
                     </form>
+
                     {% else %}
                     <span class="text-muted">—</span>
                     {% endif %}

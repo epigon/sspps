@@ -520,5 +520,9 @@ class InstrumentCalendarEvent(db.Model):
         db.ForeignKey("InstrumentRequests.id"),
         nullable=False
     )
+    
+    deleted = db.Column(db.Boolean, default=False, nullable=False)
+    deleted_date = db.Column(db.DateTime, nullable=True)
+    deleted_by = db.Column(db.String(50), nullable=True)  # AD username of deleter
 
     

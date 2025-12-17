@@ -56,11 +56,6 @@
                     <div class="collapse navbar-collapse" id="navbarSupportedContent">
                         <ul class="navbar-nav me-auto mb-2 mb-lg-0">
 
-                            <!-- 
-                    <li class="nav-item active">
-                        <a class="nav-link" href="#">Screening Core</a>
-                    </li>
-                    -->
                             {% if has_permission('committee+view') %}
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown"
@@ -245,6 +240,28 @@
                                 </ul>
                             </li>
                             {% endif %}
+                            
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown"
+                                    aria-expanded="false">
+                                    Screening Core
+                                </a>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item"
+                                            href="{{ url_for('recharge.request_instrument') }}">Request Form</a>
+                                    </li>
+                                    {% if has_permission('screeningcore_approve+add') %}
+                                    <li><a class="dropdown-item"
+                                            href="{{ url_for('recharge.review_requests') }}">Review Requests</a>
+                                    </li>
+                                    {% endif %}
+                                    <li><a class="dropdown-item"
+                                            href="{{ url_for('recharge.calendar') }}">Booking Calendar</a>
+                                    </li>
+                                    
+                                </ul>
+                            </li>
+                            
                             {% if current_user.is_authenticated %}
                             <li class="nav-item active">
                                 <a class="nav-link" href="{{ url_for('main.profile') }}">Profile</a>
