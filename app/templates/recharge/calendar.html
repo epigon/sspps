@@ -144,6 +144,7 @@ Instrument Scheduler
 
         let calendar;
         let selectedMachines = new Set();
+        let knownMachines = new Set();
         let request = null;
 
         // -----------------------------
@@ -302,6 +303,9 @@ Instrument Scheduler
         const container = document.getElementById("machineFilters");
 
         machines.forEach(m => {
+            if (knownMachines.has(m)) return; // avoid duplicates
+            knownMachines.add(m);
+
             const btn = document.createElement("button");
             btn.type = "button";
             btn.className = "btn btn-sm me-1 mb-1";
@@ -316,14 +320,13 @@ Instrument Scheduler
                 btn.style.opacity = active ? "0.5" : "1";
 
                 active ? selectedMachines.delete(m) : selectedMachines.add(m);
-
-                calendar.refetchEvents(); 
-
+                calendar.refetchEvents();
             });
 
             container.appendChild(btn);
         });
     }
+
 
     
     function bootstrapCalendar() {
@@ -420,6 +423,13 @@ Instrument Scheduler
                 fetch(`/recharge/api/events?${params}`)
                     .then(res => res.json())
                     .then(events => {
+                        const machinesFromEvents = new Set(
+                            events.map(e => e.extendedProps.machine_name)
+                        );
+
+                        // Add any new machines to the filter UI
+                        buildMachineLegend([...machinesFromEvents]);
+                        
                         events.forEach((e, i) => {
                             const color = machine_color(e.extendedProps.machine_name);
                             e.backgroundColor = color;
