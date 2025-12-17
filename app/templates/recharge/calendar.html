@@ -462,20 +462,23 @@ Instrument Scheduler
             select: function (info) {
                 if (isPublic) return;
 
+                // ✅ RESET ADMIN MODAL STATE
+                resetEventModalForNew();
+
                 // document.getElementById("eventTitle").value = info.title || "";
                 document.getElementById("eventStart").value = info.startStr.slice(0, 16);
                 document.getElementById("eventEnd").value = info.endStr.slice(0, 16);
                 
-                const titleInput = document.getElementById("eventTitle");
-                titleInput.value = getDefaultEventTitle();
+                // const titleInput = document.getElementById("eventTitle");
+                // titleInput.value = getDefaultEventTitle();
 
-                delete saveBtn.dataset.eventId; // ensure NEW event state
-                if (deleteBtn) {
-                    deleteBtn.classList.add("d-none");
-                    deleteBtn.removeAttribute("data-event-id");
-                }
+                // delete saveBtn.dataset.eventId; // ensure NEW event state
+                // if (deleteBtn) {
+                //     deleteBtn.classList.add("d-none");
+                //     deleteBtn.removeAttribute("data-event-id");
+                // }
 
-                resetOverrideUI();
+                // resetOverrideUI();
 
                 bootstrap.Modal
                     .getOrCreateInstance(document.getElementById("eventModal"))
@@ -615,7 +618,40 @@ Instrument Scheduler
         });
     }
 
-    
+
+    function resetEventModalForNew() {
+        // Clear edit state
+        delete saveBtn.dataset.eventId;
+
+        // Reset request selector
+        const requestSelect = document.getElementById("requestSelect");
+        if (requestSelect) {
+            requestSelect.value = "";
+            delete requestSelect.dataset.machine;
+            delete requestSelect.dataset.requestor;
+        }
+
+        // Clear title
+        const titleInput = document.getElementById("eventTitle");
+        if (titleInput) {
+            titleInput.value = "";
+        }
+
+        // Hide delete button
+        if (deleteBtn) {
+            deleteBtn.classList.add("d-none");
+            deleteBtn.removeAttribute("data-event-id");
+        }
+
+        // Reset override UI
+        resetOverrideUI();
+
+        // Clear any previous errors
+        const errorDiv = document.getElementById("eventError");
+        if (errorDiv) errorDiv.textContent = "";
+    }
+
+
     // --------------------
     // Save Event
     // --------------------
