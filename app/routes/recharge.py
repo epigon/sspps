@@ -19,13 +19,13 @@ bp = Blueprint('recharge', __name__, url_prefix='/recharge')
 
 UCSD_COLORS = [
     "#182B49",  # UCSD Blue (Primary)
+    "#00629B",  # Blue
     "#C69214",  # UCSD Gold (Primary)
-    "#006A96",  # Ocean Blue
     "#6E963B",  # Green
-    "#FC8900",  # Orange
-    "#747678",  # Dark Gray
-    "#AFAFAF",  # Medium Gray
-    "#D2C7A1",  # Sand
+    "#691635",  # Magenta
+    "#00C6D7",  # Turquoise
+    "#FC8900",  # Orange    
+    "#747678",  # Cool Gray
     ]
 
 RECAPTCHA_SECRET = GOOGLE_RECAPTCHA_SECRET
@@ -41,10 +41,42 @@ RECAPTCHA_SITEKEY = GOOGLE_RECAPTCHA_SITEKEY
 def aligned_to_15(dt: datetime) -> bool:
     return dt.minute % 15 == 0 and dt.second == 0 and dt.microsecond == 0
 
-def machine_color(machine_name: str) -> str:
-    h = hashlib.md5(machine_name.encode()).hexdigest()
-    index = int(h[:8], 16) % len(UCSD_COLORS)
-    return UCSD_COLORS[index]
+
+def get_all_machines_from_db():
+    machines_list = Instrument.query.filter_by(flag=True).order_by(Instrument.machine_name).all()
+
+    return machines_list
+
+def assign_machine_colors(machines):
+    """
+    Assign each machine a unique color from UCSD_COLORS.
+    Returns a dict: {machine_name: color}
+    """
+    assigned = {}
+    used_colors = set()
+
+    for machine in machines:
+        # Hash machine name to pick initial index
+        h = hashlib.md5(machine.machine_name.encode("utf-8")).hexdigest()
+        index = int(h[:8], 16) % len(UCSD_COLORS)
+        color = UCSD_COLORS[index]
+
+        # Avoid duplicates
+        attempts = 0
+        while color in used_colors and attempts < len(UCSD_COLORS):
+            index = (index + 1) % len(UCSD_COLORS)
+            color = UCSD_COLORS[index]
+            attempts += 1
+
+        assigned[machine.machine_name] = color
+        used_colors.add(color)
+
+    return assigned
+
+@bp.route("/api/machine-colors")
+def get_machine_colors():
+    machines = get_all_machines_from_db()
+    return jsonify(assign_machine_colors(machines))
 
 def parse_iso_utc(value: str) -> datetime:
     dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -445,6 +477,7 @@ def calendar(request_id=None):
         recaptcha_site_key=RECAPTCHA_SITEKEY
     )
 
+
 @bp.route("/calendar/public")
 def public_calendar():
     return render_template(
@@ -453,6 +486,7 @@ def public_calendar():
         admin=False,
         public=True
     )
+
 
 """
 Get Instrument Request (Locking + Context)
@@ -468,6 +502,7 @@ def get_instrument_request(request_id):
         "status": req.status
     })
 
+
 """
 Get ALL Events (Multi-Machine Combined View)
 """
@@ -475,33 +510,54 @@ Get ALL Events (Multi-Machine Combined View)
 def get_events():
     machines = request.args.getlist("machine")
 
-    query = CalendarEvent.query
+    query = CalendarEvent.query.filter_by(deleted=False)
     if machines:
-        query = query.filter(CalendarEvent.machine_name.in_(machines)).filter_by(deleted=False)
+        query = query.filter(CalendarEvent.machine_name.in_(machines))
 
     events = query.all()
+    for e in events:
+        print("Event:", e.id, e.title, e.start, e.end, e.machine_name, e.request_id)
+
+    all_machines = get_all_machines_from_db()
+    machine_colors = assign_machine_colors(all_machines)
 
     for e in events:
         if e.request_id:
             req = InstrumentRequest.query.get_or_404(e.request_id)
             e.requestor_name = req.requestor_name
 
-    return jsonify([
-        {
+    event_list = []
+    for e in events:
+        if e.request_id:
+            req = InstrumentRequest.query.get_or_404(e.request_id)
+            e.requestor_name = req.requestor_name
+        machine = e.machine_name
+        event_list.append({
             "id": e.id,
-            "title": f"{e.title}",
-            "start": e.start.replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z"),
-            "end": e.end.replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z"),
-            "backgroundColor": machine_color(e.machine_name),
-            "borderColor": machine_color(e.machine_name),
+            "title": e.title,
+            "start": e.start.replace(tzinfo=timezone.utc)
+                            .isoformat()
+                            .replace("+00:00", "Z"),
+            "end": e.end.replace(tzinfo=timezone.utc)
+                          .isoformat()
+                          .replace("+00:00", "Z"),
             "extendedProps": {
-                "machine_name": e.machine_name,
+                "machine_name": machine,
                 "request_id": e.request_id,
                 "requestor_name": e.requestor_name
-            }
-        }
-        for e in events
-    ])
+            },
+            "backgroundColor": machine_colors.get(machine, "#000000"),
+            "borderColor": machine_colors.get(machine, "#000000")
+        })
+
+    # Include machine-color mapping for filter/legend
+    response = {
+        "events": event_list,
+        "machines": [{"name": m.machine_name, "color": machine_colors[m.machine_name]} for m in all_machines]
+    }
+
+    return jsonify(response)
+
 
 """
 List Machines for Filters
@@ -516,6 +572,29 @@ def get_machines():
     )
 
     return jsonify([m[0] for m in machines])
+
+
+@bp.route("/api/approved-requests")
+@login_required
+@permission_required('screeningcore_approve+add')
+def approved_requests():
+    requests = (
+        InstrumentRequest.query
+        .filter(InstrumentRequest.status == "Approved")
+        .order_by(InstrumentRequest.machine_name, InstrumentRequest.requestor_name)
+        .all()
+    )
+
+    return jsonify([
+        {
+            "id": r.id,
+            "machine_name": r.machine_name,
+            "requestor_name": r.requestor_name,
+            "pi_name": r.pi_name
+        }
+        for r in requests
+    ])
+
 
 """
 Add Event (Machine-Specific Conflict Rule)
@@ -584,6 +663,9 @@ def add_event():
     db.session.add(event)
     db.session.commit()
     
+    all_machines = get_all_machines_from_db()
+    machine_colors = assign_machine_colors(all_machines)
+
     return jsonify({
         "id": event.id,
         "title": f"{title}",
@@ -593,11 +675,10 @@ def add_event():
         "end": event.end.replace(tzinfo=timezone.utc)
                           .isoformat()
                           .replace("+00:00", "Z"),
-        "backgroundColor": machine_color(machine_name),
-        "borderColor": machine_color(machine_name),
+        "backgroundColor": machine_colors.get(event.machine_name, "#000000"),
         "extendedProps": {
-            "machine_name": machine_name,
-            "request_id": request_id,
+            "machine_name": event.machine_name,
+            "request_id": event.request_id,
             "requestor_name": req.requestor_name
         }
     })
@@ -621,6 +702,11 @@ def update_event():
 
     event = CalendarEvent.query.filter_by(id=event_id, deleted=False).first()
 
+    if not event:
+        return jsonify({"error": "Event not found"}), 404
+    print("Fetched event:", event)
+    print("Updating event:", event.id, event.title, event.start, event.end)
+
     start = parse_iso_utc(data["start"])
     end = parse_iso_utc(data["end"])
     machine = data["machine_name"]
@@ -628,7 +714,8 @@ def update_event():
     # ✅ Explicit boolean handling
     override = bool(data.get("override", False))
     admin = is_admin()
-
+    print("Admin:", admin, "Override:", override)
+    print(not (admin and override))
     # ---------------------------
     # CONFLICT CHECK
     # ---------------------------
@@ -637,7 +724,7 @@ def update_event():
             CalendarEvent.query
             .filter(
                 CalendarEvent.machine_name == machine,
-                CalendarEvent.id != event.id,  # exclude self
+                CalendarEvent.id != event_id,  # exclude self
                 CalendarEvent.start < end,
                 CalendarEvent.end > start,
                 CalendarEvent.deleted == False
@@ -660,6 +747,8 @@ def update_event():
     db.session.commit()
 
     req = InstrumentRequest.query.get_or_404(event.request_id)
+    all_machines = get_all_machines_from_db()
+    machine_colors = assign_machine_colors(all_machines)
 
     return jsonify({
         "id": event.id,
@@ -670,8 +759,7 @@ def update_event():
         "end": event.end.replace(tzinfo=timezone.utc)
                           .isoformat()
                           .replace("+00:00", "Z"),
-        "backgroundColor": machine_color(event.machine_name),
-        "borderColor": machine_color(event.machine_name),
+        "backgroundColor": machine_colors.get(event.machine_name, "#000000"),
         "extendedProps": {
             "machine_name": event.machine_name,
             "request_id": event.request_id,
@@ -710,23 +798,3 @@ def soft_delete_event():
     })
 
 
-@bp.route("/api/approved-requests")
-@login_required
-@permission_required('screeningcore_approve+add')
-def approved_requests():
-    requests = (
-        InstrumentRequest.query
-        .filter(InstrumentRequest.status == "Approved")
-        .order_by(InstrumentRequest.machine_name, InstrumentRequest.requestor_name)
-        .all()
-    )
-
-    return jsonify([
-        {
-            "id": r.id,
-            "machine_name": r.machine_name,
-            "requestor_name": r.requestor_name,
-            "pi_name": r.pi_name
-        }
-        for r in requests
-    ])

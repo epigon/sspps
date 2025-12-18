@@ -50,12 +50,61 @@ Instrument Scheduler
 
 {% block content %}
 
-<div class="mb-3" id="filtersWrapper">
-    <strong>Machines:</strong>
-    <div id="machineFilters" class="d-flex flex-wrap gap-2 mt-2"></div>
+<div class="container">
+    <div class="my-2 border border-1 p-2 rounded-3 bg-light">
+
+        {% if request_id or admin %}
+        <div class="row my-2 p-2">
+            {% if request_id %}
+            <div class="col">
+                <h4 class="instruction-toggle" role="button">
+                    <i class="icon-toggle bi bi-caret-right-fill"></i> General Instructions
+                    <!-- <span class="ms-2 text-muted btn-toggle">+ Show</span> -->
+                </h4>
+                <ul class="instruction-list d-none">
+                    <li>Please note that only Approved requests can be scheduled.</li>
+                    <li>Click on a time slot to schedule an instrument</li>
+                    <li>To request to edit or delete a booking, please send an email to <a
+                            href="mailto:screeningcore@health.ucsd.edu">screeningcore@health.ucsd.edu</a> with
+                        information
+                        on requestor name, and booking details.</li>
+                </ul>
+            </div>
+            {% endif %}
+
+            {% if admin %}
+            <div class="col">
+                <h4 class="instruction-toggle" role="button">
+                    <i class="icon-toggle bi bi-caret-right-fill"></i> Instructions for Admin
+                    <!-- <span class="ms-2 text-muted btn-toggle">+ Show</span> -->
+                </h4>
+                <ul class="instruction-list d-none">
+                    <li>Click on a time slot to schedule an instrument</li>
+                    <li>To edit booking, drag and drop the event to a new time slot or click and edit from the opened
+                        window.
+                        <ul>
+                            <li>If conflicts arise, the system will alert you to allow override.</li>
+                        </ul>
+                    </li>
+                    <li>To delete a booking, click on the event and press the "Delete" button.</li>
+                </ul>
+            </div>
+            {% endif %}
+
+        </div>
+
+        {% endif %}
+        <div class="col my-2 p-2" id="filtersWrapper">
+            <h4>Filter by Machine:</h4>
+            <div id="machineFilters" class="d-flex gap-2">
+                <!-- buttons go here -->
+            </div>
+        </div>
+    </div>
 </div>
 
 <div id="calendar"></div>
+
 
 <!-- Modal -->
 <div class="modal fade" id="eventModal" tabindex="-1">
@@ -109,9 +158,9 @@ Instrument Scheduler
 
             <div class="modal-footer">
                 {% if admin %}
-                    <button id="deleteEventBtn" class="btn btn-danger d-none">
-                        Delete
-                    </button>
+                <button id="deleteEventBtn" class="btn btn-danger d-none">
+                    Delete
+                </button>
                 {% endif %}
 
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -136,91 +185,124 @@ Instrument Scheduler
 <script>
     document.addEventListener("DOMContentLoaded", function () {
 
-        const requestID = {{ request_id| tojson }};
-        const isAdmin = {{ admin| tojson }};
-        const isPublic = {{ public| tojson }};
-        const deleteBtn = document.getElementById("deleteEventBtn");
-        const RECAPTCHA_SITE_KEY = "{{ recaptcha_site_key }}";
+        const requestID = {{ request_id| tojson
+    }};
+    const isAdmin = {{ admin| tojson }};
+    const isPublic = {{ public| tojson }};
+    const deleteBtn = document.getElementById("deleteEventBtn");
+    const RECAPTCHA_SITE_KEY = "{{ recaptcha_site_key }}";
 
-        let calendar;
-        let selectedMachines = new Set();
-        let knownMachines = new Set();
-        let request = null;
+    let calendar;
+    let selectedMachines = new Set();
+    // let knownMachines = new Set();
+    let allEvents = [];      // store ALL events once
+    let machineColors = {}; // machine → color map
+    let request = null;
 
-        // -----------------------------
-        // REQUEST MODE: if requestID exists
-        // -----------------------------
-        if (requestID) {
-            fetch(`/recharge/api/instrument-request/${requestID}`)
-                .then(res => res.json())
-                .then(req => {
-                    request = req;
+    // -----------------------------
+    // REQUEST MODE: if requestID exists
+    // -----------------------------
+    if (requestID) {
+        fetch(`/recharge/api/instrument-request/${requestID}`)
+            .then(res => res.json())
+            .then(req => {
+                request = req;
 
-                    // Set event title in modal
-                    document.getElementById("eventTitle").value = req.machine_name + " - " + req.requestor_name;
+                // Set event title in modal
+                document.getElementById("eventTitle").value = req.machine_name + " - " + req.requestor_name;
 
-                    // Hide machine filters since only one machine is relevant
-                    document.getElementById("filtersWrapper").style.display = "none";
+                // Hide machine filters since only one machine is relevant
+                document.getElementById("filtersWrapper").style.display = "none";
 
-                    // Only this machine is selected
-                    selectedMachines.clear();
-                    selectedMachines.add(req.machine_name);
+                // Only this machine is selected
+                selectedMachines.clear();
+                selectedMachines.add(req.machine_name);
+                // Initialize calendar after setting selected machine
+                fetchAllData().then(() => initCalendar());
 
-                    // Initialize calendar after setting selected machine
-                    bootstrapCalendar();
-                });
+            });
+    }
+
+    // -----------------------------
+    // ADMIN / PUBLIC MODE: fetch all machines
+    // -----------------------------
+    else {
+        // Fetch machines + colors for filter
+        fetch("/recharge/api/machines")
+            .then(res => res.json())
+            .then(machines => {
+                machines.forEach(m => selectedMachines.add(m));
+                buildMachineLegend(machines); // pass color from server
+                fetchAllData().then(() => initCalendar());
+            });
+    }
+
+    // --------------------
+    // Admin override UI
+    // --------------------
+    const overrideSection = document.getElementById("overrideSection");
+    const modalOverride = document.getElementById("modalOverrideToggle");
+    const saveBtn = document.getElementById("saveEventBtn");
+
+    modalOverride?.addEventListener("change", () => {
+        saveBtn.disabled = !modalOverride.checked;
+    });
+
+
+    document.getElementById("eventModal")?.addEventListener("shown.bs.modal", () => {
+        const errorDiv = document.getElementById("eventError");
+        if (errorDiv) errorDiv.textContent = "";
+
+        resetOverrideUI(); // already safe after our fix
+        // If NEW event and title is empty, apply default
+        if (!saveBtn.dataset.eventId) {
+            const titleInput = document.getElementById("eventTitle");
+            if (!titleInput.value) {
+                titleInput.value = getDefaultEventTitle();
             }
+        }
 
-            // -----------------------------
-            // ADMIN / PUBLIC MODE: fetch all machines
-            // -----------------------------
-            else {
-                fetch("/recharge/api/machines")
-                    .then(res => res.json())
-                    .then(machines => {
-                        machines.forEach((m, i) => selectedMachines.add(m));
-                        buildMachineLegend(machines);
-                        bootstrapCalendar(); 
-                        // initCalendar();
-                    });
-            }
+        if (!saveBtn.dataset.eventId && deleteBtn) {
+            deleteBtn.classList.add("d-none");
+        }
 
-            // --------------------
-            // Admin override UI
-            // --------------------
-            const overrideSection = document.getElementById("overrideSection");
-            const modalOverride = document.getElementById("modalOverrideToggle");
-            const saveBtn = document.getElementById("saveEventBtn");
-
-            modalOverride?.addEventListener("change", () => {
-                saveBtn.disabled = !modalOverride.checked;
-            });
+    });
 
 
-            document.getElementById("eventModal")?.addEventListener("shown.bs.modal", () => {
-                const errorDiv = document.getElementById("eventError");
-                if (errorDiv) errorDiv.textContent = "";
-
-                resetOverrideUI(); // already safe after our fix
-                // If NEW event and title is empty, apply default
-                if (!saveBtn.dataset.eventId) {
-                    const titleInput = document.getElementById("eventTitle");
-                    if (!titleInput.value) {
-                        titleInput.value = getDefaultEventTitle();
-                    }
-                }
-
-                if (!saveBtn.dataset.eventId && deleteBtn) {
-                    deleteBtn.classList.add("d-none");
-                }
-
-            });
-
-            ["eventStart", "eventEnd"].forEach(id => {
-                document.getElementById(id)?.addEventListener("change", () => {
-                document.getElementById("eventError").textContent = "";
-            });
+    ["eventStart", "eventEnd"].forEach(id => {
+        document.getElementById(id)?.addEventListener("change", () => {
+            document.getElementById("eventError").textContent = "";
         });
+    });
+
+    document.querySelectorAll(".instruction-toggle").forEach(header => {
+        header.addEventListener("click", () => {
+            const toggleIcon = header.querySelector(".icon-toggle");
+            if (toggleIcon) {
+                toggleIcon.classList.toggle("bi-caret-right-fill");
+                toggleIcon.classList.toggle("bi-caret-down-fill");
+            }
+            const list = header.nextElementSibling;
+            if (!list) return;
+
+            list.classList.toggle("d-none");
+        });
+    });
+
+    function fetchAllData() {
+        return fetch("/recharge/api/events")
+            .then(res => res.json())
+            .then(data => {
+                allEvents = data.events || [];
+
+                data.machines.forEach(m => {
+                    // selectedMachines.add(m.name);
+                    machineColors[m.name] = m.color;
+                });
+
+                buildMachineLegend(data.machines);
+            });
+    }
 
     function getDefaultEventTitle() {
         // Request-based scheduling
@@ -270,27 +352,6 @@ Instrument Scheduler
         save.disabled = false;
     }
 
-    // --------------------
-    // Helper: JS machine color (match backend)
-    // --------------------
-    
-    let UCSD_COLORS = [
-        "#182B49",  // UCSD Blue (Primary)
-        "#C69214",  // UCSD Gold (Primary)
-        "#006A96",  // Ocean Blue
-        "#6E963B",  // Green
-        "#FC8900",  // Orange
-        "#747678",  // Dark Gray
-        "#AFAFAF",  // Medium Gray
-        "#D2C7A1",  // Sand
-    ]
-    function machine_color(machine_name) {
-        const h = md5(machine_name);           
-        // Take first 8 chars to stay within JS safe number range
-        const shortHash = h.slice(0, 8);  
-        const index = parseInt(shortHash, 16) % UCSD_COLORS.length;
-        return UCSD_COLORS[index];
-    }
 
     // Minimal MD5 function for color hashing
     function md5(str) {
@@ -301,17 +362,15 @@ Instrument Scheduler
 
     function buildMachineLegend(machines) {
         const container = document.getElementById("machineFilters");
-
         machines.forEach(m => {
-            if (knownMachines.has(m)) return; // avoid duplicates
-            knownMachines.add(m);
-
+            if (!m.name) return;
+            
             const btn = document.createElement("button");
             btn.type = "button";
-            btn.className = "btn btn-sm me-1 mb-1";
-            btn.style.backgroundColor = machine_color(m);
+            btn.className = "btn me-1 mb-1";
+            btn.style.backgroundColor = m.color; // use server color
             btn.style.color = "#fff";
-            btn.textContent = m;
+            btn.textContent = m.name;
             btn.dataset.active = "true";
 
             btn.addEventListener("click", () => {
@@ -319,7 +378,7 @@ Instrument Scheduler
                 btn.dataset.active = (!active).toString();
                 btn.style.opacity = active ? "0.5" : "1";
 
-                active ? selectedMachines.delete(m) : selectedMachines.add(m);
+                active ? selectedMachines.delete(m.name) : selectedMachines.add(m.name);
                 calendar.refetchEvents();
             });
 
@@ -328,12 +387,11 @@ Instrument Scheduler
     }
 
 
-    
-    function bootstrapCalendar() {
-        if (calendar) return; // SAFETY GUARD
-        initCalendar();
-    }
-    
+    // function bootstrapCalendar() {
+    //     if (calendar) return; // SAFETY GUARD
+    //     initCalendar();
+    // }
+
 
     function isValidDateRange(startStr, endStr) {
         if (!startStr || !endStr) return false;
@@ -396,7 +454,7 @@ Instrument Scheduler
         calendar = new FullCalendar.Calendar(document.getElementById("calendar"), {
             initialView: "timeGridWeek",
 
-                    
+
             headerToolbar: {
                 left: "prev,next today",
                 center: "title",
@@ -406,41 +464,49 @@ Instrument Scheduler
             selectable: isAdmin || (request && request.status === "Approved"),
             editable: isAdmin,
 
-            events: function(fetchInfo, success) {
-                const params = new URLSearchParams();
+            events: function (fetchInfo, success) {
+                const filtered = allEvents.filter(e =>
+                    selectedMachines.has(e.extendedProps.machine_name)
+                );
+                success(filtered);
+                // const params = new URLSearchParams();
 
-                if (request) {
-                    // Only fetch events for the request's machine
-                    params.append("machine", request.machine_name);
-                } else {
-                    if (selectedMachines.size === 0) {
-                        success([]); // nothing selected
-                        return;
-                    }
-                    selectedMachines.forEach(m => params.append("machine", m));
-                }
+                // if (request) {
+                //     // Only fetch events for the request's machine
+                //     params.append("machine", request.machine_name);
+                // } else {
+                //     if (selectedMachines.size === 0) {
+                //         success([]); // nothing selected
+                //         return;
+                //     }
+                //     selectedMachines.forEach(m => params.append("machine", m));
+                // }
 
-                fetch(`/recharge/api/events?${params}`)
-                    .then(res => res.json())
-                    .then(events => {
-                        const machinesFromEvents = new Set(
-                            events.map(e => e.extendedProps.machine_name)
-                        );
+                // fetchEventsAndMachines().then(events => success(events));
+                // fetch(`/recharge/api/events?${params}`)
+                //     .then(res => res.json())
+                //     .then(events => {
+                //         const machinesFromEvents = new Set(
+                //             events.map(e => e.extendedProps.machine_name)
+                //         );
 
-                        // Add any new machines to the filter UI
-                        buildMachineLegend([...machinesFromEvents]);
-                        
-                        events.forEach((e, i) => {
-                            const color = machine_color(e.extendedProps.machine_name);
-                            e.backgroundColor = color;
-                            e.borderColor = color;
-                        });
-                        success(events);
-                    });
+                //         // Add any new machines to the filter UI
+                //         buildMachineLegend([...machinesFromEvents]);
+
+                //         success(events);
+                //     });
             },
 
             datesSet: function () {
-                if (isAdmin) return;
+                if (isAdmin && !request) return;
+
+                if (isPublic) {
+                    const titleEl = document.querySelector(".fc-toolbar-title");
+                    if (titleEl) {
+                        titleEl.textContent = "Instruments Calendar";
+                    }
+                    return
+                }
 
                 let titleText = "Scheduler";
 
@@ -465,27 +531,14 @@ Instrument Scheduler
                 // ✅ RESET ADMIN MODAL STATE
                 resetEventModalForNew();
 
-                // document.getElementById("eventTitle").value = info.title || "";
                 document.getElementById("eventStart").value = info.startStr.slice(0, 16);
                 document.getElementById("eventEnd").value = info.endStr.slice(0, 16);
-                
-                // const titleInput = document.getElementById("eventTitle");
-                // titleInput.value = getDefaultEventTitle();
-
-                // delete saveBtn.dataset.eventId; // ensure NEW event state
-                // if (deleteBtn) {
-                //     deleteBtn.classList.add("d-none");
-                //     deleteBtn.removeAttribute("data-event-id");
-                // }
-
-                // resetOverrideUI();
 
                 bootstrap.Modal
                     .getOrCreateInstance(document.getElementById("eventModal"))
                     .show();
-                // }
             },
-            eventClick: function(info) {
+            eventClick: function (info) {
                 if (!isAdmin) {
                     info.jsEvent.preventDefault(); // stop navigation
                     return;                        // do nothing
@@ -493,12 +546,12 @@ Instrument Scheduler
 
                 const e = info.event;
                 const props = e.extendedProps;
-                
+
                 // Pull from extendedProps
                 const machineName = props.machine_name;
                 const requestId = props.request_id;
                 const requestorName = props.requestor_name || "";
-                console.log("Event clicked:", requestId, machineName, requestorName);
+
                 const requestSelect = document.getElementById("requestSelect");
                 if (requestSelect) {
                     requestSelect.value = requestId || "";
@@ -511,7 +564,7 @@ Instrument Scheduler
                     (machineName && requestorName
                         ? `${machineName} — ${requestorName}`
                         : "");
-                
+
                 document.getElementById("eventStart").value = e.startStr.slice(0, 16);
                 document.getElementById("eventEnd").value = e.endStr.slice(0, 16);
 
@@ -534,20 +587,47 @@ Instrument Scheduler
                     info.el.style.cursor = "default";
                 }
 
-                // const machine = info.event.extendedProps.machine_name;
-                // if (!selectedMachines.has(machine)) {
-                //     info.el.style.display = "none";
-                // }
+                const machine = info.event.extendedProps.machine_name;
+
+                info.el.style.backgroundColor =
+                    machineColors[machine] || "#747678";
+
+                if (!selectedMachines.has(machine)) {
+                    info.el.style.display = "none";
+                }
             },
             eventDrop: handleEventMove,
             eventResize: handleEventMove
         });
-        
-        calendar.render();  
+
+        calendar.render();
 
     }
 
-    
+
+    // function fetchEventsAndMachines() {
+    //     const params = new URLSearchParams();
+    //     selectedMachines.forEach(m => params.append("machine", m));
+
+    //     return fetch(`/recharge/api/events?${params}`)
+    //         .then(res => res.json())
+    //         .then(data => {
+    //             // Events for FullCalendar
+    //             const events = data.events;
+    //             // Machine-color mapping for filter buttons
+    //             const machines = data.machines;
+
+    //             // Build legend if not yet built
+    //             if (!window.machineLegendBuilt) {
+    //                 buildMachineLegend(machines);
+    //                 window.machineLegendBuilt = true;
+    //             }
+
+    //             return events;
+    //         });
+    // }
+
+
     function handleEventMove(info) {
 
         // First attempt: no override
@@ -558,9 +638,9 @@ Instrument Scheduler
 
     function attemptMove(info, override) {
         // Execute reCAPTCHA v3
-        grecaptcha.ready(function() {
-            grecaptcha.execute(RECAPTCHA_SITE_KEY, {action: "submit"}).then(function(token) {
-                
+        grecaptcha.ready(function () {
+            grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: "submit" }).then(function (token) {
+
                 // Add token to payload
                 const payload = {
                     id: info.event.id,
@@ -568,52 +648,52 @@ Instrument Scheduler
                     start: info.event.start.toISOString(),
                     end: info.event.end.toISOString(),
                     machine_name: info.event.extendedProps?.machine_name,
-                    request_id: requestID || null,
+                    request_id: info.event.extendedProps?.request_id || null,
                     override: override,
-                    recaptcha_token: token  
+                    recaptcha_token: token
                 };
-                
+
                 fetch("/recharge/api/events/update", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(payload)
                 })
-                .then(res => res.json().then(d => ({ ok: res.ok, body: d })))
-                .then(res => {
-                    // Conflict detected
-                    if (!res.ok && res.body.conflict) {
+                    .then(res => res.json().then(d => ({ ok: res.ok, body: d })))
+                    .then(res => {
+                        // Conflict detected
+                        if (!res.ok && res.body.conflict) {
 
-                        // Non-admins can’t override
-                        if (!isAdmin) {
-                            alert(res.body.error);
-                            info.revert();
+                            // Non-admins can’t override
+                            if (!isAdmin) {
+                                alert(res.body.error);
+                                info.revert();
+                                return;
+                            }
+
+                            // Ask admin to confirm override
+                            const confirmed = confirm(
+                                "This move conflicts with an existing booking.\n\nOverride and force the move?"
+                            );
+
+                            if (confirmed) {
+                                // Retry WITH override
+                                attemptMove(info, true);
+                            } else {
+                                info.revert();
+                            }
                             return;
                         }
 
-                        // Ask admin to confirm override
-                        const confirmed = confirm(
-                            "This move conflicts with an existing booking.\n\nOverride and force the move?"
-                        );
-
-                        if (confirmed) {
-                            // Retry WITH override
-                            attemptMove(info, true);
-                        } else {
+                        // Other error
+                        if (!res.ok) {
+                            alert(res.body.error || "Unable to move event.");
                             info.revert();
                         }
-                        return;
-                    }
-
-                    // Other error
-                    if (!res.ok) {
-                        alert(res.body.error || "Unable to move event.");
+                    })
+                    .catch(() => {
+                        alert("Unexpected error while moving event.");
                         info.revert();
-                    }
-                })
-                .catch(() => {
-                    alert("Unexpected error while moving event.");
-                    info.revert();
-                });
+                    });
             });
         });
     }
@@ -667,8 +747,9 @@ Instrument Scheduler
         }
 
         // Execute reCAPTCHA v3
-        grecaptcha.ready(function() {
-            grecaptcha.execute(RECAPTCHA_SITE_KEY, {action: "submit"}).then(function(token) {
+        grecaptcha.ready(function () {
+            grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: "submit" }).then(function (token) {
+
                 const reqSelect = document.getElementById("requestSelect");
                 const requestId = requestID || reqSelect?.value || null;
                 const machineName = request?.machine_name || reqSelect?.selectedOptions[0]?.dataset.machine;
@@ -694,47 +775,82 @@ Instrument Scheduler
                     override: override,
                     recaptcha_token: token  // ✅ send token to backend
                 };
-
+                console.log("Saving event with payload:", payload);
                 fetch(payload.id ? "/recharge/api/events/update" : "/recharge/api/events", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(payload)
                 })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.error) {
-                        document.getElementById("eventError").textContent = data.error;
-                        if (data.conflict) showOverrideUI();
-                        return;
-                    }
+                    .then(res => res.json())
+                    .then(data => {
+                        console.log("Save response data:", data);
+                        if (data.error) {
+                            document.getElementById("eventError").textContent = data.error;
+                            if (data.conflict) showOverrideUI();
+                            return;
+                        }
 
-                    if (eventId) {
-                        // existing edit
-                        const event = calendar.getEventById(eventId);
-                        event.setProp("title", data.title);
-                        event.setStart(data.start);
-                        event.setEnd(data.end);
+                        if (eventId) {
+                            // Update master list
+                            const idx = allEvents.findIndex(e => e.id == eventId);
+                            if (idx !== -1) {
+                                allEvents[idx].title = data.title;
+                                allEvents[idx].start = data.start;
+                                allEvents[idx].end = data.end;
+                            }
 
-                        calendar.refetchEvents();
-                    } else {
-                        // ✅ NEW EVENT
-                        const machine =
-                            data.extendedProps?.machine_name ||
-                            data.machine_name ||
-                            machineName;
+                            // Update visible event
+                            const event = calendar.getEventById(eventId);
+                            event.setProp("title", data.title);
+                            event.setStart(data.start);
+                            event.setEnd(data.end);
 
-                        enableMachineFilter(machine);
+                            // existing edit
+                            // const event = calendar.getEventById(eventId);
+                            // event.setProp("title", data.title);
+                            // event.setStart(data.start);
+                            // event.setEnd(data.end);
 
-                        // calendar.removeAllEvents();
-                        calendar.refetchEvents();
+                            // calendar.refetchEvents();
+                        } else {
+                            // NEW EVENT
+                            const newEvent = {
+                                id: data.id,
+                                title: data.title,
+                                start: data.start,
+                                end: data.end,
+                                backgroundColor: data.backgroundColor,
+                                borderColor: data.borderColor,
+                                extendedProps: data.extendedProps
+                            };
 
-                    }
+                            // 1️⃣ Store in master list
+                            allEvents.push(newEvent);
 
-                    resetOverrideUI();
-                    delete saveBtn.dataset.eventId; // clear edit state
-                    bootstrap.Modal.getInstance(document.getElementById("eventModal")).hide();
+                            // 2️⃣ Enable its machine filter
+                            enableMachineFilter(newEvent.extendedProps.machine_name);
 
-                });
+                            // 3️⃣ Re-render calendar
+                            calendar.refetchEvents();
+
+                            // ✅ NEW EVENT
+                            // const machine =
+                            //     data.extendedProps?.machine_name ||
+                            //     data.machine_name ||
+                            //     machineName;
+
+                            // enableMachineFilter(machine);
+
+                            // // calendar.removeAllEvents();
+                            // calendar.refetchEvents();
+
+                        }
+
+                        resetOverrideUI();
+                        delete saveBtn.dataset.eventId; // clear edit state
+                        bootstrap.Modal.getInstance(document.getElementById("eventModal")).hide();
+
+                    });
             });
         });
     });
@@ -760,29 +876,25 @@ Instrument Scheduler
                         recaptcha_token: token
                     })
                 })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.error) {
-                        alert(data.error);
-                        return;
-                    }
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.error) {
+                            alert(data.error);
+                            return;
+                        }
 
-                    // Remove from calendar
-                    const event = calendar.getEventById(eventId);
-                    if (event) event.remove();
+                        // Remove from calendar
+                        const event = calendar.getEventById(eventId);
+                        if (event) event.remove();
 
-                    bootstrap.Modal
-                        .getInstance(document.getElementById("eventModal"))
-                        .hide();
-                });
+                        bootstrap.Modal
+                            .getInstance(document.getElementById("eventModal"))
+                            .hide();
+                    });
             });
         });
     });
-
 });
-
-
 </script>
-
 
 {% endblock %}

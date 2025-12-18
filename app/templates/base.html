@@ -252,7 +252,10 @@
                                     </li>
                                     {% if has_permission('screeningcore_approve+add') %}
                                     <li><a class="dropdown-item"
-                                            href="{{ url_for('recharge.review_requests') }}">Review Requests</a>
+                                            href="{{ url_for('recharge.review_requests', status='Pending') }}">Pending Requests</a>
+                                    </li>
+                                    <li><a class="dropdown-item"
+                                            href="{{ url_for('recharge.review_requests', status='Approved') }}">Approved Requests</a>
                                     </li>
                                     {% endif %}
                                     <li><a class="dropdown-item"
