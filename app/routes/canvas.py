@@ -265,7 +265,7 @@ def get_canvas_events(context_codes=[], start_date=datetime.now(), end_date=None
 
         data = response.json()
         for event in data:
-            if "all_day_date" in event and event["all_day_date"]:
+            if event["all_day"] and "all_day_date" in event and event["all_day_date"]:
                 # Parse date (assume YYYY-MM-DD from Canvas or your source)
                 all_day = datetime.strptime(event["all_day_date"], "%Y-%m-%d").date()
                 event['start_at'] = all_day.strftime("%Y%m%d")  # 20251017
