@@ -87,7 +87,7 @@ def verify_captcha(captcha_response):
         "https://www.google.com/recaptcha/api/siteverify",
         data={"secret": RECAPTCHA_SECRET, "response": captcha_response}
     )
-    print(r.json())
+    # print(r.json())
     return r.json().get("success", False)
 
 # --- Requestor form ---
@@ -170,7 +170,7 @@ def review_requests():
     # print(current_user.can("screeningcore_approve", "add"))
     status = request.args.get("status")
     machine = request.args.get("machine")
-    print("machine",request.args.get('machine'))
+    # print("machine",request.args.get('machine'))
     query = InstrumentRequest.query
 
     if status:
@@ -226,11 +226,11 @@ def email_request(request_id):
 
     # Create barcode image in memory
     payload = f"{req.id}"
-    print("Payload:", payload, type(payload))    
+    # print("Payload:", payload, type(payload))    
 
     # Generate QR code image
     qr_img = qrcode.make(payload).convert("RGB")
-    print("QR size:", qr_img.size)
+    # print("QR size:", qr_img.size)
 
     # Pick a font (falls back if not found)
     try:
@@ -243,7 +243,7 @@ def email_request(request_id):
     # Measure text size
     dummy_img = Image.new("RGB", (1, 1))
     dummy_draw = ImageDraw.Draw(dummy_img)
-    print("Measuring text...")
+    # print("Measuring text...")
     try:
         bbox = dummy_draw.textbbox((0, 0), title_text, font=font)
         text_width = bbox[2] - bbox[0]
@@ -251,7 +251,7 @@ def email_request(request_id):
     except AttributeError:
         # For older Pillow
         text_width, text_height = dummy_draw.textsize(title_text, font=font)
-    print("Text size:", text_width, text_height)
+    # print("Text size:", text_width, text_height)
 
     # Create canvas
     qr_width, qr_height = qr_img.size
@@ -269,7 +269,7 @@ def email_request(request_id):
 
     # ✅ Force save to a known writable location
     filename = os.path.join(tempfile.gettempdir(), f"{req.id}.png")
-    print("Saving QR to:", filename)
+    # print("Saving QR to:", filename)
 
     try:
         new_img.save(filename, "PNG")
@@ -328,11 +328,11 @@ def email_request_barcode(request_id):
 
     # Create barcode image in memory
     payload = f"{req.id}"
-    print("Payload:", payload, type(payload))    
+    # print("Payload:", payload, type(payload))    
 
     # Generate QR code image
     qr_img = qrcode.make(payload).convert("RGB")
-    print("QR size:", qr_img.size)
+    # print("QR size:", qr_img.size)
 
     # Pick a font (falls back if not found)
     try:
@@ -345,7 +345,7 @@ def email_request_barcode(request_id):
     # Measure text size
     dummy_img = Image.new("RGB", (1, 1))
     dummy_draw = ImageDraw.Draw(dummy_img)
-    print("Measuring text...")
+    # print("Measuring text...")
     try:
         bbox = dummy_draw.textbbox((0, 0), title_text, font=font)
         text_width = bbox[2] - bbox[0]
@@ -353,7 +353,7 @@ def email_request_barcode(request_id):
     except AttributeError:
         # For older Pillow
         text_width, text_height = dummy_draw.textsize(title_text, font=font)
-    print("Text size:", text_width, text_height)
+    # print("Text size:", text_width, text_height)
 
     # Create canvas
     qr_width, qr_height = qr_img.size
@@ -371,7 +371,7 @@ def email_request_barcode(request_id):
 
     # ✅ Force save to a known writable location
     filename = os.path.join(tempfile.gettempdir(), f"{req.id}.png")
-    print("Saving QR to:", filename)
+    # print("Saving QR to:", filename)
 
     try:
         new_img.save(filename, "PNG")
@@ -515,8 +515,8 @@ def get_events():
         query = query.filter(CalendarEvent.machine_name.in_(machines))
 
     events = query.all()
-    for e in events:
-        print("Event:", e.id, e.title, e.start, e.end, e.machine_name, e.request_id)
+    # for e in events:
+    #     print("Event:", e.id, e.title, e.start, e.end, e.machine_name, e.request_id)
 
     all_machines = get_all_machines_from_db()
     machine_colors = assign_machine_colors(all_machines)
@@ -704,8 +704,8 @@ def update_event():
 
     if not event:
         return jsonify({"error": "Event not found"}), 404
-    print("Fetched event:", event)
-    print("Updating event:", event.id, event.title, event.start, event.end)
+    # print("Fetched event:", event)
+    # print("Updating event:", event.id, event.title, event.start, event.end)
 
     start = parse_iso_utc(data["start"])
     end = parse_iso_utc(data["end"])
@@ -714,8 +714,9 @@ def update_event():
     # ✅ Explicit boolean handling
     override = bool(data.get("override", False))
     admin = is_admin()
-    print("Admin:", admin, "Override:", override)
-    print(not (admin and override))
+    # print("Admin:", admin, "Override:", override)
+    # print(not (admin and override))
+
     # ---------------------------
     # CONFLICT CHECK
     # ---------------------------
