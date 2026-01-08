@@ -10,6 +10,7 @@ from flask_login import login_required
 from icalendar import Calendar, Event, vText
 from os.path import dirname, join, abspath
 import dateutil.parser
+from dateutil.relativedelta import relativedelta
 import dateutil.tz
 import os
 import pytz
@@ -151,12 +152,12 @@ def generate_scheduled_ics():
                 convert_utc_to_local(course['end_at'])
                 if course.get('end_at') else
                 # Provide a default local datetime if the field is missing
-                datetime.now(dateutil.tz.gettz()).replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+                datetime.now(dateutil.tz.gettz()) + relativedelta(years=5)
             )
         }
         for course in courses if 'id' in course 
     }
-    # print(course_map)
+    print(course_map)
 
     selections = CalendarGroupSelection.query.all()
     group_data = {}
