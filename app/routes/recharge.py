@@ -326,6 +326,8 @@ def email_request_barcode(request_id):
     user = User.query.filter_by(id=current_user.id, deleted=False).first()
     approver = Employee.query.filter_by(employee_id=user.employee_id).first()
 
+    calendar_url = f"{request.url_root.rstrip('/')}{url_for('recharge.calendar', request_id=req.id)}"
+    
     # Create barcode image in memory
     payload = f"{req.id}"
     # print("Payload:", payload, type(payload))    
@@ -397,7 +399,7 @@ def email_request_barcode(request_id):
         <li><strong>Minimum usage time:</strong> {machine.min_duration} {machine.duration_type}.</li>
         <li><strong>Billing increments:</strong> Time is billed in {machine.min_increment}-{machine.increment_type} increments after the minimum usage time ({machine.min_duration} {machine.duration_type}).</li>
         <li><strong>Logout requirement:</strong> Please log out at the end of your session. Billing continues until logout is completed.</li>
-        <li><strong>Booking:</strong> All sessions must be reserved in advance through the instrument booking calendar.  Calendar link will be sent shortly.</li>
+        <li><strong>Booking:</strong> All sessions must be reserved in advance through the instrument booking calendar.  Click <a href="{calendar_url}">Calendar Link</a> to book.</li>
     </ul>
 
     <p>Thank you for your cooperation, and we look forward to supporting your work!</p>
