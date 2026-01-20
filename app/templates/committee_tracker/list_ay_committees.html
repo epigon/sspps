@@ -154,20 +154,37 @@ Dashboard
                             <span class="text-muted">N/A</span>
                             {% endif %}
                         </p>
+                        {% if com.meeting_duration_in_minutes %}
                         <p class="card-text mb-1">
                             <strong>Meeting Duration:</strong>
-                            {% if com.meeting_duration_in_minutes %}
                             {{ com.meeting_duration_in_minutes }} minutes
-                            {% else %}
-                            <span class="text-muted">N/A</span>
-                            {% endif %}
                         </p>
+                        {% endif %}
+                        {% if com.supplemental_minutes_per_frequency %}
                         <p class="card-text mb-1">
                             <strong>Supplemental Minutes per Frequency:</strong>
-                            {{ com.supplemental_minutes_per_frequency if
-                            com.supplemental_minutes_per_frequency else 'N/A' }} minutes
-
+                            {{ com.supplemental_minutes_per_frequency }} minutes
                         </p>
+                        {% endif %}
+                        {% if com.chair_term_in_years %}
+                        <p class="card-text mb-1">
+                            <strong>Chair Term:</strong>
+                            {{ com.chair_term_in_years }} year{{ 's' if com.chair_term_in_years != 1 else '' }}
+                        </p>
+                        {% endif %}
+                        {% if com.ex_officio_term_in_years %}
+                        <p class="card-text mb-1">
+                            <strong>Ex-officio Term:</strong>
+                            {{ com.ex_officio_term_in_years }} year{{ 's' if com.ex_officio_term_in_years != 1 else ''
+                            }}
+                        </p>
+                        {% endif %}
+                        {% if com.member_term_in_years %}
+                        <p class="card-text mb-1">
+                            <strong>Member Term:</strong>
+                            {{ com.member_term_in_years }} year{{ 's' if com.member_term_in_years != 1 else '' }}
+                        </p>
+                        {% endif %}
                     </div>
                 </div>
             </div>

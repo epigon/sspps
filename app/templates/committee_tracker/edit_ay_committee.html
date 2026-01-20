@@ -32,6 +32,9 @@ Committee
             {{ render_field(form.meeting_frequency_type_id) }}
             {{ render_field(form.meeting_duration_in_minutes) }}
             {{ render_field(form.supplemental_minutes_per_frequency) }}
+            {{ render_field(form.chair_term_in_years) }}
+            {{ render_field(form.ex_officio_term_in_years) }}
+            {{ render_field(form.member_term_in_years) }}
             <div class="mb-3">
                 <label for="copy_from_id" class="form-label">Copy from Previous Academic Year</label>
                 <select id="copy_from_id" name="copy_from_id" class="form-select" disabled>

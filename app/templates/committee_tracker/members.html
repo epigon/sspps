@@ -316,6 +316,9 @@
                             {{ render_field(aycommitteeForm.meeting_frequency_type_id) }}
                             {{ render_field(aycommitteeForm.meeting_duration_in_minutes) }}
                             {{ render_field(aycommitteeForm.supplemental_minutes_per_frequency) }}
+                            {{ render_field(aycommitteeForm.chair_term_in_years) }}
+                            {{ render_field(aycommitteeForm.ex_officio_term_in_years) }}
+                            {{ render_field(aycommitteeForm.member_term_in_years) }}
                             <button class="btn btn-primary" type="submit">Save</button>
                         </form>
                         {% else %}
@@ -336,6 +339,18 @@
                                 {{ aycommittee.supplemental_minutes_per_frequency if
                                 aycommittee.supplemental_minutes_per_frequency else 'N/A' }} minutes
                             </li>
+                            <li class="list-group-item">
+                                <strong>Chair Term:</strong>
+                                {{ aycommittee.chair_term_in_years if aycommittee.chair_term_in_years else 'N/A' }}
+                                year{{ 's' if aycommittee.chair_term_in_years != 1 else '' }}</li>
+                            <li class="list-group-item">
+                                <strong>Ex-officio Term:</strong>
+                                {{ aycommittee.ex_officio_term_in_years if aycommittee.ex_officio_term_in_years else
+                                'N/A' }} year{{ 's' if aycommittee.ex_officio_term_in_years != 1 else '' }}</li>
+                            <li class="list-group-item">
+                                <strong>Member Term:</strong>
+                                {{ aycommittee.member_term_in_years if aycommittee.member_term_in_years else 'N/A' }}
+                                year{{ 's' if aycommittee.member_term_in_years != 1 else '' }}</li>
                         </ul>
                         {% endif %}
                     </div>

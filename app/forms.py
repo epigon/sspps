@@ -199,8 +199,11 @@ class AYCommitteeForm(FlaskForm):
     committee_id = SelectField('Committee', validators=[InputRequired()], choices=[])
     academic_year_id = SelectField('Academic Year', validators=[InputRequired()], choices=[])
     meeting_frequency_type_id = SelectField('Meeting Frequency', choices=[], validators=[DataRequired()])
-    meeting_duration_in_minutes = IntegerField('Meeting duration per frequency (in minutes)', default=0)
-    supplemental_minutes_per_frequency = IntegerField('Outside meeting workload per frequency (in minutes)', default=0)
+    meeting_duration_in_minutes = IntegerField('Meeting duration per frequency (in minutes)', validators=[Optional()])
+    supplemental_minutes_per_frequency = IntegerField('Outside meeting workload per frequency (in minutes)', validators=[Optional()])
+    chair_term_in_years = IntegerField('Chair term (in years)', validators=[Optional()])
+    ex_officio_term_in_years = IntegerField('Ex-officio term (in years)', validators=[Optional()])
+    member_term_in_years = IntegerField('Member term (in years)', validators=[Optional()])
     copy_from_id = SelectField("Copy from Previous Academic Years", coerce=int, choices=[(0, "-- Select --")], default=0)
 
 class CommitteeReportForm(FlaskForm):

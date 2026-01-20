@@ -1,7 +1,7 @@
 from app import db
 from datetime import datetime
 from flask_login import UserMixin
-from sqlalchemy import event, Column, Integer, String, DateTime, UniqueConstraint, ForeignKey, Boolean, Date, Time, Text #create_engine, 
+from sqlalchemy import Column, Integer, String, DateTime, UniqueConstraint, ForeignKey, Boolean, Date, Time, Text 
 from sqlalchemy.orm import relationship, object_session
 from sqlalchemy.dialects.mssql import UNIQUEIDENTIFIER
 import uuid
@@ -152,8 +152,11 @@ class AYCommittee(db.Model):
     committee_id = Column(Integer, ForeignKey('BASE_COMMITTEES.id', ondelete='RESTRICT'), nullable=False)
     academic_year_id = Column(Integer, ForeignKey('ACADEMIC_YEARS.id', ondelete='RESTRICT'), nullable=False)
     meeting_frequency_type_id = Column(Integer, ForeignKey('FREQUENCY_TYPES.id'))
-    meeting_duration_in_minutes = Column(Integer)
-    supplemental_minutes_per_frequency = Column(Integer)
+    meeting_duration_in_minutes = Column(Integer, nullable=True)
+    supplemental_minutes_per_frequency = Column(Integer, nullable=True)
+    chair_term_in_years = Column(Integer, nullable=True)
+    ex_officio_term_in_years = Column(Integer, nullable=True)
+    member_term_in_years = Column(Integer, nullable=True)
     active = Column(Boolean, default=True)
     finalized = Column(Boolean, default=False)
     finalized_date = Column(DateTime, nullable=True)
@@ -243,6 +246,7 @@ class Employee(db.Model):
     employee_last_name = Column(String(50), nullable=False)
     username = Column(String(50), unique=True, nullable=False)
     email = Column(String(50), unique=True)
+    employee_work_phone_number = Column(String(50))
     reports_to_id = Column(Integer, ForeignKey('EMPLOYEES.employee_id'))
     department = Column(String(255))
     employee_type = Column(String(50))
@@ -263,6 +267,7 @@ class Employee(db.Model):
         'employee_last_name': 'Last Name',
         'username': 'Username',
         'email': 'Email Address',
+        'employee_work_phone_number': 'Work Phone Number',
         'reports_to_id': 'Supervisor',
         'department': 'Department',
         'employee_type': 'Employee Type',

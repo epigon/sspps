@@ -25,6 +25,21 @@
                 overflow: visible !important;
             }
         }
+
+        #backToTop {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 9999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        #backToTop.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
     </style>
 
     {% endblock %}
@@ -41,7 +56,7 @@
             <!-- Left: Logo -->
             <a href="{{ url_for('main.home') }}" class="d-flex align-items-center">
                 <img src="{{ url_for('static', filename='img/UCSDLogo-SkaggsSchool-2023-BlueGold-sm.jpg') }}"
-                    alt="UC San Diego logo" style="height:60px;" />
+                    alt="UC San Diego logo" style="height:60px;" id="pageLogo" />
             </a>
 
             <!-- Right: Navbar -->
@@ -345,12 +360,29 @@
             </div>
         </div>
     </footer>
+
+    <button id="backToTop" class="btn btn-warning rounded-circle">
+        <i class="bi bi-arrow-up"></i>
+    </button>
+
+
     {%- endblock footer %}
 
     {% block scripts %}
     <!-- Optional JavaScript -->
     {{ bootstrap.load_js() }}
+
+    <script src="{{ url_for('static', filename='scripts/backToTop.js') }}"></script>
+    <script>
+        BackToTop.init({
+            buttonId: "backToTop",
+            scrollContainer: ".content",
+            threshold: 200
+        });
+    </script>
+
     {% endblock %}
+
 </body>
 
 </html>
