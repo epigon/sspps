@@ -7,8 +7,11 @@ engine = create_engine(connection_string)
 
 def import_employees():
     # Step 1: Load the CSV files
-    df = pd.read_csv('app/static/files/vchs_sspps_employee.csv')
-    
+    df = pd.read_csv('app/static/files/vchs_sspps_employee.csv',
+                     dtype={
+                            'Department_Code': 'string'  # use the CSV column name here
+                        })
+                        
     # Rename columns
     rename_map = {
         'Employee_Name_Current': 'employee_name',
@@ -80,8 +83,9 @@ def import_employees():
         subset=["employee_id", "job_indicator"],
         keep="first"
     )   
-
+    
     staging_table = 'STAGING_EMPLOYEES'
+    
     filtered_df.to_sql(staging_table, con=engine, if_exists='replace', index=False)
 
     # filtered_df = filtered_df.sort_values("employee_id")
