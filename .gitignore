@@ -201,3 +201,5 @@ run_import_projecttaskcodes-local.bat
 myEmma-apikey.txt
 app/static/files/vchs_sspps_employee.csv
 app/static/files/vchs_sspps_job_location.csv
+run_import_employees-local.bat
+app/csv2sql.py

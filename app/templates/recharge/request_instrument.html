@@ -3,25 +3,58 @@
 <div class="container mt-4">
     <h2>Instrument Request Form</h2>
     {% if not request_data %}
+    <p class="text-muted">
+        <span class="text-danger">*</span> Required fields
+    </p>
+
     <form method="POST">
         {{ form.hidden_tag() }}
         {% for field in form if field.name != 'submit' and field.name != 'csrf_token' %}
         <div class="row mb-3">
             {% if field.type == 'RadioField' %}
-            <div class="col-3">{{ field.label(class="form-check-label") }}</div>
-            <div class="col-6">{% for subfield in form.had_training %}
+            <div class="col-3">
+                <label class="form-label" for="{{ field.id }}">
+                    {{ field.label.text }}
+                    {% if field.flags.required %}
+                    <span class="text-danger">*</span>
+                    {% endif %}
+                </label>
+            </div>
+            <div class="col-6">
+                {% for subfield in form.had_training %}
                 <div class="form-check form-check-inline">
-                    {{ subfield(class="form-check-input") }}
+                    {{ subfield(
+                    class="form-check-input",
+                    required=field.flags.required and loop.first
+                    ) }}
                     {{ subfield.label(class="form-check-label") }}
                 </div>
                 {% endfor %}
             </div>
             {% elif field.type == 'SelectField' or field.type == 'DataAttributeSelectField' %}
-            <div class="col-3">{{ field.label(class="form-label") }}</div>
-            <div class="col-6">{{ field(class="form-select") }}</div>
+            <div class="col-3">
+                <label class="form-label" for="{{ field.id }}">
+                    {{ field.label.text }}
+                    {% if field.flags.required %}
+                    <span class="text-danger">*</span>
+                    {% endif %}
+                </label>
+            </div>
+            <div class="col-6">{{ field(class="form-select", required=field.flags.required) }}</div>
             {% else %}
-            <div class="col-3">{{ field.label(class="form-label") }}</div>
-            <div class="col-6">{{ field(class="form-control") }}</div>
+            <div class="col-3">
+                <label class="form-label" for="{{ field.id }}">
+                    {{ field.label.text }}
+                    {% if field.flags.required %}
+                    <span class="text-danger">*</span>
+                    {% endif %}
+                </label>
+            </div>
+                {% if field.flags.required %}
+                <div class="col-6">{{ field(class="form-control", required=field.flags.required) }}</div>
+                {% else %}
+                <div class="col-6">{{ field(class="form-control") }}</div>
+                {% endif %}
             {% endif %}
             <div class="col-3">
                 {% for error in field.errors %}

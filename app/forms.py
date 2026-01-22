@@ -147,15 +147,13 @@ class PermissionForm(FlaskForm):
 
         return True
     
-## COMMITTEE TRACKER FORMS
+#----------------------
+# COMMITTEE TRACKER APP
+#----------------------
 class MultiCheckboxField(SelectMultipleField):
     widget = widgets.ListWidget(prefix_label=False)
     option_widget = widgets.CheckboxInput()
 
-# class OrganizationForm(FlaskForm):
-#     orgName = StringField('Organization Name', validators=[InputRequired(), Length(max=50)], render_kw={'autofocus': True})
-#     logo = FileField('Logo', render_kw={'accept': "image/*"})
-    
 class AcademicYearForm(FlaskForm):
     year = StringField('Academic Year', validators=[InputRequired(), Length(max=50)], render_kw={'autofocus': True})
     is_current = BooleanField('Current Academic Year', default=False)
@@ -266,11 +264,17 @@ class FileUploadForm(FlaskForm):
     ay_committee_id = HiddenField('AYCommittee', validators=[DataRequired()])
     files = FileField('Files', render_kw={'accept': "image/*"})
 
+#----------------------
+# EXCHANGE CALENDAR APP
+#----------------------
 class CalendarGroupForm(FlaskForm):
     name = StringField('Name', validators=[DataRequired()])
     ics_filename = StringField('ICS Filename', validators=[DataRequired()])
     submit = SubmitField('Save')
 
+#----------------------
+# STUDENT DB APP
+#----------------------
 class StudentForm(FlaskForm):
     pid = StringField("PID", validators=[DataRequired()])
     username = StringField("Username", validators=[DataRequired()])
@@ -292,19 +296,21 @@ class StudentForm(FlaskForm):
 class GroupForm(FlaskForm):
     group_name = StringField('Google Group Name', validators=[DataRequired()])
 
+#----------------------
 # RECHARGE APP
+#----------------------
 class InstrumentRequestForm(FlaskForm):
     machine = SelectField("Instrument", validators=[DataRequired()])
     department_code = SelectField('Department', validators=[DataRequired()])
     pi_name = DataAttributeSelectField("PI Name", validators=[DataRequired()])
     pi_email = StringField("PI Email", validators=[DataRequired(), Email()])
-    pi_phone = TelField("PI Phone")
+    pi_phone = TelField("PI Phone", validators=[Optional()])
     project_task_code = DataAttributeSelectField("Project-Task Code", validators=[DataRequired()])
     funding_source = DataAttributeSelectField("Funding Source", validators=[DataRequired()])
     requestor_name = StringField("Requestor Name", validators=[DataRequired()])
     requestor_position = StringField("Requestor Position", validators=[DataRequired()])
     requestor_email = StringField("Requestor Email", validators=[DataRequired(), Email()])
-    requestor_phone = TelField("Requestor Phone")
+    requestor_phone = TelField("Requestor Phone", validators=[Optional()])
     had_training = RadioField(
         "Have you taken the mandatory training?",
         choices=[("yes", "Yes"), ("no", "No")],
@@ -315,7 +321,7 @@ class InstrumentRequestForm(FlaskForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.machine.choices = [
-            (0, '--- Select Instrument ---') 
+            ('', '--- Select Instrument ---') 
         ] + [
             (m.machine_name, m.machine_name)
             for m in Instrument.query.filter_by(flag=True)

@@ -78,8 +78,10 @@ class User(UserMixin, db.Model):
     
     def __str__(self):
         return f'ID: {self.id}\nUsername: {self.username}\nRole: {self.role_id}\nActive: {self.is_active}'
-    
-## COMMITTEE TRACKER MODELS
+
+#----------------------
+# COMMITTEE TRACKER APP
+#----------------------  
 class AcademicYear(db.Model):
     __tablename__ = 'ACADEMIC_YEARS'
     id = Column(Integer, primary_key=True)
@@ -353,7 +355,9 @@ class MemberRole(db.Model):
     # def __str__(self):
     #     return f'Role: {self.role}\nDescription: {self.description}\nVoting: {self.voting}'
 
-# Scheduler Models
+#----------------------
+# PANOPTO SCHEDULER APP
+#----------------------  
 class ScheduledRecording(db.Model):
     __tablename__ = 'SCHEDULED_RECORDINGS'
     id = Column(db.Integer, primary_key=True)
@@ -367,6 +371,9 @@ class ScheduledRecording(db.Model):
     broadcast = Column(Boolean, default=False)
     create_date = Column(db.DateTime, default=datetime.now)
 
+#----------------------
+# EXCHANGE CALENDAR APP
+#----------------------  
 class CalendarGroupSelection(db.Model):
     __tablename__ = 'CALENDAR_GROUP_SELECTIONS'
     id = Column(db.Integer, primary_key=True)
@@ -381,7 +388,9 @@ class CalendarGroup(db.Model):
     name = Column(db.String(100), nullable=False)
     ics_filename = Column(db.String(100), nullable=False)
 
-
+#----------------------
+# STUDENT DB APP
+#----------------------  
 class Student(db.Model):
     __tablename__ = 'STUDENTS'
     id = Column(Integer, primary_key=True)
@@ -408,6 +417,9 @@ class Student(db.Model):
     delete_by = Column(Integer)
     deleted = Column(Boolean, default=False)
     
+#----------------------
+# LISTSERV/GROUPS APP
+#----------------------  
 class Listserv(db.Model):
     __tablename__ = 'LISTSERV'
     id = Column(db.Integer, primary_key=True)
@@ -417,8 +429,10 @@ class Listserv(db.Model):
     delete_date = Column(db.DateTime, nullable=True)
     delete_by = Column(Integer)
     deleted = Column(db.Boolean, default=False)
-
+    
+#----------------------
 # RECHARGE APP
+#----------------------
 class ProjectTaskCode(db.Model):
     __bind_key__ = 'rechargedb' 
     __tablename__ = 'ProjectTaskCodes'
@@ -464,17 +478,17 @@ class InstrumentRequest(db.Model):
     department = db.relationship( "Department", back_populates="instrument_requests" )
     pi_name = Column(db.String(100), nullable=False)
     pi_email = Column(db.String(120), nullable=False)
-    pi_phone = Column(db.String(20))
+    pi_phone = Column(db.String(20), nullable=True)
     # ad_username = Column(db.String(50), nullable=False)
     requestor_name = Column(db.String(50), nullable=False)
     requestor_position = Column(db.String(100), nullable=False)
     requestor_email = Column(db.String(120), nullable=False)
-    requestor_phone = Column(db.String(20))
+    requestor_phone = Column(db.String(20), nullable=True)
     had_training = Column(db.Boolean, nullable=False, default=False)
     project_task_code = Column(db.String(50), nullable=False)
     funding_source_code = db.Column(db.String(50), nullable=False)
     status = Column(db.String(20), default="Pending")  # Pending, Approved, Denied, Cancelled
-    notes = db.Column(db.Text)
+    notes = db.Column(db.Text, nullable=True)
     created_at = Column(db.DateTime, default=datetime.now)
     approved_at = Column(db.DateTime)
     approved_by = Column(db.String(50))  # AD username of reviewer
