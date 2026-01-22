@@ -1,4 +1,5 @@
 from app.cred import server, user, pwd, database, odbcdriver  # ensure `database` is defined in cred.py
+from datetime import datetime
 from sqlalchemy import create_engine, text
 import pandas as pd
 
@@ -74,8 +75,6 @@ def import_employees():
     )
 
     print(f"{filtered_df['email'].isnull().sum()} employees missing email from contact file.")
-    # with pd.option_context('display.max_rows', None):
-    #     print(filtered_df.loc[filtered_df['email'].isnull(), ['employee_id', 'employee_name', 'email']])
 
     print(f"{filtered_df['pay_frequency'].isnull().sum()} employees missing pay frequency from pay file.")
 
@@ -87,41 +86,8 @@ def import_employees():
     staging_table = 'STAGING_EMPLOYEES'
     
     filtered_df.to_sql(staging_table, con=engine, if_exists='replace', index=False)
+    print(f"Loaded {len(filtered_df)} records into {staging_table}.")
 
-    # filtered_df = filtered_df.sort_values("employee_id")
-    # filtered_df = filtered_df.drop_duplicates(subset=["employee_id"], keep="first")
-
-    # staging = pd.read_sql(
-    #     "SELECT employee_id, job_indicator FROM STAGING_EMPLOYEES",
-    #     engine
-    # )
-
-    # dupes_in_staging = staging[
-    #     staging.duplicated(subset=["employee_id", "job_indicator"], keep=False)
-    # ]
-
-    # print(dupes_in_staging)
-    # return
-
-
-    # db_count = pd.read_sql("SELECT COUNT(*) AS cnt FROM STAGING_EMPLOYEES", engine).iloc[0]["cnt"]
-    # df_count = len(filtered_df)
-
-    # print(f"Rows in DataFrame: {df_count}")
-    # print(f"Rows in STAGING_EMPLOYEES: {db_count}")
-    # print(f"Missing rows: {df_count - db_count}")
-    # return
-    # Display employee ID, first name, and last name columns
-    # cols = ['employee_id', 'employee_first_name', 'employee_last_name']
-    # existing = [c for c in cols if c in filtered_df.columns]
-    # with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-    #     # select rows where last name is Anderson or Suhandynata
-    #     mask = filtered_df['employee_last_name'].isin(['Anderson', 'Suhandynata'])
-    #     if mask.any():
-    #         print(filtered_df.loc[mask, existing])
-    # return
-
-    # return ""
     merge_sql = f"""
         ;WITH Staging AS (
             SELECT *
@@ -458,10 +424,9 @@ def import_employees():
     # Count how many rows were inserted or updated
     from collections import Counter
     action_counts = Counter(row[0] for row in actions)
+
     print(f"Inserted: {action_counts['INSERT']}, Updated: {action_counts['UPDATE']}")
 
-    # with engine.begin() as conn:
-    #     conn.execute(text("TRUNCATE TABLE STAGING_EMPLOYEES"))
-
 if __name__ == '__main__':
+    print("Run summary:", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     import_employees()
