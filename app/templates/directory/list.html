@@ -1,0 +1,844 @@
+{% extends "base.html" %}
+
+{% block title %}Contact Directory{% endblock %}
+{% block head %}
+{{ super() }}
+<!-- DataTables CSS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+
+<!-- DataTables JS -->
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<!-- Include jsPDF and AutoTable -->
+<!-- jsPDF global (UMD) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
+<style>
+    .accordion-header .btn {
+        white-space: nowrap;
+    }
+
+    .accordion-item.hidden * {
+        opacity: 0.95;
+        font-style: italic;
+    }
+
+    .card-header button {
+        text-decoration: none;
+        color: #00629B;
+    }
+
+    .card-header button:hover {
+        background-color: #f8f9fa;
+    }
+
+    .highlight-row {
+        background-color: #F5F0E6 !important;
+        /* Bootstrap warning */
+        transition: background-color 2s ease;
+    }
+
+    /* optional smooth fade effect */
+    .highlight-fade {
+        transition: background-color 1s ease;
+        background-color: transparent !important;
+        /* fade back to normal */
+    }
+
+    /* Hide category header row on screen */
+    table thead.category-title {
+        display: none;
+    }
+
+    .form-label {
+        font-size: .9em;
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h1>{% if type == "alumni" %}Alumni Directory{% else %}Contact Directory{% endif %}</h1>
+
+    <div id="formMessage" class="mb-4"></div>
+
+    <div class="mb-3">
+        <div class="btn-group" role="group" aria-label="Directory Actions">
+            {% if admin %}
+            <button class="btn btn-primary" onclick="openContactModal(null); return false;">
+                <i class="bi bi-person-plus"></i> Add Contact
+            </button>
+            <a class="btn btn-outline-info" href="{{ url_for('directory.categories', type=type) }}">
+                <i class="bi bi-pencil-square"></i> Edit Categories
+            </a>
+
+            <button class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#pdfHeaderModal">
+                <i class="bi bi-file-earmark-text"></i>PDF/Email Settings
+            </button>
+            {% endif %}
+            <button class="btn btn-outline-info" id="exportPdfBtn">
+                <i class="bi bi-file-pdf"></i> Export PDF
+            </button>
+        </div>
+        <div class="float-end">
+            <button class="btn btn-outline-secondary" id="toggleAllBtn">
+                <i class="bi bi-arrows-angle-expand"></i> Expand All
+            </button>
+        </div>
+
+    </div>
+
+    <div class="accordion" id="dir">
+        {% for c in categories %}
+        {% set display_fields = c.display_fields.split(",") if c.display_fields else [] %}
+        {% set is_lab = c.is_lab %}
+
+        <div class="accordion-item {% if not c.show_in_directory and type == 'contacts' %}hidden{% endif %}">
+            <h2 class="accordion-header">
+                <div class="d-flex align-items-center">
+                    <button class="accordion-button collapsed bg-outline-primary fw-bold flex-grow-1" data-bs-toggle="collapse"
+                        data-bs-target="#c{{ c.id }}">
+                        {{ c.name }}                        
+                        {% if not c.show_in_directory and type == 'contacts' %}
+                        <span class="text-muted ms-2">(Hidden)</span>
+                        {% endif %}
+                        {% if is_lab %}
+                        {% if c.building_room %}({{ c.building_room }}){% endif %} {% if c.office_phone %}| {{
+                        c.office_phone }}{% endif %} {%if c.lab_phone %}| {{ c.lab_phone }}{% endif %}
+                        {% endif %}
+                        
+                    </button>
+                </div>
+            </h2>
+
+            <div id="c{{ c.id }}" class="accordion-collapse collapse">
+                <div class="accordion-body p-0">
+
+                    {% if not is_lab %}
+                    <table class="table table-bordered table-sm directory-table m-0">
+                        <thead class="category-title table-primary">
+                            <tr>
+                                <td colspan="{{ display_fields | length + 1 }}">
+                                    {{ c.name }}
+                                    {% if is_lab %}
+                                    {% if c.building_room %}({{ c.building_room }}){% endif %} {% if c.office_phone %}|
+                                    {{
+                                    c.office_phone }}{% endif %} {%if c.lab_phone %}| {{ c.lab_phone }}{% endif %}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        </thead>
+                        <thead class="table-light">
+                            <tr>
+                                {% if "last_name" in display_fields %}
+                                <th class="text-center col-1">Last Name</th>
+                                {% endif %}
+                                {% if "first_name" in display_fields %}
+                                <th class="text-center col-1">First Name</th>
+                                {% endif %}
+                                {% if "group_name" in display_fields %}
+                                <th class="text-center col-2">Group Name</th>
+                                {% endif %}
+                                {% if "job_title" in display_fields %}<th class="text-center col-2">Title</th>{% endif
+                                %}
+                                {% if "email" in display_fields %}<th class="text-center col-2">UCSD Email</th>{% endif %}
+                                {% if "personal_email" in display_fields %}<th class="text-center col-2">Personal Email</th>{% endif %}
+                                {% if "building_room" in display_fields %}<th class="text-center col-2">Location</th>{%
+                                endif %}
+                                {% if "phone_number" in display_fields %}<th class="text-center col-2">Phone</th>{%
+                                endif %}
+                                {% if "mail_code" in display_fields %}<th class="text-center col-1">Mail Code</th>{%
+                                endif %}
+                                {% if admin %}
+                                <th class="text-center action">Action</th>
+                                {% endif %}
+                            </tr>
+
+                        </thead>
+                        <tbody>
+                            {% for u in c.contacts %}
+                            <tr data-contact-id="{{ u.id }}">
+                                {% if "last_name" in display_fields %}
+                                <td>{{
+                                    u.last_name }}</td>
+                                {% endif %}
+                                {% if "first_name" in display_fields %}
+                                <td>{{
+                                    u.first_name }}</td>
+                                {% endif %}
+                                {% if "group_name" in display_fields %}
+                                <td>{{
+                                    u.group_name }}</td>
+                                {% endif %}
+                                {% if "job_title" in display_fields %}<td>{{
+                                    u.job_title }}</td>{% endif %}
+                                {% if "email" in display_fields %}<td>{{ u.email
+                                    }}</td>{% endif %}
+                                {% if "personal_email" in display_fields %}<td>{{ u.personal_email
+                                    }}</td>{% endif %}
+                                {% if "building_room" in display_fields %}<td>{{
+                                    u.building_room }}</td>{% endif %}
+                                {% if "phone_number" in display_fields %}<td>{{
+                                    u.phone_number }}</td>{% endif %}
+                                {% if "mail_code" in display_fields %}<td>{{
+                                    u.mail_code }}</td>{% endif %}
+                                {% if admin %}
+                                <td class="text-center action col-1 text-nowrap">
+                                    <div class="btn-group" role="group" aria-label="manage">
+                                        <button class="btn btn-sm btn-outline-primary"
+                                            onclick="openContactModal({{ c.id }}, {{ u.id }})">
+                                            <i class="bi bi-pencil-square"></i> Edit
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger"
+                                            onclick="if(confirm('Are you sure?')) deleteContact({{ u.id }})">
+                                            <i class="bi bi-trash"></i> Delete
+                                        </button>
+                                    </div>
+                                </td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+
+                    {% set contact_types = [
+                    "Staff",
+                    "Student",
+                    "Postdoctoral Scholar",
+                    "Volunteer",
+                    "GSR",
+                    "Other"
+                    ] %}
+
+
+                    {% set grouped = {} %}
+                    {% for ct in contact_types %}
+                    {% set _ = grouped.update({ct: []}) %}
+                    {% endfor %}
+
+                    {% for u in c.contacts %}
+                    {% if u.contact_type in grouped %}
+                    {% set _ = grouped[u.contact_type].append(u) %}
+                    {% endif %}
+                    {% endfor %}
+
+                    {% set max_rows = grouped.values() | map('length') | max %}
+
+                    <table class="table table-bordered table-sm directory-matrix m-0">
+                        <thead class="table-light">
+                            <tr>
+                                {% for ct in contact_types %}
+                                <th class="text-center col-2">{{ ct }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for i in range(max_rows) %}
+                            <tr>
+                                {% for ct in contact_types %}
+
+                                <td data-contact-id="{{ grouped[ct][i].id if grouped[ct]|length > i else '' }}"
+                                    class="col-2">
+                                    {% if grouped[ct]|length > i %}
+                                    {{ grouped[ct][i].last_name }},
+                                    {{ grouped[ct][i].first_name }}
+
+                                    {% if grouped[ct][i].job_title %}
+                                    <span class="fst-italic">({{ grouped[ct][i].job_title }})</span>
+                                    {% endif %}
+
+                                    {% if grouped[ct][i].other_type %}
+                                    <span class="fst-italic">({{ grouped[ct][i].other_type }})</span>
+                                    {% endif %}
+                                        {% if admin %}
+                                        <div class="action btn-group float-end" role="group" aria-label="Basic example">
+                                            <button class="btn btn-sm btn-outline-primary"
+                                                onclick="openContactModal({{ c.id }}, {{ grouped[ct][i].id }})">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger"
+                                                onclick="if(confirm('Are you sure?')) deleteContact({{ grouped[ct][i].id }})">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                        {% endif %}
+                                    {% endif %}
+                                </td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+{% include "directory/contact_modal.html" %}
+
+{% include "directory/header_modal.html" %}
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+
+<script>
+    function initContactWizard() {
+        // if (window.contactWizardInit) return;
+        // window.contactWizardInit = true;
+
+        window.CATEGORY_MAP = window.CATEGORY_MAP || {{ category_map | tojson }};
+
+        const category = document.getElementById("category_id");
+        const first = document.getElementById("first_name");
+        const last = document.getElementById("last_name");
+        const group = document.getElementById("group_name");
+        const groupRow = document.getElementById("groupNameRow");
+        const contactType = document.getElementById("contactType");
+
+        const isStudentCheckbox = document.getElementById("isStudentCheckbox");
+        const isEmployeeCheckbox = document.getElementById("isEmployeeCheckbox");
+        const isAffiliateCheckbox = document.getElementById("isAffiliateCheckbox");
+
+        const pidField = document.getElementById("pidField");
+        const empField = document.getElementById("empField");
+        const affField = document.getElementById("affField");
+
+        // const totalSteps = document.querySelectorAll(".form-step").length;
+        const steps = document.querySelectorAll(".form-step");
+        const totalSteps = steps.length;
+
+        let currentStep = 1;
+
+        function toggleContactFields() {
+            console.log("Toggling contact fields");
+            const selectedCategoryId = category ? category.value : null;
+            const isLab = selectedCategoryId &&
+                window.CATEGORY_MAP?.[selectedCategoryId]?.is_lab;
+            console.log("Is Lab:", isLab);
+
+            // Lab / extra fields
+            const labFields = document.getElementById('labFields');
+            const extraFields = document.getElementById('extraFields');
+            if (labFields && extraFields) {
+                labFields.style.display = isLab ? 'flex' : 'none';
+                extraFields.style.display = isLab ? 'none' : 'block';
+            }
+
+            // Contact Type Other
+            const otherType = document.getElementById('otherTypeGroup');
+            if (otherType) otherType.style.display = contactType.value === "Other" ? 'flex' : 'none';
+
+            // Affiliations
+            pidField.style.display = isStudentCheckbox.checked ? 'flex' : 'none';
+            empField.style.display = isEmployeeCheckbox.checked ? 'flex' : 'none';
+            affField.style.display = isAffiliateCheckbox.checked ? 'flex' : 'none';
+
+            // Lab disables group_name
+            if (groupRow) {
+                if (isLab) {
+                    groupRow.style.display = "none";
+                    group.value = "";
+                    group.disabled = true;
+                } else {
+                    groupRow.style.display = "flex";
+                    group.disabled = false;
+                }
+            }
+        }
+
+        function showStep(step) {
+            document.querySelectorAll(".form-step").forEach(div => div?.classList.add("d-none"));
+            const stepDiv = document.querySelector(`.form-step[data-step="${step}"]`);
+            if (stepDiv) stepDiv.classList.remove("d-none");
+
+            document.getElementById("prevBtn").disabled = step === 1;
+            document.getElementById("nextBtn").classList.toggle("d-none", step === totalSteps);
+            document.getElementById("saveBtn").classList.toggle("d-none", step !== totalSteps);
+
+            const progressBar = document.getElementById("formProgress");
+            if (progressBar) {
+                const percent = Math.round((step / totalSteps) * 100);
+                progressBar.style.width = percent + "%";
+                progressBar.setAttribute("aria-valuenow", percent);
+            }
+                
+            validateStep();
+        }
+
+        function validateStep() {
+            let valid = true;
+            document.querySelectorAll(".is-invalid").forEach(el => el.classList.remove("is-invalid"));
+
+            const selectedCategoryId = category?.value;
+            const isLab = selectedCategoryId &&
+                window.CATEGORY_MAP?.[selectedCategoryId]?.is_lab;
+
+            const hasPerson = first.value.trim() && last.value.trim();
+            const hasGroup = !isLab && group.value.trim();
+
+            if (currentStep === 1) {
+                if (!selectedCategoryId) { valid = false; category.classList.add("is-invalid"); }
+                if (isLab && !hasPerson) { valid = false; first.classList.add("is-invalid"); last.classList.add("is-invalid"); }
+                if (!isLab && !hasPerson && !hasGroup) { valid = false; first.classList.add("is-invalid"); last.classList.add("is-invalid"); group.classList.add("is-invalid"); }
+                if (isLab && !contactType.value) { valid = false; contactType.classList.add("is-invalid"); }
+            }
+
+            document.getElementById("nextBtn").disabled = !valid;
+        }
+
+        function resetButton(id) {
+            const btn = document.getElementById(id);
+            if (!btn) return null;
+            const clone = btn.cloneNode(true);
+            btn.replaceWith(clone);
+            return clone;
+        }
+
+        const nextBtn = resetButton("nextBtn");
+        const prevBtn = resetButton("prevBtn");
+
+        // Event listeners
+        [category, contactType, isStudentCheckbox, isEmployeeCheckbox, isAffiliateCheckbox].forEach(el => el?.addEventListener("change", toggleContactFields));
+        [first, last, group, category, contactType].forEach(el => el?.addEventListener("input", validateStep));
+        // first.addEventListener("input", () => { group.value = ""; validateStep(); });
+        // group.addEventListener("input", () => { first.value = ""; last.value = ""; validateStep(); });
+
+        // document.getElementById("nextBtn").addEventListener("click", () => { if (currentStep < totalSteps) { currentStep++; showStep(currentStep); } });
+        // document.getElementById("prevBtn").addEventListener("click", () => { if (currentStep > 1) { currentStep--; showStep(currentStep); } });
+        nextBtn?.addEventListener("click", () => {
+            if (currentStep < totalSteps) {
+                currentStep++;
+                showStep(currentStep);
+            }
+        });
+
+        prevBtn?.addEventListener("click", () => {
+            if (currentStep > 1) {
+                currentStep--;
+                showStep(currentStep);
+            }
+        });
+
+
+        // Initial run
+        toggleContactFields();
+        showStep(currentStep);
+    }
+
+    function openContactModal(categoryId = null, contactId = null) {
+        let url = "/directory/contacts_modal";
+        if (categoryId) {
+            url += `/${categoryId}`;
+            if (contactId) url += `/${contactId}`;
+        }
+        url += "?type={{ type }}";
+
+        $("#contactModalContent").load(url, function () {
+
+            // reset wizard state
+            window.currentStep = 1;
+
+            initContactWizard();
+
+            const modal = new bootstrap.Modal(
+                document.getElementById("contactModal"),
+                { backdrop: "static" }
+            );
+            modal.show();
+        });
+
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+
+        const accordionItems = document.querySelectorAll("#dir .accordion-collapse");
+        const toggleBtn = document.getElementById("toggleAllBtn");
+        let allExpanded = false; // Tracks current state
+
+        toggleBtn.addEventListener("click", function () {
+            accordionItems.forEach(el => {
+                const instance = bootstrap.Collapse.getOrCreateInstance(el, { toggle: false });
+                if (allExpanded) {
+                    instance.hide();
+                } else {
+                    instance.show();
+                }
+            });
+
+            // Flip state
+            allExpanded = !allExpanded;
+
+            // Update button text & icon
+            if (allExpanded) {
+                toggleBtn.innerHTML = `<i class="bi bi-arrows-angle-contract"></i> Collapse All`;
+            } else {
+                toggleBtn.innerHTML = `<i class="bi bi-arrows-angle-expand"></i> Expand All`;
+            }
+        });
+
+    });
+
+    // document.addEventListener("DOMContentLoaded", function () {
+
+    //     const accordionItems = document.querySelectorAll("#dir .accordion-collapse");
+
+    //     document.getElementById("expandAllBtn").addEventListener("click", function () {
+    //         accordionItems.forEach(el => {
+    //             const instance = bootstrap.Collapse.getOrCreateInstance(el, {
+    //                 toggle: false
+    //             });
+    //             instance.show();
+    //         });
+    //     });
+
+    //     document.getElementById("collapseAllBtn").addEventListener("click", function () {
+    //         accordionItems.forEach(el => {
+    //             const instance = bootstrap.Collapse.getOrCreateInstance(el, {
+    //                 toggle: false
+    //             });
+    //             instance.hide();
+    //         });
+    //     });
+
+    // });
+
+    // Export PDF
+    document.addEventListener("DOMContentLoaded", function () {
+        const type = "{{ type }}";
+        document.getElementById("exportPdfBtn").addEventListener("click", function () {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('l', 'pt', 'a4');
+
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            const MARGIN = 30;
+            const FOOTER_MARGIN = 30;
+            let yOffset = 25;
+
+            // ---------- LETTERHEAD: LOGO ----------
+            const logoImg = document.getElementById("pageLogo");
+            if (logoImg) {
+                const canvas = document.createElement("canvas");
+                canvas.width = logoImg.naturalWidth;
+                canvas.height = logoImg.naturalHeight;
+                const ctx = canvas.getContext("2d");
+                ctx.drawImage(logoImg, 0, 0);
+                const imgData = canvas.toDataURL("image/png");
+
+                const logoWidth = 150;
+                const logoHeight = (canvas.height * logoWidth) / canvas.width;
+                const xCenter = (pageWidth - logoWidth) / 2;
+
+                doc.addImage(imgData, 'PNG', xCenter, yOffset, logoWidth, logoHeight);
+                yOffset += logoHeight + 10;
+            }
+
+            // ---------- LETTERHEAD: 6 LINES ----------
+            const lines = [
+                headerLine1.value,
+                headerLine2.value,
+                headerLine3.value,
+                headerLine4.value,
+                headerLine5.value,
+                headerLine6.value
+            ];
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(8); // ⬇ smaller
+            doc.setTextColor(0, 0, 0);
+
+            const lineSpacing = 9; // ⬇ tighter
+
+            lines.forEach(line => {
+                if (line && line.trim()) {
+                    doc.text(line, pageWidth / 2, yOffset, { align: "center" });
+                    yOffset += lineSpacing;
+                }
+            });
+
+            yOffset += 8;
+
+            // ---------- TABLES ----------
+            // document.querySelectorAll(".accordion-item").forEach(category => {
+            document.querySelectorAll(".accordion-item:not(.hidden)").forEach(category => {
+                category.querySelectorAll("table").forEach(table => {
+
+                    const headers = [];
+                    table.querySelectorAll("thead th").forEach(th => {
+                        if (!th.classList.contains("action")) {
+                            headers.push(th.innerText.trim());
+                        }
+                    });
+
+                    const rows = [];
+                    table.querySelectorAll("tbody tr").forEach(tr => {
+                        const row = [];
+                        tr.querySelectorAll("td").forEach(td => {
+
+                            const clone = td.cloneNode(true);
+                            clone.querySelectorAll(".action").forEach(el => el.remove());
+                            row.push(clone.innerText.replace(/\s+/g, " ").trim());
+                        });
+                        // only add row if it has content
+                        if (row.length) rows.push(row);
+                    });
+
+                    if (!rows.length) return;
+
+                    const baseWidth = (pageWidth - 2 * MARGIN) / headers.length;
+                    const columnStyles = {};
+
+                    headers.forEach((h, i) => {
+                        if (h.toLowerCase().includes("email") || h.toLowerCase().includes("title")) {
+                            columnStyles[i] = {
+                                cellWidth: 'auto',
+                                overflow: 'visible'
+                            };
+                        } else if (h.toLowerCase().includes("mail code")) {
+                            columnStyles[i] = { cellWidth: baseWidth * 0.5 };
+                        } else {
+                            columnStyles[i] = { cellWidth: baseWidth };
+                        }
+                    });
+
+                    doc.autoTable({
+                        startY: yOffset,
+                        head: [
+                            [{
+                                content: category.querySelector(".accordion-button").innerText.trim(),
+                                colSpan: headers.length,
+                                styles: {
+                                    fillColor: [0, 98, 155],
+                                    textColor: 255,
+                                    halign: 'center',
+                                    fontStyle: 'bold',
+                                    fontSize: 9, // ⬇ smaller header
+                                    rowPageBreak: 'avoid'
+                                }
+                            }],
+                            headers.map(h => ({
+                                content: h,
+                                styles: {
+                                    fillColor: [220, 220, 220],
+                                    textColor: [50, 50, 50],
+                                    halign: 'center',
+                                    fontStyle: 'bold',
+                                    fontSize: 8, // ⬇ smaller
+                                    rowPageBreak: 'avoid'
+                                }
+                            }))
+                        ],
+                        body: rows,
+                        theme: 'grid',
+                        columnStyles,
+                        styles: {
+                            fontSize: 7,      // ⬇ main reduction
+                            cellPadding: 2,   // ⬇ tighter rows
+                            overflow: 'linebreak'
+                        },
+                        margin: { left: MARGIN, right: MARGIN, bottom: FOOTER_MARGIN },
+                        didDrawPage: function () {
+                            const pageNum = doc.internal.getNumberOfPages();
+                            doc.setFontSize(8); // ⬇ smaller footer
+                            doc.text(`Page ${pageNum}`, pageWidth / 2, pageHeight - 15, { align: 'center' });
+                        }
+                    });
+
+                    yOffset = doc.lastAutoTable.finalY + 8;
+                });
+            });
+
+            doc.save(`SSPPS_Contact_List-${type}.pdf`);
+        });
+    });
+
+    // Save PDF header form via AJAX
+    document.getElementById("pdfHeaderForm").addEventListener("submit", function (event) {
+        event.preventDefault();
+
+        const data = {
+            line1: document.getElementById("headerLine1").value,
+            line2: document.getElementById("headerLine2").value,
+            line3: document.getElementById("headerLine3").value,
+            line4: document.getElementById("headerLine4").value,
+            line5: document.getElementById("headerLine5").value,
+            line6: document.getElementById("headerLine6").value,
+            dsa: document.getElementById("dsa").value,
+            hr: document.getElementById("hr").value,
+            comms: document.getElementById("comms").value,
+            type: document.getElementById("type").value,
+        };
+
+        fetch("{{ url_for('directory.save_pdf_header') }}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(data)
+        })
+            .then(response => response.json())
+            .then(resp => {
+                const flash = document.getElementById("formMessage");
+
+                if (resp.success) {
+                    // flash message  on success or error                   
+                    flash.className = "alert alert-success";
+                    flash.innerText = resp.message;
+
+                    setTimeout(() => {
+                        const modal = bootstrap.Modal.getInstance(
+                            document.getElementById("pdfHeaderModal")
+                        );
+                        modal.hide();
+                    }, 800);
+
+                } else {
+                    flash.className = "alert alert-danger";
+                    flash.innerText = resp.message;
+                }
+                
+                // After 3 seconds, clear text and remove styling
+                setTimeout(() => {
+                    flash.innerText = "";
+                    flash.className = "";  // remove all classes
+                }, 3000);
+
+            })
+            .catch(err => console.error(err));
+    });
+
+    /* AJAX submit for contact form (delegated) */
+    $(document).on("submit", "#contactForm", function (e) {
+        e.preventDefault();   // ⛔ stop normal POST
+
+        const form = $(this);
+        const url = form.attr("action");
+        const formData = form.serialize();
+
+        const categoryId = form.data("category-id");
+
+        $.post(url, formData)
+            .done((data) => {
+                // console.log(data);
+                if (data.success) {
+                    const modalEl = document.getElementById("contactModal");
+                    const modal = bootstrap.Modal.getInstance(modalEl);
+                    modal.hide();
+
+                    // remember open accordion and highlight contact
+                    sessionStorage.setItem("openCategory", data.category_id);
+                    sessionStorage.setItem("highlightContact", data.contact_id);
+
+                    // reload directory
+                    location.reload();
+                }
+            })
+            .fail((xhr) => {
+                const response = xhr.responseJSON;
+                if (response && response.errors) {
+                    // Render errors inline
+                    for (const [field, messages] of Object.entries(response.errors)) {
+                        const input = document.getElementById("contactForm").querySelector(`[name=${field}]`);
+                        if (input) {
+                            let container = input.parentElement;
+                            // remove old errors
+                            container.querySelectorAll(".text-danger").forEach(el => el.remove());
+                            // add new errors
+                            messages.forEach(msg => {
+                                const div = document.createElement("div");
+                                div.className = "text-danger small";
+                                div.textContent = msg;
+                                container.appendChild(div);
+                            });
+                        }
+                    }
+                } else {
+                    alert("Server error: " + xhr.statusText);
+                }
+            });
+    });
+
+    document.addEventListener("DOMContentLoaded", function () {
+
+        const contactId = sessionStorage.getItem("highlightContact");
+        const categoryId = sessionStorage.getItem("openCategory");
+
+        if (!contactId || !categoryId) return;
+
+        // reopen accordion (you already have this logic)
+        const collapseEl = document.getElementById(`c${categoryId}`);
+        if (collapseEl) {
+            const bsCollapse = new bootstrap.Collapse(collapseEl, {
+                toggle: false
+            });
+            bsCollapse.show();
+        }
+
+        // find element by data attribute
+        const target = document.querySelectorAll(`tr[data-contact-id="${contactId}"] > td`);
+
+        if (!target) return;
+
+        target.forEach(tdElement => {
+            tdElement.classList.add("table-success");
+        });
+        // target.classList.add("highlight-row");
+
+        // smooth fade
+        setTimeout(() => {
+            target.forEach(tdElement => {
+                tdElement.classList.add("highlight-fade");
+            });
+        }, 1500);
+
+        // Remove all highlight classes after 4s
+        setTimeout(() => {
+            target.forEach(td => {
+                td.classList.remove("table-success", "highlight-fade");
+            });
+        }, 4000);
+
+        // cleanup
+        sessionStorage.removeItem("highlightContact");
+    });
+
+    function deleteContact(contactId) {
+        $.post(`/directory/${contactId}/delete`)
+            .done((resp) => {
+                if (resp.success) {
+
+                    const row = document.querySelector(`tr[data-contact-id="${contactId}"]`);
+                    if (row) {
+                        row.remove();
+                    } else {
+                        // If not found, maybe it's a lab matrix td
+                        const td = document.querySelector(`td[data-contact-id="${contactId}"]`);
+                        if (td) td.remove();
+                    }
+
+                    // flash message 
+                    const flash = document.getElementById("formMessage");
+                    flash.className = "alert alert-success";
+                    flash.innerText = "Contact deleted successfully.";
+
+                    // After 3 seconds, clear text and remove styling
+                    setTimeout(() => {
+                        flash.innerText = "";
+                        flash.className = "";  // remove all classes
+                    }, 3000);
+
+                } else {
+                    alert("Failed to delete contact: " + resp.message);
+                }
+            });
+    }
+
+</script>
+{% endblock %}

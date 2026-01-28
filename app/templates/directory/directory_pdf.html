@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Contact Directory</title>
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 12pt; }
+        h1 { text-align: center; }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+        th, td { border: 1px solid #333; padding: 4px; text-align: left; font-size: 10pt; }
+        th { background-color: #eee; }
+        .contact-type { font-style: italic; }
+    </style>
+</head>
+<body>
+    <h1>Contact Directory</h1>
+
+    {% for c in categories %}
+        <h2>{{ c.name }}</h2>
+
+        {% set contacts = c.contacts.filter_by(is_active=True).all() %}
+
+        {% if c.name in ["Staff", "Faculty"] %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Last Name</th>
+                        <th>First Name</th>
+                        <th>Title</th>
+                        <th>Email</th>
+                        <th>Office</th>
+                        <th>Mail Code</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in contacts %}
+                    <tr>
+                        <td>{{ u.last_name }}</td>
+                        <td>{{ u.first_name }}</td>
+                        <td>{{ u.job_title or u.contact_type }}</td>
+                        <td>{{ u.email }}</td>
+                        <td>{{ u.building_room }}</td>
+                        <td>{{ u.mail_code }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            {% set contact_types = ["Staff", "Student", "Postdoctoral Scholar", "Volunteer", "GSR", "Other"] %}
+            {% set grouped = {} %}
+            {% for ct in contact_types %} {% set _ = grouped.update({ct: []}) %} {% endfor %}
+            {% for u in contacts %} {% if u.contact_type in grouped %} {% set _ = grouped[u.contact_type].append(u) %} {% endif %} {% endfor %}
+            {% set max_rows = grouped.values() | map('length') | max %}
+
+            <table>
+                <thead>
+                    <tr>
+                        {% for ct in contact_types %}
+                        <th>{{ ct }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for i in range(max_rows) %}
+                        <tr>
+                            {% for ct in contact_types %}
+                                <td>
+                                    {% if grouped[ct]|length > i %}
+                                        {{ grouped[ct][i].last_name }}, {{ grouped[ct][i].first_name }}
+                                        {% if grouped[ct][i].job_title %} <span class="contact-type">({{ grouped[ct][i].job_title }})</span>{% endif %}
+                                        {% if grouped[ct][i].other_type %} <span class="contact-type">({{ grouped[ct][i].other_type }})</span>{% endif %}
+                                    {% endif %}
+                                </td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    {% endfor %}
+</body>
+</html>

@@ -1,0 +1,92 @@
+<div class="modal fade" id="categoryModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    {{ "Edit Category" if category else "New Category" }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <form id="categoryForm" method="post" action="{{ url_for('directory.save_category') }}">
+
+                {{ form.hidden_tag() }}
+                {{ form.type(value=type) }}
+
+                {% if category %}
+                <input type="hidden" name="category_id" value="{{ category.id }}">
+                {% endif %}
+                <div class="modal-body">
+
+                    <div class="mb-3">
+                        {{ form.name.label(class="form-label fw-bold") }}
+                        {{ form.name(class="form-control") }}
+                        {% for err in form.name.errors %}
+                        <div class="text-danger small">{{ err }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="mb-2 form-check">
+                        {{ form.is_lab(class="form-check-input", id="isLabCheckbox") }}
+                        {{ form.is_lab.label(class="form-check-label", for="isLabCheckbox") }}
+                    </div>
+                    
+                    <div class="mb-2 form-check">
+                        {{ form.show_in_directory(class="form-check-input", id="showInDirectoryCheckbox") }}
+                        {{ form.show_in_directory.label(class="form-check-label", for="showInDirectoryCheckbox") }}
+                    </div>
+
+                    <!-- Lab fields -->
+                    <div id="labFields">
+                        <div class="mb-3">
+                            {{ form.building_room.label(class="form-label") }}
+                            {{ form.building_room(class="form-control") }}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.office_phone.label(class="form-label") }}
+                            {{ form.office_phone(class="form-control") }}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.lab_phone.label(class="form-label") }}
+                            {{ form.lab_phone(class="form-control") }}
+                        </div>
+                    </div>
+
+                    <!-- Non-lab fields -->
+                    <div id="otherFields">
+                        <div class="form-text fst-italic mb-2">
+                            Choose which fields appear for this category in the directory.
+                        </div>
+
+                        <div class="row">
+                            {% for subfield in form.display_fields %}
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    {{ subfield(class="form-check-input") }}
+                                    <label class="form-check-label ms-1" for="{{ subfield.id }}">
+                                        {{ subfield.label.text }}
+                                    </label>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        Cancel
+                    </button>
+                    <button class="btn btn-success">
+                        Save Category
+                    </button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>

@@ -68,13 +68,14 @@ def create_app():
     
     # Register Blueprints
     from app.routes import main, users, roles, permissions, students, academic_years, calendars, canvas, committee_tracker, \
-        ad_lookup, scheduler, recharge, reports, emma_service, google_service, employees 
+        ad_lookup, scheduler, recharge, reports, emma_service, google_service, employees, directory
     app.register_blueprint(main.bp)
     app.register_blueprint(academic_years.bp)
     app.register_blueprint(ad_lookup.bp)
     app.register_blueprint(calendars.bp)
     app.register_blueprint(canvas.bp)
     app.register_blueprint(committee_tracker.bp)
+    app.register_blueprint(directory.bp)
     app.register_blueprint(emma_service.bp)
     app.register_blueprint(employees.bp)
     app.register_blueprint(google_service.bp)
@@ -97,6 +98,7 @@ def create_app():
 
     with app.app_context():
         db.create_all()    
+
 
     return app
     

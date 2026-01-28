@@ -203,3 +203,4 @@ app/static/files/vchs_sspps_employee.csv
 app/static/files/vchs_sspps_job_location.csv
 run_import_employees-local.bat
 app/csv2sql.py
+app/credprod.py

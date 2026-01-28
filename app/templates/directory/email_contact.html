@@ -1,0 +1,63 @@
+<!-- <h3>New {{ category.name }} Contact</h3>
+
+<p>A new contact has been added to the directory:</p> -->
+
+<p>Hi 
+    {% if emailDSA %}DSA Team, {% endif %}
+    {% if emailComms %}Communications Team, {% endif %}
+    {% if emailHR %}HR Team,{% endif %} <br/><br/>
+    <!-- SSPPS Student (Stephanie Encarnacion - stencarnacion@health.ucsd.edu) 
+    - Dan Ronquillo (VOLUNTEER), 
+    **** (Mandi Garhartt if STAFF Member), 
+    AND Monica May (IF PAID STAFF). -->
+    Below is information regarding a new addition who needs building access, added to the SSPPS Contact
+    List, and UCSD email address/Single-Sign On Access (VOLUNTEER ONLY).</p>
+
+<table border="1" cellspacing="0" cellpadding="10px">
+    <tr>
+        <td width="50%"><strong>Last Name, First Name, Middle/Initial:</strong></td>
+        <td width="50%">{{ contact.last_name }}, {{ contact.first_name }}, {{
+            contact.middle_name }}</td>
+    </tr>
+    <tr>
+        <td width="50%"><strong>Date of Birth:</strong></td>
+        <td width="50%">{{ contact.dob if contact.dob else "N/A" }}</td>
+    </tr>
+    <tr>
+        <td width="50%"><strong>Laboratory:</strong></td>
+        <td width="50%">{{ category.name }}</td>
+    </tr>
+    <tr>
+        <td width="50%"><strong>Start Date:</strong></td>
+        <td width="50%">{{ contact.start_date if contact.start_date else "N/A" }}</td>
+    </tr>
+    <tr>
+        <td width="50%"><strong>End Date:</strong></td>
+        <td width="50%">{{ contact.end_date if contact.end_date else "N/A" }}</td>
+    </tr>
+    <tr>
+        <td width="50%"><strong>Personal Email Address:</strong></td>
+        <td width="50%">{{ contact.personal_email }}</td>
+    </tr>
+    <tr>
+        <td width="50%"><strong>If UCSD student volunteer, provide PID#</strong></td>
+        <td width="50%">{{ contact.pid }}</td>
+    </tr>
+
+    <tr>
+        <td width="50%"><strong>Is volunteer a current UCSD employee
+                (Y/N). If yes, what is the employee ID#</strong></td>
+        <td width="50%">{{ contact.employee_id }}</td>
+    </tr>
+    <tr>
+        <td width="50%"><strong>Past UC Employment/Affiliation/Volunteer
+                (Y/N) - If yes, email address, PID#, or,
+                Single SignOn:</strong></td>
+        <td width="50%">{{ contact.other_info }}</td>
+    </tr>
+</table>
+
+<p>
+    Thank you,<br />
+    SSPPS HR
+</p>

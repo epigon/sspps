@@ -544,4 +544,79 @@ class InstrumentCalendarEvent(db.Model):
     deleted_date = db.Column(db.DateTime, nullable=True)
     deleted_by = db.Column(db.String(50), nullable=True)  # AD username of deleter
 
+#----------------------
+# DIRECTORY APP
+#----------------------
+class ContactCategory(db.Model):
+    __tablename__ = "CONTACT_CATEGORIES"
+    __table_args__ = (
+        db.CheckConstraint("type IN ('contacts', 'alumni')"),
+    )
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    building_room = db.Column(db.String(100))
+    office_phone = db.Column(db.String(50))
+    lab_phone = db.Column(db.String(50))
+    is_lab = db.Column(db.Boolean, default=False, nullable=False)
+    show_in_directory = db.Column(db.Boolean, default=True, nullable=False)
+    sort_order = db.Column(db.Integer, default=0)
+
+    display_fields = db.Column(db.String(255))
+    type = db.Column(db.String(50), nullable=False, default="contacts")  # 'contacts' or 'alumni'
+
+    contacts = db.relationship(
+        "Contact",
+        primaryjoin="and_(Contact.category_id == ContactCategory.id, Contact.is_active == True)",
+        order_by="Contact.last_name"
+    )
+
+class Contact(db.Model):
+    __tablename__ = "CONTACTS"
+    id = db.Column(db.Integer, primary_key=True)
+    category_id = db.Column(db.Integer, db.ForeignKey("CONTACT_CATEGORIES.id"), nullable=False)
+
+    group_name = db.Column(db.String(50))
+    first_name = db.Column(db.String(50))
+    last_name = db.Column(db.String(50))
+    middle_name = db.Column(db.String(50))
+
+    job_title = db.Column(db.String(100))
+    email = db.Column(db.String(120))
+    building_room = db.Column(db.String(100))
+    mail_code = db.Column(db.String(50))
+
+    phone_number = db.Column(db.String(50))
+
+    contact_type = db.Column(db.String(50))
+    other_type = db.Column(db.String(100))
+
+    start_date = db.Column(db.Date)
+    end_date = db.Column(db.Date)
+    personal_email = db.Column(db.String(120))
+    pid = db.Column(db.String(50))
+    employee_id = db.Column(db.String(50))
+    dob = db.Column(db.Date)
+    other_info = db.Column(db.String(50))
+
+    is_employee = db.Column(db.Boolean, default=False, nullable=False)
+    is_student = db.Column(db.Boolean, default=False, nullable=False)
+    is_x_affiliate = db.Column(db.Boolean, default=False, nullable=False)  
+
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+class ContactHeader(db.Model):
+    __tablename__ = "CONTACT_HEADERS"
     
+    id = db.Column(db.Integer, primary_key=True)
+    line1 = db.Column(db.String(255))
+    line2 = db.Column(db.String(255))
+    line3 = db.Column(db.String(255))
+    line4 = db.Column(db.String(255))
+    line5 = db.Column(db.String(255))
+    line6 = db.Column(db.String(255))
+    dsa = db.Column(db.String(50))
+    hr = db.Column(db.String(50))
+    comms = db.Column(db.String(50))
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    type = db.Column(db.String(50), nullable=False, default="contacts")  # 'contacts' or 'alumni'

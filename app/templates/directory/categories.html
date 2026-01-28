@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+
+{% block head %}
+{{ super() }}
+<style>
+    #labFields,
+    #otherFields {
+        display: none;
+    }
+
+    .hidden td {
+        background-color: #f8f9fa;
+        font-style: italic;
+    }
+</style>
+{% endblock %}
+{% block content %}
+
+<div class="container mt-4">
+    <h1>{% if type == "alumni" %}Alumni Categories{% else %}Contact Categories{% endif %}</h1>
+
+    <div id="formMessage" class="mb-4"></div>
+
+    <a href="#" class="btn btn-primary mb-3" onclick="openCategoryModal(type='{{ type }}'); return false;">
+        <i class="bi bi-plus-circle"></i> New Category
+    </a>
+
+    <input type="hidden" id="csrf_token" value="{{ csrf_token }}">
+
+    <a href="{{ url_for('directory.list', type=type) }}" class="btn btn-outline-secondary mb-3">
+        <i class="bi bi-people"></i> Directory
+    </a>
+
+    <table class="table table-striped align-middle">
+        <thead>
+            <tr>
+                <th></th>
+                <th>Category</th>
+                <th class="text-nowrap">Is Lab?</th>
+                <th>Directory?</th>
+                <th class="col-1">Location</th>
+                <th class="col-1">Office Phone</th>
+                <th class="col-1">Lab Phone</th>
+                <th>Display Fields</th>
+                <th class="col-1">Action</th>
+            </tr>
+        </thead>
+
+        <tbody id="sortableCategories">
+            {% for c in categories %}
+            <tr data-id="{{ c.id }}" {% if not c.show_in_directory %}class="hidden" {% endif %}>
+                <td class="cursor-move">☰</td>
+                <td class="text-nowrap">{{ c.name }} {% if not c.show_in_directory %}(Hidden){% endif %}</td>
+                <td>{{ "Yes" if c.is_lab else "No" }}</td>
+                <td>{{ "Yes" if c.show_in_directory else "No" }}</td>
+                <td>{{ c.building_room or "" }}</td>
+                <td>{{ c.office_phone or "" }}</td>
+                <td>{{ c.lab_phone or "" }}</td>
+                <td>{{ c.display_fields or "" }}</td>
+                <td>
+                    <div class="btn-group" role="group" aria-label="manage">
+                        <button class="btn btn-sm btn-outline-primary text-nowrap"
+                            onclick="openCategoryModal(type='{{ type }}', categoryId={{ c.id }}); return false;">
+                            <i class="bi bi-pencil-square"></i> Edit
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger text-nowrap" onclick="deleteCategory({{ c.id }})">
+                            <i class="bi bi-trash"></i> Delete
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div id="categoryModalContent"></div>
+
+
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<!-- jQuery UI -->
+<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+
+<script>
+    const type = "{{ type }}";
+    function toggleLabFields() {
+        const checkbox = document.getElementById('isLabCheckbox');
+        const labFields = document.getElementById('labFields');
+        const otherFields = document.getElementById('otherFields');
+
+        if (!checkbox || !labFields || !otherFields) return;
+
+        const isLab = checkbox.checked;
+        labFields.style.display = isLab ? 'block' : 'none';
+        otherFields.style.display = isLab ? 'none' : 'block';
+    }
+
+    function openCategoryModal(type, categoryId = null) {
+        let url = "/directory/categories/modal";
+        if (categoryId) url += `/${categoryId}`;
+        url += "?type=" + type;
+
+        $("#categoryModalContent").load(url, function () {
+            const modalEl = document.getElementById("categoryModal");
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+
+            // Bind lab toggle
+            const checkbox = document.getElementById('isLabCheckbox');
+            if (checkbox) {
+                toggleLabFields(); // set initial state
+                checkbox.addEventListener('change', toggleLabFields);
+            }
+
+            // Bind form submit
+            const form = document.getElementById("categoryForm");
+            if (form) {
+                form.addEventListener("submit", function (e) {
+                    e.preventDefault();
+
+                    $.post(form.action || "/directory/categories/save", $(form).serialize())
+                        .done((data) => {
+                            if (data.success) {
+                                const modalEl = document.getElementById("categoryModal");
+                                const modal = bootstrap.Modal.getInstance(modalEl);
+                                modal.hide();
+                                location.reload();
+                            }
+                        })
+                        .fail((xhr) => {
+                            const response = xhr.responseJSON;
+                            if (response && response.errors) {
+                                // Render errors inline
+                                for (const [field, messages] of Object.entries(response.errors)) {
+                                    const input = document.getElementById("categoryForm").querySelector(`[name=${field}]`);
+                                    if (input) {
+                                        let container = input.parentElement;
+                                        // remove old errors
+                                        container.querySelectorAll(".text-danger").forEach(el => el.remove());
+                                        // add new errors
+                                        messages.forEach(msg => {
+                                            const div = document.createElement("div");
+                                            div.className = "text-danger small";
+                                            div.textContent = msg;
+                                            container.appendChild(div);
+                                        });
+                                    }
+                                }
+                            } else {
+                                alert("Server error: " + xhr.statusText);
+                            }
+                        });
+                });
+            }
+
+
+        });
+    }
+
+    const token = document.getElementById("csrf_token").value;
+
+    $("#sortableCategories").sortable({
+        handle: ".cursor-move",
+        update: function () {
+            let order = [];
+            $("#sortableCategories tr").each(function (idx) {
+                order.push({
+                    id: $(this).data("id"),
+                    sort_order: idx
+                });
+            });
+
+            // Assume you have a flash div somewhere on the page
+            const flash = document.getElementById("formMessage");
+
+            fetch(`/directory/categories/reorder?type=${type}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(order)
+            })
+            .then(response =>
+                response.json().then(data => {
+                    if (!response.ok) throw new Error(data.error || "Could not reorder categories");
+                    return data;
+                })
+            )
+            .then(data => {
+                // Show success or error in flash div
+                if (data.success) {
+                    flash.className = "alert alert-success";
+                    flash.innerText = data.message || "Categories reordered successfully!";
+                } else {
+                    flash.className = "alert alert-danger";
+                    flash.innerText = data.message || "Error reordering categories";
+                }
+
+                // Clear message after 3 seconds
+                setTimeout(() => {
+                    flash.innerText = "";
+                    flash.className = "";
+                }, 3000);
+            })
+            .catch(err => {
+                flash.className = "alert alert-danger";
+                flash.innerText = err.message;
+
+                setTimeout(() => {
+                    flash.innerText = "";
+                    flash.className = "";
+                }, 3000);
+            });
+        }
+    });
+
+    function deleteCategory(categoryId) {
+        if (!confirm("Are you sure you want to delete this category?")) return;
+        const flash = document.getElementById("formMessage");
+
+        fetch(`/directory/categories/${categoryId}/delete?type=${type}`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": token
+            },
+        })
+            .then(response => response.json().then(data => {
+                if (!response.ok) throw new Error(data.error || "Could not delete category");
+                return data;
+            }))
+            .then(data => {
+
+                if (data.success) {
+                    const row = document.querySelector(`tr[data-id='${categoryId}']`);
+                    if (row) row.remove();
+                    // flash message  on success or error                   
+                    flash.className = "alert alert-success";
+                    flash.innerText = data.message;
+                } else {
+                    flash.className = "alert alert-danger";
+                    flash.innerText = data.message;
+                }
+
+                // After 3 seconds, clear text and remove styling
+                setTimeout(() => {
+                    flash.innerText = "";
+                    flash.className = "";  // remove all classes
+                }, 3000);
+
+            })
+            .catch(err => {
+                flash.className = "alert alert-danger";
+                flash.innerText = err.message;
+
+                // After 3 seconds, clear text and remove styling
+                setTimeout(() => {
+                    flash.innerText = "";
+                    flash.className = "";  // remove all classes
+                }, 3000);
+            
+            }
+        );
+    }
+
+
+</script>
+
+<style>
+    .cursor-move {
+        cursor: grab;
+    }
+</style>
+
+{% endblock %}

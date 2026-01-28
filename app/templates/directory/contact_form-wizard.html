@@ -1,0 +1,262 @@
+<form id="contactForm" method="post" action="{{ url_for('directory.save_contact') }}">
+
+    {{ form.hidden_tag() }}
+    {% if contact %}
+    <input type="hidden" name="contact_id" value="{{ contact.id }}">
+    {% endif %}
+    {{ form.type(value=type) }}
+
+    <div class="modal-header">
+        <h5 class="modal-title">
+            {% if contact %}
+            Edit
+            {% else %}
+            Add
+            {% endif %}
+            {% if category %}
+            {{ category.name }}
+            {% endif %}
+            Contact
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    </div>
+
+    <div class="modal-body py-2">
+        <div class="progress mb-2">
+            <div class="progress-bar" id="formProgress"></div>
+        </div>
+        <div class="form-step" data-step="1">
+            <h5>Basic Information</h5>
+            <small class="text-muted">
+                Enter a contact name <strong>or</strong> a group name
+            </small>
+            <!-- Category -->
+            <div class="row g-2 align-items-center mb-2">
+                <label class="col-md-2 col-form-label text-md-end">
+                    {{ form.category_id.label.text }}
+                </label>
+                <div class="col-md-auto">
+                    {{ form.category_id(class="form-select form-select-sm") }}
+                    <div class="invalid-feedback" id="error-category_id"></div>
+                </div>
+            </div>
+            <!-- Name -->
+            <div class="row g-2 align-items-center mb-2">
+                <label class="col-md-2 col-form-label text-md-end">
+                    Contact Name
+                </label>
+                <div class="col-md-3">
+                    {{ form.first_name(class="form-control form-control-sm", placeholder="First Name") }}
+                </div>
+                <div class="col-md-3">
+                    {{ form.middle_name(class="form-control form-control-sm", placeholder="Middle Name") }}
+                </div>
+                <div class="col-md-4">
+                    {{ form.last_name(class="form-control form-control-sm", placeholder="Last Name") }}
+                </div>
+            </div>
+            <!-- Group / Job -->
+            <div class="row g-2 align-items-center mb-2" id="groupNameRow">
+                <label class="col-md-2 col-form-label text-md-end">
+                    {{ form.group_name.label.text }}
+                </label>
+                <div class="col-md-10">
+                    {{ form.group_name(class="form-control form-control-sm", id="group_name") }}
+                </div>
+            </div>
+
+            <!-- Job -->
+            <div class="row g-2 align-items-center mb-2" id="jobTitleGroup">
+                <label class="col-md-2 col-form-label text-md-end">
+                    {{ form.job_title.label.text }}
+                </label>
+                <div class="col-md-10">
+                    {{ form.job_title(class="form-control form-control-sm") }}
+                    <div class="invalid-feedback" id="error-job_title"></div>
+                </div>
+            </div>
+
+            <h5>Contact Details</h5>
+            <!-- Contact Type -->
+            <div class="row g-2 align-items-center mb-2" id="labFields">
+                <label class="col-md-2 col-form-label text-md-end">
+                    {{ form.contact_type.label.text }}
+                </label>
+                <div class="col-md-4">
+                    {{ form.contact_type(class="form-select", id="contactType") }}
+                    <!-- <div class="invalid-feedback" id="error-contact_type"></div> -->
+                </div>
+                <div class="col-md-6" id="otherTypeGroup">
+                    <label class="col-md-4 pe-2 col-form-label text-md-end">
+                        {{ form.other_type.label.text }}
+                    </label>
+                    <div class="col-md-8">
+                        {{ form.other_type(class="form-control", placeholder="Please specify") }}
+                        <!-- <div class="invalid-feedback" id="error-other_type"></div> -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Extra Fields -->
+            <div id="extraFields" class="mt-2">
+                <div class="row g-2 align-items-center mb-2">
+                    <label class="col-md-2 col-form-label text-md-end">
+                        {{ form.email.label.text }}
+                    </label>
+                    <div class="col-md-4">
+                        {{ form.email(class="form-control form-control-sm") }}
+                        <div class="invalid-feedback" id="error-email"></div>
+                    </div>
+                    <label class="col-md-2 col-form-label text-md-end">
+                        {{ form.phone_number.label.text }}
+                    </label>
+                    <div class="col-md-4">
+                        {{ form.phone_number(class="form-control form-control-sm") }}
+                        <div class="invalid-feedback" id="error-phone_number"></div>
+                    </div>
+                </div>
+                <div class="row g-2 align-items-center mb-2">
+                    <label class="col-md-2 col-form-label text-md-end">
+                        {{ form.building_room.label.text }}
+                    </label>
+                    <div class="col-md-4">
+                        {{ form.building_room(class="form-control form-control-sm") }}
+                        <div class="invalid-feedback" id="error-building_room"></div>
+                    </div>
+                    <label class="col-md-2 col-form-label text-md-end">
+                        {{ form.mail_code.label.text }}
+                    </label>
+                    <div class="col-md-4">
+                        {{ form.mail_code(class="form-control form-control-sm") }}
+                        <div class="invalid-feedback" id="error-mail_code"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-step d-none" data-step="2">
+            <h5>Affiliates or Volunteers</h5>
+            <!-- Affiliations -->
+            <div class="row g-2">
+                <div class="col-md-6 form-check mb-3">
+                    {{ form.is_student(class="form-check-input ms-1 me-2", id="isStudentCheckbox") }}
+                    {{ form.is_student.label(class="form-check-label", for="isStudentCheckbox") }}
+                </div>
+                <div class="col-md-6 " id="pidField">
+                    <label class="col-4 pe-2 col-form-label text-end">
+                        {{ form.pid.label.text }}
+                    </label>
+                    <div class="col-8">
+                        {{ form.pid(class="form-control form-control-sm") }}
+                        <div class="invalid-feedback" id="error-pid"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-2">
+                <div class="col-md-6 form-check mb-3">
+                    {{ form.is_employee(class="form-check-input ms-1 me-2", id="isEmployeeCheckbox") }}
+                    {{ form.is_employee.label(class="form-check-label", for="isEmployeeCheckbox") }}
+                </div>
+                <div class="col-md-6" id="empField">
+                    <label class="col-4 pe-2 col-form-label text-end">
+                        {{ form.employee_id.label.text }}
+                    </label>
+                    <div class="col-8">
+                        {{ form.employee_id(class="form-control form-control-sm") }}
+                        <div class="invalid-feedback" id="error-employee_id"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-2">
+                <div class="col-md-6 form-check mb-3">
+                    {{ form.is_x_affiliate(class="form-check-input ms-1 me-2", id="isAffiliateCheckbox") }}
+                    {{ form.is_x_affiliate.label(class="form-check-label", for="isAffiliateCheckbox") }}
+                </div>
+                <div class="col-md-6" id="affField">
+                    <label class="col-4 pe-2 col-form-label text-end">
+                        {{ form.other_info.label.text }}
+                    </label>
+                    <div class="col-8">
+                        {{ form.other_info(class="form-control form-control-sm") }}
+                        <div class="invalid-feedback" id="error-other_info"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-2 mt-2">
+                <label class="col-md-2 col-form-label text-md-end">
+                    {{ form.dob.label.text }}
+                </label>
+                <div class="col-md-4">
+                    {{ form.dob(class="form-control form-control-sm") }}
+                </div>
+                <label class="col-md-2 col-form-label text-md-end">
+                    {{ form.personal_email.label.text }}
+                </label>
+                <div class="col-md-4">
+                    {{ form.personal_email(class="form-control form-control-sm") }}
+                </div>
+            </div>
+            <div class="row g-2 mt-2">
+                <label class="col-md-2 col-form-label text-md-end">
+                    {{ form.start_date.label.text }}
+                </label>
+                <div class="col-md-4">
+                    {{ form.start_date(class="form-control form-control-sm") }}
+                </div>
+                <label class="col-md-2 col-form-label text-md-end">
+                    {{ form.end_date.label.text }}
+                </label>
+                <div class="col-md-4">
+                    {{ form.end_date(class="form-control form-control-sm") }}
+                </div>
+            </div>
+        </div>
+
+        <div class="form-step d-none" data-step="3">
+            <h5>Email Notifications</h5>
+            <div class="row g-2">
+                <div class="col-md-12 mb-2 form-check">
+                    {{ form.emailDSA(class="form-check-input ms-1 me-2", id="emailDSA") }}
+                    {{ form.emailDSA.label(class="form-check-label", for="emailDSA") }}
+                    {{ header.dsa }}
+                </div>
+            </div>
+            <div class="row g-2">
+                <div class="col-md-12 mb-2 form-check">
+                    {{ form.emailComms(class="form-check-input ms-1 me-2", id="emailHR") }}
+                    {{ form.emailComms.label(class="form-check-label", for="emailHR") }}
+                    {{ header.hr }}
+                </div>
+            </div>
+            <div class="row g-2">
+                <div class="col-md-12 mb-2 form-check">
+                    {{ form.emailHR(class="form-check-input ms-1 me-2", id="emailComms") }}
+                    {{ form.emailHR.label(class="form-check-label", for="emailComms") }}
+                    {{ header.comms }}
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer d-flex justify-content-between align-items-center">
+        <div>
+            <button type="button" class="btn btn-primary" id="prevBtn" disabled>
+                Back
+            </button>
+
+            <button type="button" class="btn btn-primary" id="nextBtn">
+                Next
+            </button>
+        </div>
+        <div>
+            <button type="submit" class="btn btn-success d-none" id="saveBtn">
+                Save
+            </button>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                Cancel
+            </button>
+        </div>
+    </div>
+</form>

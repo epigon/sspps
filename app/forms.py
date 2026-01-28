@@ -371,3 +371,104 @@ class InstrumentRequestForm(FlaskForm):
         if not rv:
             return False
         return True
+    
+#----------------------
+# DIRECTORY APP
+#----------------------
+CONTACT_TYPES = [
+    ("", "-- Select One --"),
+    ("Staff", "Staff"),
+    ("Student", "Student"),
+    ("Postdoctoral Scholar", "Postdoctoral Scholar"),
+    ("Volunteer", "Volunteer"),
+    ("GSR", "GSR"),
+    ("Other", "Other")
+]
+
+class CategoryForm(FlaskForm):
+    name = StringField("Category Name", validators=[DataRequired()])
+    building_room = StringField("Building / Room", validators=[Optional()])
+    office_phone = StringField("Office Phone", validators=[Optional()])
+    lab_phone = StringField("Lab Phone", validators=[Optional()])
+    is_lab = BooleanField("Is Lab?")
+    show_in_directory = BooleanField("Show in Directory?")
+    type = HiddenField("Type", validators=[DataRequired()])
+    display_fields = SelectMultipleField(
+        "Display Fields in Directory",
+        choices=[
+            ("first_name", "First Name"),
+            ("last_name", "Last Name"),
+            ("group_name", "Group Name"),
+            ("email", "UCSD Email"),
+            ("personal_email", "Personal Email"),
+            ("job_title", "Job Title"),
+            ("building_room", "Location"),
+            ("mail_code", "Mail Code"),
+            ("phone_number", "Phone Number")
+        ],
+        coerce=str,
+        option_widget=CheckboxInput(),
+        widget=ListWidget(prefix_label=False),
+    )
+
+
+class ContactForm(FlaskForm):
+
+    category_id = SelectField(
+        "Category",
+        coerce=int,
+        validators=[DataRequired()]
+    )
+        
+    group_name = StringField("Group Name")
+    first_name = StringField("First Name")
+    last_name = StringField("Last Name")
+    middle_name = StringField("Middle Name")
+
+    job_title = StringField("Job Title")
+    email = StringField("UCSD Email", validators=[Optional(), Email()])
+    building_room = StringField("Office Location")
+    mail_code = StringField("Mail Code")
+    phone_number = StringField("Phone Number")
+
+    contact_type = SelectField("Contact Type", choices=CONTACT_TYPES)
+   
+    other_type = StringField("Other Type", validators=[Optional()])
+
+    start_date = DateField('Start Date', format='%Y-%m-%d', validators=[Optional()])
+    end_date = DateField('End Date', format='%Y-%m-%d', validators=[Optional()])  
+
+    personal_email = StringField("Personal Email", validators=[Optional(), Email()])
+    pid = StringField("PID", description="If UCSD student volunteer, provide PID#")
+    employee_id = StringField("Employee ID", description="If volunteer is a current UCSD employee, provide employee ID#")
+    dob = DateField("Date of Birth", format='%Y-%m-%d', validators=[Optional()])
+    
+    other_info = StringField("Other Info", description="If Past UC Employment/Affiliation/Volunteer, provide email address, PID#, or Single SignOn")
+
+    is_employee = BooleanField("Is UCSD Employee?")
+    is_student = BooleanField("Is UCSD Student?")
+    is_x_affiliate = BooleanField("Is Past UCSD Employee/Affiliate/Volunteer?")
+
+    emailDSA = BooleanField("Email DSA?")
+    emailHR = BooleanField("Email HR?")
+    emailComms = BooleanField("Email Communications?")
+
+    type = HiddenField("Type", validators=[DataRequired()])
+
+    def validate(self, extra_validators=None):
+        rv = super().validate(extra_validators)
+        if not rv:
+            return False
+
+        first = self.first_name.data.strip() if self.first_name.data else ""
+        last = self.last_name.data.strip() if self.last_name.data else ""
+        group = self.group_name.data.strip() if self.group_name.data else ""
+
+        if not ((first and last) or group):
+            msg = "Please provide either First Name and Last Name, or a Group Name."
+            self.first_name.errors.append(msg)
+            self.last_name.errors.append(msg)
+            self.group_name.errors.append(msg)
+            return False
+
+        return True
