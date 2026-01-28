@@ -386,10 +386,14 @@ CONTACT_TYPES = [
 ]
 
 class CategoryForm(FlaskForm):
-    name = StringField("Category Name", validators=[DataRequired()])
-    building_room = StringField("Building / Room", validators=[Optional()])
-    office_phone = StringField("Office Phone", validators=[Optional()])
-    lab_phone = StringField("Lab Phone", validators=[Optional()])
+    name = StringField("Category Name", validators=[DataRequired()],
+        filters=[lambda x: x.strip() if x else x])
+    building_room = StringField("Building / Room", validators=[Optional()],
+        filters=[lambda x: x.strip() if x else x])
+    office_phone = StringField("Office Phone", validators=[Optional()],
+        filters=[lambda x: x.strip() if x else x])
+    lab_phone = StringField("Lab Phone", validators=[Optional()],
+        filters=[lambda x: x.strip() if x else x])
     is_lab = BooleanField("Is Lab?")
     show_in_directory = BooleanField("Show in Directory?")
     type = HiddenField("Type", validators=[DataRequired()])
