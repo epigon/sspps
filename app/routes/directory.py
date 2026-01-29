@@ -1,11 +1,12 @@
 from app import config, db
 from app.forms import CategoryForm, ContactForm
-from app.models import ContactCategory, Contact, ContactHeader, Employee, User
+from app.models import ContactCategory, Contact, ContactHeader
 from app.cred import HR_EMAIL_ADDRESS
 from app.utils import permission_required
 from flask import abort, Blueprint, flash, jsonify, redirect, request, render_template, url_for
 from flask_login import login_required, current_user
 from flask_wtf.csrf import generate_csrf
+from sqlalchemy.inspection import inspect
 import subprocess
 
 bp = Blueprint("directory", __name__, url_prefix="/directory")
@@ -38,19 +39,21 @@ def edit(type="contacts"):
     header_type = "alumni" if type == "alumni" else "contacts"
     header = ContactHeader.query.filter_by(type=header_type).first()
 
+    full_export_data = [serialize_category(c) for c in categories]
+
     return render_template(
         "directory/list.html",
         type=type,
         categories=categories,
+        full_export_data=full_export_data,
         header=header,
         category_map=category_map,
         admin=True
     )
 
-
 # ---------- DIRECTORY ----------
 @bp.route("list/<type>")
-@permission_required('directory+add, committee+view')
+@permission_required('directory+add, directory+view')
 def list(type="contacts"):
     # Validate dir_type
     if type not in ("alumni", "contacts"):
@@ -71,19 +74,42 @@ def list(type="contacts"):
     header_type = "alumni" if type == "alumni" else "contacts"
     header = ContactHeader.query.filter_by(type=header_type).first()
 
+    full_export_data = None
+
     return render_template(
         "directory/list.html",
         type=type,
         categories=categories,
+        full_export_data=full_export_data,
         header=header,
         category_map=category_map,
         admin=False
     )
 
+
+def serialize_contact(c):
+    return {
+        col.key: getattr(c, col.key)
+        for col in inspect(Contact).mapper.column_attrs
+    }
+
+def serialize_category(cat):
+    return {
+        "id": cat.id,
+        "name": cat.name,
+        "is_lab": cat.is_lab,
+        "building_room": cat.building_room,
+        "office_phone": cat.office_phone,
+        "lab_phone": cat.lab_phone,
+        "contacts": [serialize_contact(c) for c in cat.contacts]
+    }
+
+
 # -------------------------------
 # Category List
 # -------------------------------
 @bp.route("/categories")
+@permission_required('directory+add')
 def categories():
     type = request.args.get("type", "contacts")
     categories = ContactCategory.query.filter_by(type=type).order_by(ContactCategory.sort_order, ContactCategory.name).all()
@@ -95,6 +121,7 @@ def categories():
 # -------------------------------
 @bp.route("/categories/modal", defaults={"category_id": None}, methods=["GET"])
 @bp.route("/categories/modal/<int:category_id>", methods=["GET"])
+@permission_required('directory+add')
 def category_modal(category_id):
     type = request.args.get("type", "contacts")
 
@@ -108,6 +135,7 @@ def category_modal(category_id):
     return render_template("directory/category_modal.html", form=form, category=category)
 
 @bp.route("/categories/save", methods=["POST"])
+@permission_required('directory+add')
 def save_category():
     category_id = request.form.get("category_id")
     type = request.form.get("type", "contacts")
@@ -149,6 +177,7 @@ def save_category():
 # Sort Category
 # -------------------------------
 @bp.route("/categories/reorder", methods=["POST"])
+@permission_required('directory+add')
 def reorder_categories():
     data = request.get_json()
     type = request.args.get("type", "contacts")
@@ -169,6 +198,7 @@ def reorder_categories():
 # Delete Category (hard delete OK)
 # -------------------------------
 @bp.route("/categories/<int:category_id>/delete", methods=["POST"])
+@permission_required('directory+add')
 def category_delete(category_id):
     type = request.args.get("type", "contacts")
     category = ContactCategory.query.filter_by(
@@ -189,6 +219,7 @@ def category_delete(category_id):
 @bp.route("/contacts_modal", defaults={"category_id": None, "contact_id": None})
 @bp.route("/contacts_modal/<int:category_id>", defaults={"contact_id": None})
 @bp.route("/contacts_modal/<int:category_id>/<int:contact_id>")
+@permission_required('directory+add')
 def contact_modal(category_id, contact_id):
     contact = Contact.query.get(contact_id) if contact_id else None
     type = request.args.get("type", "contacts")
@@ -226,7 +257,7 @@ def contact_modal(category_id, contact_id):
     )
 
 @bp.route("/save", methods=["POST"])
-@login_required
+@permission_required('directory+add')
 def save_contact():
     form = ContactForm()
 
@@ -330,6 +361,7 @@ def save_contact():
     ), 400
 
 @bp.route("/<int:contact_id>/delete", methods=["POST"])
+@permission_required('directory+add')
 def delete_contact(contact_id):
     contact = Contact.query.get_or_404(contact_id)
     contact.is_active = False
@@ -339,6 +371,7 @@ def delete_contact(contact_id):
 
 
 @bp.route("/save_pdf_header", methods=["POST"])
+@permission_required('directory+add')
 def save_pdf_header():
     data = request.json
     type = request.form.get("type", "contacts")

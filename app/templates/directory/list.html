@@ -74,10 +74,16 @@
             <button class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#pdfHeaderModal">
                 <i class="bi bi-file-earmark-text"></i>PDF/Email Settings
             </button>
+
+            <button class="btn btn-outline-danger" id="exportFullPdfBtn">
+                <i class="bi bi-file-earmark-spreadsheet"></i> Full Export PDF
+            </button>
+
             {% endif %}
             <button class="btn btn-outline-info" id="exportPdfBtn">
                 <i class="bi bi-file-pdf"></i> Export PDF
             </button>
+
         </div>
         <div class="float-end">
             <button class="btn btn-outline-secondary" id="toggleAllBtn">
@@ -104,8 +110,7 @@
                         {% if is_lab %}
                         {% if c.building_room %}({{ c.building_room }}){% endif %} {% if c.office_phone %}| {{
                         c.office_phone }}{% endif %} {%if c.lab_phone %}| {{ c.lab_phone }}{% endif %}
-                        {% endif %}
-                        
+                        {% endif %}                        
                     </button>
                 </div>
             </h2>
@@ -119,34 +124,29 @@
                             <tr>
                                 <td colspan="{{ display_fields | length + 1 }}">
                                     {{ c.name }}
-                                    {% if is_lab %}
-                                    {% if c.building_room %}({{ c.building_room }}){% endif %} {% if c.office_phone %}|
-                                    {{
-                                    c.office_phone }}{% endif %} {%if c.lab_phone %}| {{ c.lab_phone }}{% endif %}
-                                    {% endif %}
                                 </td>
                             </tr>
                         </thead>
                         <thead class="table-light">
                             <tr>
                                 {% if "last_name" in display_fields %}
-                                <th class="text-center col-1">Last Name</th>
+                                <th class="text-center col-1" data-field="last_name">Last Name</th>
                                 {% endif %}
                                 {% if "first_name" in display_fields %}
-                                <th class="text-center col-1">First Name</th>
+                                <th class="text-center col-1" data-field="first_name">First Name</th>
                                 {% endif %}
                                 {% if "group_name" in display_fields %}
-                                <th class="text-center col-2">Group Name</th>
+                                <th class="text-center col-2" data-field="group_name">Group Name</th>
                                 {% endif %}
-                                {% if "job_title" in display_fields %}<th class="text-center col-2">Title</th>{% endif
+                                {% if "job_title" in display_fields %}<th class="text-center col-2" data-field="job_title">Title</th>{% endif
                                 %}
-                                {% if "email" in display_fields %}<th class="text-center col-2">UCSD Email</th>{% endif %}
-                                {% if "personal_email" in display_fields %}<th class="text-center col-2">Personal Email</th>{% endif %}
-                                {% if "building_room" in display_fields %}<th class="text-center col-2">Location</th>{%
+                                {% if "email" in display_fields %}<th class="text-center col-2" data-field="email">UCSD Email</th>{% endif %}
+                                {% if "personal_email" in display_fields %}<th class="text-center col-2" data-field="personal_email">Personal Email</th>{% endif %}
+                                {% if "building_room" in display_fields %}<th class="text-center col-2" data-field="building_room">Location</th>{%
                                 endif %}
-                                {% if "phone_number" in display_fields %}<th class="text-center col-2">Phone</th>{%
+                                {% if "phone_number" in display_fields %}<th class="text-center col-2" data-field="phone_number">Phone</th>{%
                                 endif %}
-                                {% if "mail_code" in display_fields %}<th class="text-center col-1">Mail Code</th>{%
+                                {% if "mail_code" in display_fields %}<th class="text-center col-1" data-field="mail_code">Mail Code</th>{%
                                 endif %}
                                 {% if admin %}
                                 <th class="text-center action">Action</th>
@@ -158,28 +158,28 @@
                             {% for u in c.contacts %}
                             <tr data-contact-id="{{ u.id }}">
                                 {% if "last_name" in display_fields %}
-                                <td>{{
+                                <td data-field="last_name">{{
                                     u.last_name }}</td>
                                 {% endif %}
                                 {% if "first_name" in display_fields %}
-                                <td>{{
+                                <td data-field="first_name">{{
                                     u.first_name }}</td>
                                 {% endif %}
                                 {% if "group_name" in display_fields %}
-                                <td>{{
+                                <td data-field="group_name">{{
                                     u.group_name }}</td>
                                 {% endif %}
-                                {% if "job_title" in display_fields %}<td>{{
+                                {% if "job_title" in display_fields %}<td data-field="job_title">{{
                                     u.job_title }}</td>{% endif %}
-                                {% if "email" in display_fields %}<td>{{ u.email
+                                {% if "email" in display_fields %}<td data-field="email">{{ u.email
                                     }}</td>{% endif %}
-                                {% if "personal_email" in display_fields %}<td>{{ u.personal_email
+                                {% if "personal_email" in display_fields %}<td data-field="personal_email">{{ u.personal_email
                                     }}</td>{% endif %}
-                                {% if "building_room" in display_fields %}<td>{{
+                                {% if "building_room" in display_fields %}<td   data-field="building_room">{{
                                     u.building_room }}</td>{% endif %}
-                                {% if "phone_number" in display_fields %}<td>{{
+                                {% if "phone_number" in display_fields %}<td data-field="phone_number">{{
                                     u.phone_number }}</td>{% endif %}
-                                {% if "mail_code" in display_fields %}<td>{{
+                                {% if "mail_code" in display_fields %}<td data-field="mail_code">{{
                                     u.mail_code }}</td>{% endif %}
                                 {% if admin %}
                                 <td class="text-center action col-1 text-nowrap">
@@ -287,6 +287,15 @@
 
 {% block scripts %}
 {{ super() }}
+{% if admin and full_export_data %}
+<script>
+    window.FULL_EXPORT_DATA = {{ full_export_data | tojson }};
+</script>
+{% else %}
+<script>
+    window.FULL_EXPORT_DATA = [];
+</script>
+{% endif %}
 
 <script>
     function initContactWizard() {
@@ -485,29 +494,149 @@
 
     });
 
-    // document.addEventListener("DOMContentLoaded", function () {
 
-    //     const accordionItems = document.querySelectorAll("#dir .accordion-collapse");
+    const FULL_EXPORT_COLUMNS = [
+        { key: "group_name", label: "Group Name" },
+        { key: "last_name", label: "Last Name" },
+        { key: "first_name", label: "First Name" },
+        { key: "middle_name", label: "Middle Name" },
+        { key: "job_title", label: "Job Title" },
+        { key: "email", label: "UCSD Email" },
+        { key: "personal_email", label: "Personal Email" },
+        { key: "phone_number", label: "Phone Number" },
+        { key: "building_room", label: "Location" },
+        { key: "mail_code", label: "Mail Code" },
+        { key: "contact_type", label: "Contact Type" },
+        { key: "other_type", label: "Other Type" },
+        { key: "pid", label: "PID" },
+        { key: "employee_id", label: "Employee ID" },
+        { key: "start_date", label: "Start Date" },
+        { key: "end_date", label: "End Date" },
+        { key: "other_info", label: "Other Info" }
+    ];
 
-    //     document.getElementById("expandAllBtn").addEventListener("click", function () {
-    //         accordionItems.forEach(el => {
-    //             const instance = bootstrap.Collapse.getOrCreateInstance(el, {
-    //                 toggle: false
-    //             });
-    //             instance.show();
-    //         });
-    //     });
+    // Export Full PDF
+    document.getElementById("exportFullPdfBtn")?.addEventListener("click", function () {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF("l", "pt", "a4");
 
-    //     document.getElementById("collapseAllBtn").addEventListener("click", function () {
-    //         accordionItems.forEach(el => {
-    //             const instance = bootstrap.Collapse.getOrCreateInstance(el, {
-    //                 toggle: false
-    //             });
-    //             instance.hide();
-    //         });
-    //     });
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const MARGIN = 30;
+        let yOffset = 40;
 
-    // });
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        doc.text("Full Contact Export (Admin)", pageWidth / 2, yOffset, { align: "center" });
+
+        yOffset += 25;
+
+        const headers = FULL_EXPORT_COLUMNS.map(c => c.label);
+        const data = window.FULL_EXPORT_DATA || [];
+
+        data.forEach(category => {
+            const contacts = category.contacts || [];
+            if (!contacts.length) return;
+
+            // ---- Category header rows ----
+            const subtitleParts = [];
+
+            if (category.building_room) {
+                subtitleParts.push(`Location: ${category.building_room}`);
+            }
+            if (category.office_phone) {
+                subtitleParts.push(`Office: ${category.office_phone}`);
+            }
+            if (category.lab_phone) {
+                subtitleParts.push(`Lab: ${category.lab_phone}`);
+            }
+
+            const subtitle = subtitleParts.join("  |  ");
+
+            doc.autoTable({
+                startY: yOffset,
+                head: [
+                    [
+                        {
+                            content: category.name,
+                            colSpan: headers.length,
+                            styles: {
+                                fillColor: [0, 98, 155],
+                                textColor: 255,
+                                halign: "center",
+                                fontStyle: "bold",
+                                fontSize: 9
+                            }
+                        }
+                    ],
+                    subtitle
+                        ? [
+                            {
+                                content: subtitle,
+                                colSpan: headers.length,
+                                styles: {
+                                    fillColor: [235, 240, 246],
+                                    textColor: [40, 40, 40],
+                                    halign: "center",
+                                    fontSize: 7
+                                }
+                            }
+                        ]
+                        : []
+                ].filter(row => row.length),   // remove empty subtitle row
+                theme: "plain",
+                margin: { left: MARGIN, right: MARGIN }
+            });
+
+            yOffset = doc.lastAutoTable.finalY;
+
+
+            // ---- Category data table ----
+            const rows = contacts.map(contact => {
+                return FULL_EXPORT_COLUMNS.map(col => {
+                    let value = contact[col.key];
+
+                    if (value === null || value === undefined) value = "";
+
+                    if (typeof value === "boolean") {
+                        value = value ? "Yes" : "No";
+                    }
+
+                    return String(value);
+                });
+            });
+
+            doc.autoTable({
+                startY: yOffset,
+                head: [headers],
+                body: rows,
+                theme: "grid",
+                styles: {
+                    fontSize: 7,
+                    cellPadding: 2,
+                    overflow: "linebreak"
+                },
+                headStyles: {
+                    fillColor: [220, 220, 220],
+                    textColor: [50, 50, 50],
+                    fontStyle: "bold"
+                },
+                margin: { left: MARGIN, right: MARGIN }
+            });
+
+            yOffset = doc.lastAutoTable.finalY + 12;
+
+            // ---- Page break safety ----
+            if (yOffset > pageHeight - 60) {
+                doc.addPage();
+                yOffset = 40;
+            }
+        });
+
+        doc.save("SSPPS_Full_Contact_Export_By_Category.pdf");
+    });
+
+
 
     // Export PDF
     document.addEventListener("DOMContentLoaded", function () {
