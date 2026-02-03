@@ -219,22 +219,50 @@
             <h5>Email Notifications</h5>
             <div class="row g-2">
                 <div class="col-md-12 mb-2 form-check">
-                    {{ form.emailDSA(class="form-check-input ms-1 me-2", id="emailDSA") }}
-                    {{ form.emailDSA.label(class="form-check-label", for="emailDSA") }}
+                    {% if header.dsa %}
+                        {{ form.emailDSA(class="form-check-input ms-1 me-2", id="emailDSA") }}
+                    {% else %}
+                        {{ form.emailDSA(
+                            class="form-check-input ms-1 me-2",
+                            id="emailDSA",
+                            disabled=True,
+                            checked=False
+                        ) }}
+                    {% endif %}
+                    {{ form.emailDSA.label(class="form-check-label {% if header.dsa is none %}text-muted{% endif %}", for="emailDSA") }}
                     {{ header.dsa }}
                 </div>
             </div>
             <div class="row g-2">
                 <div class="col-md-12 mb-2 form-check">
-                    {{ form.emailComms(class="form-check-input ms-1 me-2", id="emailComms") }}
-                    {{ form.emailComms.label(class="form-check-label", for="emailComms") }}
+                    {% if header.comms %}
+                        {{ form.emailComms(class="form-check-input ms-1 me-2", id="emailComms") }}
+                    {% else %}
+                        {{ form.emailComms(
+                            class="form-check-input ms-1 me-2",
+                            id="emailComms",
+                            disabled=True,
+                            checked=False
+                        ) }}                        
+                    {% endif %}
+
+                    {{ form.emailComms.label(class="form-check-label {% if header.comms is none %}text-muted{% endif %}", for="emailComms") }}
                     {{ header.comms }}
                 </div>
             </div>
             <div class="row g-2">
                 <div class="col-md-12 mb-2 form-check">
-                    {{ form.emailHR(class="form-check-input ms-1 me-2", id="emailHR") }}
-                    {{ form.emailHR.label(class="form-check-label", for="emailHR") }}
+                    {% if header.hr %}
+                        {{ form.emailHR(class="form-check-input ms-1 me-2", id="emailHR") }}
+                    {% else %}                        
+                        {{ form.emailHR(
+                            class="form-check-input ms-1 me-2",
+                            id="emailHR",
+                            disabled=True,
+                            checked=False
+                        ) }}
+                    {% endif %}
+                    {{ form.emailHR.label(class="form-check-label {% if header.hr is none %}text-muted{% endif %}", for="emailHR") }}
                     {{ header.hr }}
                 </div>
             </div>
