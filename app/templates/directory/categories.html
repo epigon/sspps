@@ -214,8 +214,8 @@
         }
     });
 
-    function deleteCategory(categoryId) {
-        if (!confirm("Are you sure you want to delete this category?")) return;
+    function deleteCategory(categoryId, categoryName) {
+        if (!confirm(`Are you sure you want to delete ${categoryName}?`)) return;
         const flash = document.getElementById("formMessage");
 
         fetch(`/directory/categories/${categoryId}/delete?type=${type}`, {
