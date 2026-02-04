@@ -63,7 +63,7 @@
                             onclick="openCategoryModal(type='{{ type }}', categoryId={{ c.id }}); return false;">
                             <i class="bi bi-pencil-square"></i> Edit
                         </button>
-                        <button class="btn btn-sm btn-outline-danger text-nowrap" onclick="deleteCategory({{ c.id }})">
+                        <button class="btn btn-sm btn-outline-danger text-nowrap" onclick="deleteCategory({{ c.id }}, '{{ c.name }}'); return false;">
                             <i class="bi bi-trash"></i> Delete
                         </button>
                     </div>
