@@ -415,19 +415,20 @@ def resend_email(request_id):
     flash(f"Request #{req.id} barcode emailed to {req.requestor_email}.", "success")
     return redirect(url_for("recharge.review_requests"))
 
-@login_required
 def send_email_via_powershell(to_address, to_cc=None, from_address=None, subject=None, body=None, attachment_path=None):
+    
     """Sends email using PowerShell's Send-MailMessage cmdlet."""
 
     # Escape double quotes in the body so HTML isn’t broken
     safe_body = body.replace('"', '`"') if body else ""
 
     if attachment_path:
-        ps_script = f'Send-MailMessage -From "{from_address}" -To "{to_address}" -Cc ("{to_cc}","{from_address}","screeningcore@health.ucsd.edu","jlagedesiqueiraneto@health.ucsd.edu") -Subject "{subject}" -Body "{safe_body}" -BodyAsHtml -Attachments "{attachment_path}" -SmtpServer "{config.MAIL_SERVER}" -UseSsl'
+        ps_script = f'Send-MailMessage -From "{from_address}" -To "{to_address}" -Cc ("{to_cc}","{from_address}","screeningcore@health.ucsd.edu") -Subject "{subject}" -Body "{safe_body}" -BodyAsHtml -Attachments "{attachment_path}" -SmtpServer "{config.MAIL_SERVER}" -UseSsl'
     else:
-        ps_script = f'Send-MailMessage -From "{from_address}" -To "{to_address}" -Cc ("{to_cc}","{from_address}","screeningcore@health.ucsd.edu","jlagedesiqueiraneto@health.ucsd.edu") -Subject "{subject}" -Body "{safe_body}" -BodyAsHtml -SmtpServer "{config.MAIL_SERVER}" -UseSsl'
-        
+        ps_script = f'Send-MailMessage -From "{from_address}" -To "{to_address}" -Cc ("{to_cc}","{from_address}","screeningcore@health.ucsd.edu") -Subject "{subject}" -Body "{safe_body}" -BodyAsHtml -SmtpServer "{config.MAIL_SERVER}" -UseSsl'
+    
     completed = subprocess.run(["powershell", "-Command", ps_script], capture_output=True, text=True)
+    
     if completed.returncode != 0:
         print("Error sending mail:", completed.stderr)
     else:
