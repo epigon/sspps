@@ -99,18 +99,13 @@
                 <td>{{ req.created_at.strftime('%m/%d/%Y %I:%M %p').lower() if req.created_at else '' }}</td>
                 <td>
                     <strong>{{ req.status }}</strong>
-                    {% if req.status == 'Approved' or req.status == 'Denied' %}<br />
-                    by {{ req.approver.employee_name or '' }}<br />
-                    on {{ req.approved_at.strftime('%m/%d/%Y %I:%M %p').lower() if
-                    req.approved_at else ''
-                    }}
                     {% if req.notes %}
                     <div class="mt-1">
                         <strong>Notes:</strong><br>
                         <span class="text-muted">{{ req.notes }}</span>
                     </div>
                     {% endif %}
-                    {% endif %}
+
                     {% if req.status == 'Approved' %}
                     <br /><a href="{{ url_for('recharge.resend_email', request_id=req.id) }}"
                         class="btn btn-secondary btn-sm">
