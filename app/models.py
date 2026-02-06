@@ -479,27 +479,11 @@ class InstrumentRequest(db.Model):
     pi_name = Column(db.String(100), nullable=False)
     pi_email = Column(db.String(120), nullable=False)
     pi_phone = Column(db.String(20), nullable=True)
-    # ad_username = Column(db.String(50), nullable=False)
     requestor_name = Column(db.String(50), nullable=False)
-    requestor_position = Column(db.String(100), nullable=False)
     requestor_email = Column(db.String(120), nullable=False)
-    requestor_phone = Column(db.String(20), nullable=True)
-    had_training = Column(db.Boolean, nullable=False, default=False)
-    project_task_code = Column(db.String(50), nullable=False)
-    funding_source_code = db.Column(db.String(50), nullable=False)
-    status = Column(db.String(20), default="Pending")  # Pending, Approved, Denied, Cancelled
+    status = Column(db.String(20), default="Approved")  # Pending, Approved, Denied, Cancelled
     notes = db.Column(db.Text, nullable=True)
     created_at = Column(db.DateTime, default=datetime.now)
-    approved_at = Column(db.DateTime)
-    approved_by = Column(db.String(50))  # AD username of reviewer
-
-    # relationship to Employee (different bind)
-    approver = db.relationship(
-        "Employee",
-        primaryjoin="foreign(InstrumentRequest.approved_by) == Employee.username",
-        uselist=False,
-        viewonly=True
-    )
 
 class Instrument(db.Model):
     __bind_key__ = 'rechargedb'
@@ -539,10 +523,13 @@ class InstrumentCalendarEvent(db.Model):
         db.ForeignKey("InstrumentRequests.id"),
         nullable=False
     )
-    
+    created_date = db.Column(db.DateTime, nullable=True)
+    created_by = db.Column(db.String(50), nullable=True)  # AD username of creator, or IP address if from API
+    updated_date = db.Column(db.DateTime, nullable=True)
+    updated_by = db.Column(db.String(50), nullable=True)  # AD username of deleter, or IP address if from API    
     deleted = db.Column(db.Boolean, default=False, nullable=False)
     deleted_date = db.Column(db.DateTime, nullable=True)
-    deleted_by = db.Column(db.String(50), nullable=True)  # AD username of deleter
+    deleted_by = db.Column(db.String(50), nullable=True)  # AD username of deleter, or IP address if from API
 
 #----------------------
 # DIRECTORY APP

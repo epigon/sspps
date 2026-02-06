@@ -305,17 +305,9 @@ class InstrumentRequestForm(FlaskForm):
     pi_name = DataAttributeSelectField("PI Name", validators=[DataRequired()])
     pi_email = StringField("PI Email", validators=[DataRequired(), Email()])
     pi_phone = TelField("PI Phone", validators=[Optional()])
-    project_task_code = DataAttributeSelectField("Project-Task Code", validators=[DataRequired()])
-    funding_source = DataAttributeSelectField("Funding Source", validators=[DataRequired()])
     requestor_name = StringField("Requestor Name", validators=[DataRequired()])
-    requestor_position = StringField("Requestor Position", validators=[DataRequired()])
     requestor_email = StringField("Requestor Email", validators=[DataRequired(), Email()])
-    requestor_phone = TelField("Requestor Phone", validators=[Optional()])
-    had_training = RadioField(
-        "Have you taken the mandatory training?",
-        choices=[("yes", "Yes"), ("no", "No")],
-        validators=[DataRequired()]
-    )
+
     submit = SubmitField("Submit Request")
 
     def __init__(self, *args, **kwargs):
@@ -342,35 +334,22 @@ class InstrumentRequestForm(FlaskForm):
         # Step 2: build distinct sets
         # Distinct PI choices
         pi_set = {(r.pi_email, r.pi_name) for r in rows}
-        # Distinct project/task codes
-        project_set = {(r.project_task_code, r.pi_email) for r in rows}
-        # Distinct funding sources
-        funding_set = {(r.funding_source_code, r.funding_source, r.project_task_code) for r in rows}
 
         # Step 3: sort each list
         pi_choices_sorted = sorted(pi_set, key=lambda x: x[1])  # sort by PI name
-        project_choices_sorted = sorted(project_set, key=lambda x: x[0])  # sort by code
-        funding_choices_sorted = sorted(funding_set, key=lambda x: x[1])  # sort by funding source name
 
         # Step 4: assign to form
         self.pi_name.choices = [('', '--- Select a PI ---', {})] + [
             (name, name, {"data-email": email}) for email, name in pi_choices_sorted
         ]
 
-        self.project_task_code.choices = [('', '--- Select Project/Task Code ---', {})] + [
-            (code, code, {"data-email": email}) for code, email in project_choices_sorted
-        ]
-
-        self.funding_source.choices = [('', '--- Select Funding Source ---', {})] + [
-            (fs_code, fs_name, {"data-project-task": project_task_code})
-            for fs_code, fs_name, project_task_code in funding_choices_sorted
-        ]
 
     def validate(self, extra_validators=None):
         rv = super().validate(extra_validators=extra_validators)
         if not rv:
             return False
         return True
+    
     
 #----------------------
 # DIRECTORY APP

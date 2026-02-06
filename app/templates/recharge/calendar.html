@@ -45,6 +45,12 @@ Instrument Scheduler
     .pulse {
         animation: pulse-danger 1.5s infinite;
     }
+
+    .fc-event:not(.fc-event-draggable) {
+    opacity: 0.6;
+    cursor: not-allowed;
+    }
+
 </style>
 {% endblock %}
 
@@ -123,6 +129,8 @@ Instrument Scheduler
                     <select id="requestSelect" class="form-select">
                         <option value="">— Select Approved Request —</option>
                     </select>
+                    <!-- hidden field that always mirrors the selected machine -->
+                    <input type="hidden" id="selectedMachine" value="">
                 </div>
                 {% endif %}
                 <div class="mb-2">
@@ -157,11 +165,13 @@ Instrument Scheduler
             </div>
 
             <div class="modal-footer">
-                {% if admin %}
-                <button id="deleteEventBtn" class="btn btn-danger d-none">
+                <button
+                    id="deleteEventBtn"
+                    class="btn btn-danger d-none"
+                    data-admin="{{ 'true' if admin else 'false' }}"
+                >
                     Delete
                 </button>
-                {% endif %}
 
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 <button id="saveEventBtn" class="btn btn-primary">Save</button>
@@ -183,10 +193,9 @@ Instrument Scheduler
 {{ super() }}
 
 <script>
-    document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", function () {
 
-        const requestID = {{ request_id| tojson
-    }};
+    const requestID = {{ request_id| tojson}};
     const isAdmin = {{ admin| tojson }};
     const isPublic = {{ public| tojson }};
     const deleteBtn = document.getElementById("deleteEventBtn");
@@ -198,6 +207,17 @@ Instrument Scheduler
     let allEvents = [];      // store ALL events once
     let machineColors = {}; // machine → color map
     let request = null;
+
+    // -----------------------------------------------------------
+    // Permission helper – true if the user may edit/delete this event
+    // -----------------------------------------------------------
+    function canEditEventByRequest(eventRequestId) {
+        if (isAdmin) return true;
+        if (!requestID || !eventRequestId) return false;
+
+        return String(eventRequestId).trim() === String(requestID).trim();
+    }
+
 
     // -----------------------------
     // REQUEST MODE: if requestID exists
@@ -289,18 +309,28 @@ Instrument Scheduler
         });
     });
 
+   
     function fetchAllData() {
         return fetch("/recharge/api/events")
             .then(res => res.json())
             .then(data => {
-                allEvents = data.events || [];
+                // -------------------------------------------------
+                // Add a per‑event `editable` property based on ownership
+                // -------------------------------------------------
+                allEvents = (data.events || []).map(ev => {
+                    const eventRequestId = ev.extendedProps?.request_id ?? ev.request_id;
+
+                    ev.startEditable = canEditEventByRequest(eventRequestId);
+
+                    return ev;
+                });
 
                 data.machines.forEach(m => {
-                    // selectedMachines.add(m.name);
                     machineColors[m.name] = m.color;
                 });
 
                 buildMachineLegend(data.machines);
+                // console.log("Fetched events and machines", allEvents, data.machines);
             });
     }
 
@@ -387,12 +417,6 @@ Instrument Scheduler
     }
 
 
-    // function bootstrapCalendar() {
-    //     if (calendar) return; // SAFETY GUARD
-    //     initCalendar();
-    // }
-
-
     function isValidDateRange(startStr, endStr) {
         if (!startStr || !endStr) return false;
 
@@ -461,7 +485,7 @@ Instrument Scheduler
                 right: "timeGridDay,timeGridWeek"
             },
 
-            selectable: isAdmin || (request && request.status === "Approved"),
+            selectable: isAdmin || Boolean(requestID && request && request.status === "Approved"),
             editable: isAdmin,
 
             events: function (fetchInfo, success) {
@@ -469,33 +493,17 @@ Instrument Scheduler
                     selectedMachines.has(e.extendedProps.machine_name)
                 );
                 success(filtered);
-                // const params = new URLSearchParams();
-
-                // if (request) {
-                //     // Only fetch events for the request's machine
-                //     params.append("machine", request.machine_name);
-                // } else {
-                //     if (selectedMachines.size === 0) {
-                //         success([]); // nothing selected
-                //         return;
-                //     }
-                //     selectedMachines.forEach(m => params.append("machine", m));
-                // }
-
-                // fetchEventsAndMachines().then(events => success(events));
-                // fetch(`/recharge/api/events?${params}`)
-                //     .then(res => res.json())
-                //     .then(events => {
-                //         const machinesFromEvents = new Set(
-                //             events.map(e => e.extendedProps.machine_name)
-                //         );
-
-                //         // Add any new machines to the filter UI
-                //         buildMachineLegend([...machinesFromEvents]);
-
-                //         success(events);
-                //     });
+                
             },
+            // Allow a drag only when the user owns the request
+            eventAllow: function (dropInfo, draggedEvent) {
+                return (
+                    isAdmin ||
+                    Boolean(requestID &&
+                    draggedEvent.extendedProps.request_id === requestID)
+                );
+            },
+
 
             datesSet: function () {
                 if (isAdmin && !request) return;
@@ -528,7 +536,7 @@ Instrument Scheduler
             select: function (info) {
                 if (isPublic) return;
 
-                // ✅ RESET ADMIN MODAL STATE
+                // RESET ADMIN MODAL STATE
                 resetEventModalForNew();
 
                 document.getElementById("eventStart").value = info.startStr.slice(0, 16);
@@ -539,22 +547,49 @@ Instrument Scheduler
                     .show();
             },
             eventClick: function (info) {
-                if (!isAdmin) {
-                    info.jsEvent.preventDefault(); // stop navigation
-                    return;                        // do nothing
-                }
+
+                updateDeleteButton(info.event);
 
                 const e = info.event;
                 const props = e.extendedProps;
+
+                // Permission check – allow edit/delete for admins OR
+                // for the exact request_id that appears in the URL
+                const canEdit = e.startEditable;
+
+                if (canEdit === false) {
+                    // non‑editable event → just stop navigation & exit
+                    info.jsEvent.preventDefault();
+                    return;
+                }
 
                 // Pull from extendedProps
                 const machineName = props.machine_name;
                 const requestId = props.request_id;
                 const requestorName = props.requestor_name || "";
 
+                // Populate the modal – same UI used for admins, but without override
                 const requestSelect = document.getElementById("requestSelect");
+                
                 if (requestSelect) {
                     requestSelect.value = requestId || "";
+                    requestSelect.addEventListener("change", function () {
+                        const option = this.selectedOptions[0];
+                        if (!option) return;
+
+                        // Update the title input (existing behaviour)
+                        document.getElementById("eventTitle").value = option.textContent;
+
+                        // Store machine & requestor on the select element (existing behaviour)
+                        this.dataset.machine = option.dataset.machine;
+                        this.dataset.requestor = option.dataset.requestor;
+
+                        // ---- NEW: keep a hidden field in sync ----
+                        const hiddenMachine = document.getElementById("selectedMachine");
+                        if (hiddenMachine) {
+                            hiddenMachine.value = option.dataset.machine || "";
+                        }
+                    });
                 }
 
                 // Prefill modal with event info
@@ -574,27 +609,61 @@ Instrument Scheduler
                 // Store event ID on modal save button for editing
                 saveBtn.dataset.eventId = e.id;
 
-                // Show delete button for admins
-                if (isAdmin && deleteBtn) {
-                    deleteBtn.classList.remove("d-none");
-                    deleteBtn.dataset.eventId = e.id;
+                // Show Delete button only when the user may delete
+                if (deleteBtn) {
+                    if (canEdit) {
+                        deleteBtn.classList.remove("d-none");
+                        deleteBtn.dataset.eventId = e.id;
+                    } else {
+                        deleteBtn.classList.add("d-none");
+                    }
                 }
 
                 bootstrap.Modal.getOrCreateInstance(document.getElementById("eventModal")).show();
             },
+
             eventDidMount: function (info) {
-                if (!isAdmin) {
-                    info.el.style.cursor = "default";
+                const canEdit = info.event.startEditable;
+                console.log("Event clicked:", info.event.title, info.event.id, "Editable:", canEdit, info.event.extendedProps);
+                if (canEdit === false) {
+                    // Visual lock
+                    info.el.classList.add("fc-event-locked");
+                    info.el.style.cursor = "not-allowed";
+
+                    // Tooltip text
+                    const reason = isAdmin
+                        ? "This booking is locked"
+                        : "This booking belongs to another request";
+
+                    info.el.setAttribute("title", reason);
+
+                    // Hover effects
+                    info.el.addEventListener("mouseenter", () => {
+                        info.el.classList.add("fc-event-locked-hover");
+                    });
+
+                    info.el.addEventListener("mouseleave", () => {
+                        info.el.classList.remove("fc-event-locked-hover");
+                    });
+
+                    const lock = document.createElement("span");
+                    lock.textContent = " 🔒";
+                    lock.style.fontSize = "0.85em";
+                    lock.style.marginLeft = "4px";
+
+                    const titleEl = info.el.querySelector(".fc-event-title");
+                    if (titleEl) titleEl.appendChild(lock);
+
+                } else {
+                    info.el.style.cursor = "move";
+                    info.el.classList.remove("fc-event-locked");
+                    info.el.classList.remove("fc-event-locked-hover");
+                    info.el.style.cursor = "pointer";
                 }
 
+                // Keep your existing machine color logic
                 const machine = info.event.extendedProps.machine_name;
-
-                info.el.style.backgroundColor =
-                    machineColors[machine] || "#747678";
-
-                if (!selectedMachines.has(machine)) {
-                    info.el.style.display = "none";
-                }
+                info.el.style.backgroundColor = machineColors[machine] || "#747678";
             },
             eventDrop: handleEventMove,
             eventResize: handleEventMove
@@ -604,37 +673,25 @@ Instrument Scheduler
 
     }
 
+    function updateDeleteButton(event) {
+        const btn = document.getElementById("deleteEventBtn");
+        const isAdmin = btn.dataset.admin === "true";
 
-    // function fetchEventsAndMachines() {
-    //     const params = new URLSearchParams();
-    //     selectedMachines.forEach(m => params.append("machine", m));
+        const eventReqId = event.extendedProps?.request_id;
+        const pageReqId  = requestID; // from URL
 
-    //     return fetch(`/recharge/api/events?${params}`)
-    //         .then(res => res.json())
-    //         .then(data => {
-    //             // Events for FullCalendar
-    //             const events = data.events;
-    //             // Machine-color mapping for filter buttons
-    //             const machines = data.machines;
-
-    //             // Build legend if not yet built
-    //             if (!window.machineLegendBuilt) {
-    //                 buildMachineLegend(machines);
-    //                 window.machineLegendBuilt = true;
-    //             }
-
-    //             return events;
-    //         });
-    // }
-
-
-    function handleEventMove(info) {
-
-        // First attempt: no override
-        attemptMove(info, false);
-
+        if (isAdmin || Boolean(eventReqId === pageReqId)) {
+            btn.classList.remove("d-none");
+        } else {
+            btn.classList.add("d-none");
+        }
     }
 
+    function handleEventMove(info) {
+        // Permission has already been checked by eventAllow,
+        // so we can go straight to the server call.
+        attemptMove(info, false);
+    }
 
     function attemptMove(info, override) {
         // Execute reCAPTCHA v3
@@ -663,6 +720,11 @@ Instrument Scheduler
                         // Conflict detected
                         if (!res.ok && res.body.conflict) {
 
+                            // If override already approved, don’t ask again
+                            if (info.event.extendedProps._overrideApproved) {
+                                return;
+                            }
+
                             // Non-admins can’t override
                             if (!isAdmin) {
                                 alert(res.body.error);
@@ -676,6 +738,8 @@ Instrument Scheduler
                             );
 
                             if (confirmed) {
+                                // mark event so we don't re-confirm
+                                info.event.setExtendedProp("_overrideApproved", true);
                                 // Retry WITH override
                                 attemptMove(info, true);
                             } else {
@@ -705,6 +769,7 @@ Instrument Scheduler
 
         // Reset request selector
         const requestSelect = document.getElementById("requestSelect");
+        
         if (requestSelect) {
             requestSelect.value = "";
             delete requestSelect.dataset.machine;
@@ -736,6 +801,18 @@ Instrument Scheduler
     // Save Event
     // --------------------
     saveBtn.addEventListener("click", function () {
+        const reqSelect = document.getElementById("requestSelect");
+        const hiddenMachine = document.getElementById("selectedMachine");
+
+        // New source for machine name
+        const machineName = request?.machine_name ||
+                            hiddenMachine?.value ||
+                            reqSelect?.selectedOptions[0]?.dataset.machine ||
+                            null;
+
+        const requestorName = request?.requestor_name ||
+                            reqSelect?.selectedOptions[0]?.dataset.requestor ||
+                            null;
 
         const startVal = document.getElementById("eventStart").value;
         const endVal = document.getElementById("eventEnd").value;
@@ -751,7 +828,7 @@ Instrument Scheduler
             grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: "submit" }).then(function (token) {
 
                 const reqSelect = document.getElementById("requestSelect");
-                const requestId = requestID || reqSelect?.value || null;
+                const requestId = reqSelect?.value || requestID || null;
                 const machineName = request?.machine_name || reqSelect?.selectedOptions[0]?.dataset.machine;
                 const requestorName = request?.requestor_name || reqSelect?.selectedOptions[0]?.dataset.requestor;
                 const override = isAdmin && modalOverride?.checked;
@@ -775,7 +852,6 @@ Instrument Scheduler
                     override: override,
                     recaptcha_token: token  // ✅ send token to backend
                 };
-                console.log("Saving event with payload:", payload);
                 fetch(payload.id ? "/recharge/api/events/update" : "/recharge/api/events", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -783,7 +859,6 @@ Instrument Scheduler
                 })
                     .then(res => res.json())
                     .then(data => {
-                        console.log("Save response data:", data);
                         if (data.error) {
                             document.getElementById("eventError").textContent = data.error;
                             if (data.conflict) showOverrideUI();
@@ -791,58 +866,51 @@ Instrument Scheduler
                         }
 
                         if (eventId) {
+
+                            const canEdit = canEditEventByRequest(data.extendedProps.request_id);
                             // Update master list
                             const idx = allEvents.findIndex(e => e.id == eventId);
                             if (idx !== -1) {
+                                // Update master list
                                 allEvents[idx].title = data.title;
                                 allEvents[idx].start = data.start;
-                                allEvents[idx].end = data.end;
+                                allEvents[idx].end   = data.end;
+                                allEvents[idx].startEditable = canEdit;
                             }
 
-                            // Update visible event
+                            // Update visible event in FullCalendar
                             const event = calendar.getEventById(eventId);
                             event.setProp("title", data.title);
                             event.setStart(data.start);
                             event.setEnd(data.end);
+                            event.setProp("startEditable", canEdit);
+                            event.setProp("backgroundColor", data.backgroundColor);
+                            event.setProp("borderColor", data.backgroundColor);
 
-                            // existing edit
-                            // const event = calendar.getEventById(eventId);
-                            // event.setProp("title", data.title);
-                            // event.setStart(data.start);
-                            // event.setEnd(data.end);
-
-                            // calendar.refetchEvents();
                         } else {
                             // NEW EVENT
+                            const canEdit = canEditEventByRequest(data.extendedProps.request_id);
+
                             const newEvent = {
                                 id: data.id,
                                 title: data.title,
                                 start: data.start,
                                 end: data.end,
+                                startEditable: canEdit,
                                 backgroundColor: data.backgroundColor,
-                                borderColor: data.borderColor,
-                                extendedProps: data.extendedProps
+                                borderColor: data.backgroundColor,
+                                extendedProps:  
+                                {
+                                    machine_name: data.extendedProps.machine_name,
+                                    request_id: data.extendedProps.request_id,
+                                    requestor_name: data.extendedProps.requestor_name
+                                }
                             };
 
-                            // 1️⃣ Store in master list
-                            allEvents.push(newEvent);
+                            calendar.addEvent(newEvent);
 
-                            // 2️⃣ Enable its machine filter
+                            // Enable its machine filter
                             enableMachineFilter(newEvent.extendedProps.machine_name);
-
-                            // 3️⃣ Re-render calendar
-                            calendar.refetchEvents();
-
-                            // ✅ NEW EVENT
-                            // const machine =
-                            //     data.extendedProps?.machine_name ||
-                            //     data.machine_name ||
-                            //     machineName;
-
-                            // enableMachineFilter(machine);
-
-                            // // calendar.removeAllEvents();
-                            // calendar.refetchEvents();
 
                         }
 
@@ -860,6 +928,16 @@ Instrument Scheduler
         const eventId = this.dataset.eventId;
         if (!eventId) return;
 
+        // Verify permission again (defensive)
+        const eventObj = calendar.getEventById(eventId);
+        const requestId = eventObj?.extendedProps?.request_id;
+        
+        if (!eventObj) return;
+        if (!canEditEventByRequest(requestId)) {
+            alert("You are not authorized to delete this booking.");
+            return;
+        }
+        
         if (!confirm("Are you sure you want to delete this booking?")) return;
 
         grecaptcha.ready(function () {
@@ -868,13 +946,16 @@ Instrument Scheduler
                 { action: "submit" }
             ).then(function (token) {
 
+                const payload = {
+                    id: eventId,
+                    request_id: requestId,   
+                    recaptcha_token: token
+                };
+
                 fetch("/recharge/api/events/delete", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        id: eventId,
-                        recaptcha_token: token
-                    })
+                    body: JSON.stringify(payload)
                 })
                     .then(res => res.json())
                     .then(data => {
@@ -886,6 +967,10 @@ Instrument Scheduler
                         // Remove from calendar
                         const event = calendar.getEventById(eventId);
                         if (event) event.remove();
+
+                        // Also purge from the in‑memory `allEvents` array
+                        const idx = allEvents.findIndex(e => e.id == eventId);
+                        if (idx !== -1) allEvents.splice(idx, 1);
 
                         bootstrap.Modal
                             .getInstance(document.getElementById("eventModal"))

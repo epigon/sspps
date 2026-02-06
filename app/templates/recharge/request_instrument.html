@@ -90,12 +90,12 @@
     $(document).ready(function () {
         const piSelect = document.getElementById('pi_name');
         const piEmail = document.getElementById('pi_email');
-        const projectSelect = document.getElementById('project_task_code');
-        const fundingSelect = document.getElementById('funding_source');
+        // const projectSelect = document.getElementById('project_task_code');
+        // const fundingSelect = document.getElementById('funding_source');
 
         // Store original options so we can restore them later
-        const projectOptions = Array.from(projectSelect.options);
-        const fundingOptions = Array.from(fundingSelect.options);
+        // const projectOptions = Array.from(projectSelect.options);
+        // const fundingOptions = Array.from(fundingSelect.options);
 
         // Step 1: Filter project_task_code by PI
         piSelect.addEventListener('change', function () {
@@ -103,29 +103,29 @@
             const email = selectedPI.dataset.email; // grab data-email
             piEmail.value = email || '';  // set the input field value
 
-            projectSelect.innerHTML = ''; // clear
-            projectOptions.forEach(opt => {
-                if (!opt.value || !email || opt.dataset.email === email) {
-                    projectSelect.appendChild(opt.cloneNode(true));
-                }
-            });
+            // projectSelect.innerHTML = ''; // clear
+            // projectOptions.forEach(opt => {
+            //     if (!opt.value || !email || opt.dataset.email === email) {
+            //         projectSelect.appendChild(opt.cloneNode(true));
+            //     }
+            // });
 
-            // Reset funding source
-            fundingSelect.innerHTML = '';
-            fundingSelect.appendChild(fundingOptions[0].cloneNode(true)); // placeholder only
+            // // Reset funding source
+            // fundingSelect.innerHTML = '';
+            // fundingSelect.appendChild(fundingOptions[0].cloneNode(true)); // placeholder only
 
         });
 
         // Step 2: Filter funding_source by project_task_code
-        projectSelect.addEventListener('change', function () {
-            const selectedProject = this.value;
-            fundingSelect.innerHTML = ''; // clear
-            fundingOptions.forEach(opt => {
-                if (!opt.value || !selectedProject || opt.dataset.projectTask === selectedProject) {
-                    fundingSelect.appendChild(opt.cloneNode(true));
-                }
-            });
-        });
+        // projectSelect.addEventListener('change', function () {
+        //     const selectedProject = this.value;
+        //     fundingSelect.innerHTML = ''; // clear
+        //     fundingOptions.forEach(opt => {
+        //         if (!opt.value || !selectedProject || opt.dataset.projectTask === selectedProject) {
+        //             fundingSelect.appendChild(opt.cloneNode(true));
+        //         }
+        //     });
+        // });
     });
 </script>
 {% endblock %}

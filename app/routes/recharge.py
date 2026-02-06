@@ -90,6 +90,18 @@ def verify_captcha(captcha_response):
     # print(r.json())
     return r.json().get("success", False)
 
+def get_client_ip():
+    """
+    Return the best-guess client IP address.
+    Works behind proxies if configured correctly.
+    """
+    # If behind a proxy (nginx, load balancer, etc.)
+    if request.headers.get("X-Forwarded-For"):
+        # X-Forwarded-For may contain multiple IPs: client, proxy1, proxy2
+        return request.headers.get("X-Forwarded-For").split(",")[0].strip()
+
+    return request.remote_addr
+
 # --- Requestor form ---
 @bp.route("/request_instrument/", methods=["GET", "POST"])
 def request_instrument():
@@ -106,12 +118,7 @@ def request_instrument():
             pi_email=form.pi_email.data,
             pi_phone=form.pi_phone.data,
             requestor_name=form.requestor_name.data,
-            requestor_position=form.requestor_position.data,
-            requestor_email=form.requestor_email.data,
-            requestor_phone=form.requestor_phone.data,
-            had_training=True if form.had_training.data.lower()=="yes" else False,
-            project_task_code=form.project_task_code.data,
-            funding_source_code=form.funding_source.data
+            requestor_email=form.requestor_email.data
         )
         db.session.add(req)
         db.session.commit()
@@ -122,42 +129,13 @@ def request_instrument():
             "PI Email": form.pi_email.data,
             "PI Phone": form.pi_phone.data,
             "Requestor Name": form.requestor_name.data,
-            "Requestor Position": form.requestor_position.data,
-            "Requestor Email": form.requestor_email.data,
-            "Requestor Phone": form.requestor_phone.data,
-            "Project Task Code": form.project_task_code.data,
-            "Funding Source": form.funding_source.data,
-            "Had Training": "Yes" if form.had_training.data.lower()=="yes" else "No",
+            "Requestor Email": form.requestor_email.data
         }
 
-        # Convert to an HTML table for email
-        subject = f"New {req.machine_name} Request Submitted"
-        recipients = "screeningcore@health.ucsd.edu"
-        cc = req.pi_email
-        sender = req.requestor_email
-        # Build the full link using the current host
-        review_url = request.url_root.rstrip("/") + url_for("recharge.review_requests", status="Pending")
+        # Reuse the email function
+        email_request_barcode(req.id)
 
-        body_template = """
-        <h3>New Instrument Request Submitted</h3>
-        <table border="1" cellspacing="0" cellpadding="6" style="border-collapse: collapse; width: 100%;">
-            {% for key, value in request_data.items() %}
-            <tr>
-                <td style="background-color:#f5f5f5; font-weight:bold;">{{ key }}</td>
-                <td>{{ value }}</td>
-            </tr>
-            {% endfor %}
-        </table>
-        <p>Please review and process the request accordingly.  
-           <a href="{{ review_url }}">Review all pending requests here.</a>
-        </p>
-        <p>Thank you!</p>
-        """
-
-        # Render it with data
-        body_html = render_template_string(body_template, request_data=request_data, review_url=review_url)
-
-        send_email_via_powershell(recipients, cc, sender, subject, body_html)
+        flash(f"Request #{req.id} approved and barcode emailed to {req.requestor_email}.", "success")
 
     return render_template("recharge/request_instrument.html", form=form, request_data=request_data)
 
@@ -167,10 +145,8 @@ def request_instrument():
 @permission_required('screeningcore_approve+add')
 def review_requests():
 
-    # print(current_user.can("screeningcore_approve", "add"))
     status = request.args.get("status")
     machine = request.args.get("machine")
-    # print("machine",request.args.get('machine'))
     query = InstrumentRequest.query
 
     if status:
@@ -191,8 +167,6 @@ def handle_request(request_id):
     notes = request.form.get('notes')
     action = request.form.get('action')
     req = InstrumentRequest.query.get_or_404(request_id)
-    req.approved_at = datetime.now()
-    req.approved_by = current_user.username
     req.notes = req.notes+", "+request.form.get("notes") if req.notes else request.form.get("notes")
 
     if action == 'approve':
@@ -214,109 +188,117 @@ def handle_request(request_id):
 
     return redirect(url_for("recharge.review_requests"))
 
-@login_required
-def email_request(request_id):
+# @login_required
+# def email_request(request_id):
 
-    """Generates barcode and sends it via email."""
-    req = InstrumentRequest.query.get_or_404(request_id)
-    machine = Instrument.query.filter_by(machine_name=req.machine_name).first()
+#     """Generates barcode and sends it via email."""
+#     req = InstrumentRequest.query.get_or_404(request_id)
+#     machine = Instrument.query.filter_by(machine_name=req.machine_name).first()
 
-    user = User.query.filter_by(id=current_user.id, deleted=False).first()
-    approver = Employee.query.filter_by(employee_id=user.employee_id).first()
+#     user = User.query.filter_by(id=current_user.id, deleted=False).first()
+#     # approver = Employee.query.filter_by(employee_id=user.employee_id).first()
 
-    # Create barcode image in memory
-    payload = f"{req.id}"
-    # print("Payload:", payload, type(payload))    
+#     calendar_url = f"{request.url_root.rstrip('/')}{url_for('recharge.calendar', request_id=req.id)}"
 
-    # Generate QR code image
-    qr_img = qrcode.make(payload).convert("RGB")
-    # print("QR size:", qr_img.size)
+#     # Create barcode image in memory
+#     payload = f"{req.id}"
+#     # print("Payload:", payload, type(payload))    
 
-    # Pick a font (falls back if not found)
-    try:
-        font = ImageFont.truetype("arial.ttf", 30)  # You can adjust font + size
-    except:
-        font = ImageFont.load_default()
+#     # Generate QR code image
+#     qr_img = qrcode.make(payload).convert("RGB")
+#     # print("QR size:", qr_img.size)
+
+#     # Pick a font (falls back if not found)
+#     try:
+#         font = ImageFont.truetype("arial.ttf", 30)  # You can adjust font + size
+#     except:
+#         font = ImageFont.load_default()
     
-    title_text = f"{req.requestor_name} - {req.machine_name}"
+#     title_text = f"{req.requestor_name} - {req.machine_name}"
 
-    # Measure text size
-    dummy_img = Image.new("RGB", (1, 1))
-    dummy_draw = ImageDraw.Draw(dummy_img)
-    # print("Measuring text...")
-    try:
-        bbox = dummy_draw.textbbox((0, 0), title_text, font=font)
-        text_width = bbox[2] - bbox[0]
-        text_height = bbox[3] - bbox[1]
-    except AttributeError:
-        # For older Pillow
-        text_width, text_height = dummy_draw.textsize(title_text, font=font)
-    # print("Text size:", text_width, text_height)
+#     # Measure text size
+#     dummy_img = Image.new("RGB", (1, 1))
+#     dummy_draw = ImageDraw.Draw(dummy_img)
+#     # print("Measuring text...")
+#     try:
+#         bbox = dummy_draw.textbbox((0, 0), title_text, font=font)
+#         text_width = bbox[2] - bbox[0]
+#         text_height = bbox[3] - bbox[1]
+#     except AttributeError:
+#         # For older Pillow
+#         text_width, text_height = dummy_draw.textsize(title_text, font=font)
+#     # print("Text size:", text_width, text_height)
 
-    # Create canvas
-    qr_width, qr_height = qr_img.size
-    padding = 20
-    new_height = qr_height + text_height + padding
-    new_img = Image.new("RGB", (qr_width, new_height), "white")
+#     # Create canvas
+#     qr_width, qr_height = qr_img.size
+#     padding = 20
+#     new_height = qr_height + text_height + padding
+#     new_img = Image.new("RGB", (qr_width, new_height), "white")
 
-    # Draw title
-    draw = ImageDraw.Draw(new_img)
-    text_x = (qr_width - text_width) // 2
-    draw.text((text_x, 5), title_text, fill="black", font=font)
+#     # Draw title
+#     draw = ImageDraw.Draw(new_img)
+#     text_x = (qr_width - text_width) // 2
+#     draw.text((text_x, 5), title_text, fill="black", font=font)
 
-    # Paste QR
-    new_img.paste(qr_img, (0, text_height + padding))
+#     # Paste QR
+#     new_img.paste(qr_img, (0, text_height + padding))
 
-    # ✅ Force save to a known writable location
-    filename = os.path.join(tempfile.gettempdir(), f"{req.id}.png")
-    # print("Saving QR to:", filename)
+#     # ✅ Force save to a known writable location
+#     filename = os.path.join(tempfile.gettempdir(), f"{req.id}.png")
+#     # print("Saving QR to:", filename)
 
-    try:
-        new_img.save(filename, "PNG")
-        print("Exists after save?", os.path.exists(filename))
-        print("QR saved:", filename)
-    except Exception as e:
-        print("Error saving QR:", str(e))
+#     try:
+#         new_img.save(filename, "PNG")
+#         print("Exists after save?", os.path.exists(filename))
+#         print("QR saved:", filename)
+#     except Exception as e:
+#         print("Error saving QR:", str(e))
 
-    # Send email with barcode
-    subject = f"{req.machine_name} Request Approved"
-    recipients = req.requestor_email
-    cc = req.pi_email
-    sender = approver.email
+#     # Send email with barcode
+#     subject = f"{req.machine_name} Request Approved"
+#     recipients = req.requestor_email
+#     cc = req.pi_email
+#     # sender = approver.email
+#     sender = "screeningcore@health.ucsd.edu"
 
-    body_html = f"""
-    <p>Dear {req.requestor_name},</p>
+#     body_html = f"""
+#     <p>Dear {req.requestor_name},</p>
 
-    <p>Your instrument request for <strong>{req.machine_name}</strong> has been approved.<br>
-    Your <strong>barcode is attached</strong> - <u>you will need it to access the instrument</u>.</p>
+#     <p>Your instrument request for <strong>{req.machine_name}</strong> has been approved.<br>
+#     Your <strong>barcode is attached</strong> - <u>you will need it to access the instrument</u>.</p>
 
-    <p>To help ensure smooth scheduling and fair use, please note the following guidelines:</p>
-    <ul>
-        <li><strong>Minimum usage time:</strong> {machine.min_duration} {machine.duration_type}.</li>
-        <li><strong>Billing increments:</strong> Time is billed in {machine.min_increment}-{machine.increment_type} increments after the minimum usage time ({machine.min_duration} {machine.duration_type}).</li>
-        <li><strong>Logout requirement:</strong> Please log out at the end of your session. Billing continues until logout is completed.</li>
-        <li><strong>Booking:</strong> All sessions must be reserved in advance through the instrument booking calendar.  Calendar link will be sent shortly.</li>
-    </ul>
+#     <p>To help ensure smooth scheduling and fair use, please note the following guidelines:</p>
+#     <ul>
+#         <li><strong>First time users:</strong> If this is your first time using the instrument, please complete the required training prior to your first session.</li>
+#         <li><strong>Instrument Access:</strong> 
+#             <ul>
+#                 <li>UCSD AD username and password are required to log in to the instrument.</li>
+#                 <li>Access to the instrument requires the attached barcode for authentication.</li>
+#                 <li>Please log out at the end of your session. Billing continues until logout is completed.</li>
+#             </ul>
+#         </li>
+#         <li><strong>Minimum usage time:</strong> {machine.min_duration} {machine.duration_type}.</li>
+#         <li><strong>Billing increments:</strong> Time is billed in {machine.min_increment}-{machine.increment_type} increments after the minimum usage time ({machine.min_duration} {machine.duration_type}).</li>
+#         <li><strong>Booking:</strong> All sessions must be reserved in advance through the instrument booking calendar.  Click <a href="{calendar_url}">Calendar Link</a> to book.</li>
+#     </ul>
 
-    <p>Thank you for your cooperation, and we look forward to supporting your work!</p>
+#     <p>Thank you for your cooperation, and we look forward to supporting your work!</p>
 
-    <p>Best regards,<br>
-    Screening Core</p>
-    """
-    # : <a href="{machine.calendar_url}">Calendar Link</a>
-    send_email_via_powershell(recipients, cc, sender, subject, body_html, filename)
+#     <p>Best regards,<br>
+#     Screening Core</p>
+#     """
+ 
+#     send_email_via_powershell(recipients, cc, sender, subject, body_html, filename)
 
-    # Delete barcode file
-    try:
-        os.remove(filename)
-    except OSError as e:
-        print(f"Error deleting file {filename}: {e}")
+#     # Delete barcode file
+#     try:
+#         os.remove(filename)
+#     except OSError as e:
+#         print(f"Error deleting file {filename}: {e}")
 
-    return req
+#     return req
 
 @bp.route("/email-request-barcode/<string:request_id>")
-@login_required
-@permission_required('screeningcore_approve+add')
 def email_request_barcode(request_id):
 
     """Generates barcode and sends it via email."""
@@ -324,17 +306,14 @@ def email_request_barcode(request_id):
     machine = Instrument.query.filter_by(machine_name=req.machine_name).first()
 
     user = User.query.filter_by(id=current_user.id, deleted=False).first()
-    approver = Employee.query.filter_by(employee_id=user.employee_id).first()
 
     calendar_url = f"{request.url_root.rstrip('/')}{url_for('recharge.calendar', request_id=req.id)}"
     
     # Create barcode image in memory
     payload = f"{req.id}"
-    # print("Payload:", payload, type(payload))    
 
     # Generate QR code image
     qr_img = qrcode.make(payload).convert("RGB")
-    # print("QR size:", qr_img.size)
 
     # Pick a font (falls back if not found)
     try:
@@ -355,7 +334,6 @@ def email_request_barcode(request_id):
     except AttributeError:
         # For older Pillow
         text_width, text_height = dummy_draw.textsize(title_text, font=font)
-    # print("Text size:", text_width, text_height)
 
     # Create canvas
     qr_width, qr_height = qr_img.size
@@ -373,7 +351,6 @@ def email_request_barcode(request_id):
 
     # ✅ Force save to a known writable location
     filename = os.path.join(tempfile.gettempdir(), f"{req.id}.png")
-    # print("Saving QR to:", filename)
 
     try:
         new_img.save(filename, "PNG")
@@ -386,7 +363,7 @@ def email_request_barcode(request_id):
     subject = f"{req.machine_name} Request Approved"
     recipients = req.requestor_email
     cc = req.pi_email
-    sender = approver.email
+    sender = "screeningcore@health.ucsd.edu"
 
     body_html = f"""
     <p>Dear {req.requestor_name},</p>
@@ -396,9 +373,16 @@ def email_request_barcode(request_id):
 
     <p>To help ensure smooth scheduling and fair use, please note the following guidelines:</p>
     <ul>
+        <li><strong>First time users:</strong> If this is your first time using the instrument, please complete the required training prior to your first session.</li>
+        <li><strong>Instrument Access:</strong> 
+            <ul>
+                <li>UCSD AD username and password are required to log in to the instrument.</li>
+                <li>Access to the instrument requires the attached barcode for authentication.</li>
+                <li>Please log out at the end of your session. Billing continues until logout is completed.</li>
+            </ul>
+        </li>
         <li><strong>Minimum usage time:</strong> {machine.min_duration} {machine.duration_type}.</li>
         <li><strong>Billing increments:</strong> Time is billed in {machine.min_increment}-{machine.increment_type} increments after the minimum usage time ({machine.min_duration} {machine.duration_type}).</li>
-        <li><strong>Logout requirement:</strong> Please log out at the end of your session. Billing continues until logout is completed.</li>
         <li><strong>Booking:</strong> All sessions must be reserved in advance through the instrument booking calendar.  Click <a href="{calendar_url}">Calendar Link</a> to book.</li>
     </ul>
 
@@ -407,7 +391,7 @@ def email_request_barcode(request_id):
     <p>Best regards,<br>
     Screening Core</p>
     """
-    # : <a href="{machine.calendar_url}">Calendar Link</a>
+    
     send_email_via_powershell(recipients, cc, sender, subject, body_html, filename)
 
     # Delete barcode file
@@ -455,10 +439,6 @@ def is_admin():
 @bp.route("/calendar")
 @bp.route("/calendar/<string:request_id>")
 def calendar(request_id=None):
-    # print("In calendar route", request)
-    # request_id = request.args.get("request_id")
-    # print("Request ID from args:", request_id)
-    # request_id = request.args.get("request_id")
 
     if request_id:
         req = InstrumentRequest.query.get(request_id)
@@ -517,8 +497,6 @@ def get_events():
         query = query.filter(CalendarEvent.machine_name.in_(machines))
 
     events = query.all()
-    # for e in events:
-    #     print("Event:", e.id, e.title, e.start, e.end, e.machine_name, e.request_id)
 
     all_machines = get_all_machines_from_db()
     machine_colors = assign_machine_colors(all_machines)
@@ -598,29 +576,43 @@ def approved_requests():
     ])
 
 
-"""
-Add Event (Machine-Specific Conflict Rule)
-"""
+def get_page_request_id():
+    """
+    Return the request_id that the front‑end supplied in the URL.
+    The front‑end should always include ?request_id=nnn when a user
+    is working on a specific request.
+    """
+    # URL query‑string – most reliable for GET page loads
+    qs_id = request.args.get("request_id", type=int)
+    if qs_id:
+        return qs_id
+
+    # In case the client posts the value (e.g. on Save)
+    json_id = request.get_json(silent=True) or {}
+    return json_id.get("request_id")
+
+
 @bp.route("/api/events", methods=["POST"])
 def add_event():
+    """
+    Add Event (Machine-Specific Conflict Rule)
+    """
     data = request.get_json()
 
+    # ---------- CAPTCHA ----------
     if not verify_captcha(data.get("recaptcha_token", "")):
         return jsonify({"error": "CAPTCHA verification failed"}), 400
 
     title = data.get("title")
     machine_name = data.get("machine_name")
     request_id = data.get("request_id")
-
     start = parse_iso_utc(data["start"])
     end = parse_iso_utc(data["end"])
 
     override = bool(data.get("override", False))
     admin = is_admin()
 
-    # ----------------------------------
-    # ✅ REQUEST VALIDATION GOES HERE
-    # ----------------------------------
+    # ---------- REQUEST VALIDATION ----------
     if request_id:
         req = InstrumentRequest.query.get_or_404(request_id)
 
@@ -629,31 +621,29 @@ def add_event():
 
         if req.machine_name != machine_name:
             return jsonify({"error": "Machine mismatch."}), 400
+    else:
+        # If the user is not working off a request, we still allow creation
+        # (e.g. admin‑only free‑form scheduling).  No further checks required.
+        req = None
 
-    # ----------------------------------
-    # CONFLICT CHECK
-    # ----------------------------------
-    if not (admin and override):
-        conflicts = (
-            CalendarEvent.query
-            .filter(
-                CalendarEvent.machine_name == machine_name,
-                CalendarEvent.start < end,
-                CalendarEvent.end > start,
-                CalendarEvent.deleted == False
-            )
-            .all()
+    # ---------- CONFLICT CHECK (always enforced) ----------
+    conflicts = (
+        CalendarEvent.query
+        .filter(
+            CalendarEvent.machine_name == machine_name,
+            CalendarEvent.start < end,
+            CalendarEvent.end > start,
+            CalendarEvent.deleted == False
         )
-
-        if conflicts:
-            return jsonify({
-                "error": "This machine is already booked.",
-                "conflict": True
-            }), 400
-
-    # ----------------------------------
-    # CREATE EVENT
-    # ----------------------------------
+        .all()
+    )
+    if conflicts:
+        return jsonify({
+            "error": "This machine is already booked.",
+            "conflict": True
+        }), 400
+    
+    # ---------- CREATE ----------
     event = CalendarEvent(
         title=title,
         machine_name=machine_name,
@@ -661,67 +651,77 @@ def add_event():
         end=end,
         request_id=request_id
     )
+    event.created_date = datetime.now()
+    if current_user.is_authenticated and current_user.username:
+        event.created_by = current_user.username  # or id / email
+    elif get_client_ip():
+        event.created_by = get_client_ip()  # fallback to IP if no user info
+    else:
+        event.created_by = "Unknown"
 
     db.session.add(event)
     db.session.commit()
     
-    all_machines = get_all_machines_from_db()
+    # ---------- RESPONSE ----------
+    all_machines   = get_all_machines_from_db()
     machine_colors = assign_machine_colors(all_machines)
 
     return jsonify({
         "id": event.id,
-        "title": f"{title}",
-        "start": event.start.replace(tzinfo=timezone.utc)
-                            .isoformat()
-                            .replace("+00:00", "Z"),
-        "end": event.end.replace(tzinfo=timezone.utc)
-                          .isoformat()
-                          .replace("+00:00", "Z"),
+        "title": title,
+        "start": event.start.replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z"),
+        "end":   event.end.replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z"),
         "backgroundColor": machine_colors.get(event.machine_name, "#000000"),
         "extendedProps": {
             "machine_name": event.machine_name,
-            "request_id": event.request_id,
-            "requestor_name": req.requestor_name
+            "request_id":   event.request_id,
+            "requestor_name": req.requestor_name if req else None
         }
     })
 
 
-"""
-Update Event (Machine-Specific Conflict Rule)
-"""
 @bp.route("/api/events/update", methods=["POST"])
-@login_required
-@permission_required('screeningcore_approve+add')
 def update_event():
+    """
+    Update Event (Machine-Specific Conflict Rule)
+    """
     data = request.get_json()
 
+    # ---------- CAPTCHA ----------
     if not verify_captcha(data.get("recaptcha_token", "")):
         return jsonify({"error": "CAPTCHA verification failed"}), 400
     
+    # ---------- BASIC INPUT ----------
     event_id = data.get("id")
     if not event_id:
         return jsonify({"error": "Missing event id"}), 400
 
+    # ---------- FETCH EVENT ----------
     event = CalendarEvent.query.filter_by(id=event_id, deleted=False).first()
-
     if not event:
         return jsonify({"error": "Event not found"}), 404
-    # print("Fetched event:", event)
-    # print("Updating event:", event.id, event.title, event.start, event.end)
+    
+    # ---------- OWNERSHIP / AUTHZ ----------
+    page_req_id = get_page_request_id()
 
+    # Explicit boolean handling
+    admin = is_admin()
+    override = bool(data.get("override", False))
+
+    # Non-admins must own the event
+    if not admin:
+        if page_req_id is None:
+            return jsonify({"error": "Missing request_id in URL"}), 400
+        if event.request_id != page_req_id:
+            return jsonify({"error": "You are not authorized to edit this booking."}), 403
+    
+    # ---------- NEW TIMES ----------
     start = parse_iso_utc(data["start"])
     end = parse_iso_utc(data["end"])
-    machine = data["machine_name"]
+    machine = data.get("machine_name", event.machine_name)
+    title = data.get("title", event.title)
 
-    # ✅ Explicit boolean handling
-    override = bool(data.get("override", False))
-    admin = is_admin()
-    # print("Admin:", admin, "Override:", override)
-    # print(not (admin and override))
-
-    # ---------------------------
-    # CONFLICT CHECK
-    # ---------------------------
+    # ---------- CONFLICT CHECK ----------
     if not (admin and override):
         conflicts = (
             CalendarEvent.query
@@ -741,14 +741,28 @@ def update_event():
                 "conflict": True
             }), 400
 
-    # ---------------------------
-    # UPDATE EVENT
-    # ---------------------------
+    # ---------- APPLY CHANGES ----------
+    if admin:
+        event.request_id = data.get("request_id", event.request_id)  # Admins can change request association
+        event.machine_name = machine  # Admins can change machine
+        event.title = title  # Admins can change title
+        print("Admin override: machine and title updated.")
+
     event.start = start
     event.end = end
+    event.updated_date = datetime.now()
+    if current_user.is_authenticated and current_user.username:
+        event.updated_by = current_user.username  # or id / email
+    elif get_client_ip():
+        event.updated_by = get_client_ip()  # fallback to IP if no user info
+    else:
+        event.updated_by = "Unknown"
 
     db.session.commit()
 
+    print(event.id, event.title, event.start, event.end, event.machine_name, event.request_id)
+
+    # ---------- RESPONSE ----------
     req = InstrumentRequest.query.get_or_404(event.request_id)
     all_machines = get_all_machines_from_db()
     machine_colors = assign_machine_colors(all_machines)
@@ -756,26 +770,21 @@ def update_event():
     return jsonify({
         "id": event.id,
         "title": event.title,
-        "start": event.start.replace(tzinfo=timezone.utc)
-                            .isoformat()
-                            .replace("+00:00", "Z"),
-        "end": event.end.replace(tzinfo=timezone.utc)
-                          .isoformat()
-                          .replace("+00:00", "Z"),
+        "start": event.start.replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z"),
+        "end":   event.end.replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z"),
         "backgroundColor": machine_colors.get(event.machine_name, "#000000"),
         "extendedProps": {
             "machine_name": event.machine_name,
-            "request_id": event.request_id,
+            "request_id":   event.request_id,
             "requestor_name": req.requestor_name
         }
     })
 
 @bp.route("/api/events/delete", methods=["POST"])
-@login_required
-@permission_required('screeningcore_approve+add')
 def soft_delete_event():
     data = request.get_json()
 
+    # ---------- CAPTCHA ----------
     if not verify_captcha(data.get("recaptcha_token", "")):
         return jsonify({"error": "CAPTCHA verification failed"}), 400
 
@@ -783,15 +792,30 @@ def soft_delete_event():
     if not event_id:
         return jsonify({"error": "Missing event id"}), 400
 
+    # ---------- FETCH ----------
     event = CalendarEvent.query.filter_by(id=event_id, deleted=False).first()
-
     if not event:
         return jsonify({"error": "Event not found"}), 404
 
-    # 👇 Soft delete
+    # ---------- OWNERSHIP ----------
+    admin = is_admin()
+    if not admin:
+        page_req_id = get_page_request_id()
+        if page_req_id is None:
+            return jsonify({"error": "Missing request_id in URL"}), 400
+
+        if event.request_id != page_req_id:
+            return jsonify({"error": "You are not authorized to delete this booking."}), 403
+    
+    # ---------- SOFT DELETE ----------
     event.deleted = True
     event.deleted_date = datetime.now()
-    event.deleted_by = current_user.username  # or id / email
+    if current_user.is_authenticated and current_user.username:
+        event.deleted_by = current_user.username  # or id / email
+    elif get_client_ip():
+        event.deleted_by = get_client_ip()  # fallback to IP if no user info
+    else:
+        event.deleted_by = "Unknown"
 
     db.session.commit()
 
@@ -799,5 +823,3 @@ def soft_delete_event():
         "success": True,
         "id": event_id
     })
-
-
