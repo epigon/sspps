@@ -305,7 +305,7 @@ def email_request_barcode(request_id):
     req = InstrumentRequest.query.get_or_404(request_id)
     machine = Instrument.query.filter_by(machine_name=req.machine_name).first()
 
-    user = User.query.filter_by(id=current_user.id, deleted=False).first()
+    # user = User.query.filter_by(id=current_user.id, deleted=False).first()
 
     calendar_url = f"{request.url_root.rstrip('/')}{url_for('recharge.calendar', request_id=req.id)}"
     
