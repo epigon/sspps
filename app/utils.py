@@ -108,19 +108,19 @@ def can_edit_committee(ay_committee_id: int, action: str = "edit") -> bool:
 
     return False
 
-def committee_edit_required(action="edit"):
-    def decorator(f):
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
-            ay_committee_id = kwargs.get("ay_committee_id") or request.form.get("ay_committee_id", type=int)
-            if not ay_committee_id or not can_edit_committee(ay_committee_id, action):
-                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                    return jsonify(success=False, message=f"You do not have permission to {action} this committee."), 403
-                flash(f"You do not have permission to {action} this committee.", "danger")
-                return redirect(request.referrer or url_for("committee.ay_committees"))
-            return f(*args, **kwargs)
-        return decorated_function
-    return decorator
+# def committee_edit_required(action="edit"):
+#     def decorator(f):
+#         @wraps(f)
+#         def decorated_function(*args, **kwargs):
+#             ay_committee_id = kwargs.get("ay_committee_id") or request.form.get("ay_committee_id", type=int)
+#             if not ay_committee_id or not can_edit_committee(ay_committee_id, action):
+#                 if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+#                     return jsonify(success=False, message=f"You do not have permission to {action} this committee."), 403
+#                 flash(f"You do not have permission to {action} this committee.", "danger")
+#                 return redirect(request.referrer or url_for("committee.ay_committees"))
+#             return f(*args, **kwargs)
+#         return decorated_function
+#     return decorator
 
 def committee_edit_required(action="edit"):
     def decorator(f):

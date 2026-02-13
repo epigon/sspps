@@ -1,7 +1,7 @@
 from app.cred import server, user, pwd, database, secret, odbcdriver, rechargedatabase  # ensure `database` is defined in cred.py
 from app.logger import setup_logger
-from flask import Flask
-from flask_login import LoginManager
+from flask import Flask, session, abort
+from flask_login import LoginManager, current_user
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 import urllib.parse
@@ -53,13 +53,52 @@ def create_app():
     Migrate(app, db)
 
     from .models import User
-    
-    @login_manager.user_loader
-    def load_user(user_id):
-        return User.query.get(int(user_id))
-
     # Import your permission helpers
     from app.utils import has_permission, is_admin, can_edit_committee
+    # @login_manager.user_loader
+    # def load_user(user_id):
+    #     return User.query.get(int(user_id))
+    @login_manager.user_loader
+    def load_user(user_id):
+        impersonated_id = session.get("impersonated_user_id")
+
+        if impersonated_id:
+            impersonated = User.query.get(int(impersonated_id))
+            if impersonated:
+                return impersonated
+            else:
+                # Clean up bad session state
+                session.pop("impersonated_user_id", None)
+                session.pop("original_user_id", None)
+
+        return User.query.get(int(user_id))
+
+
+    def start_impersonation(target_user_id):
+        if not current_user.is_authenticated:
+            abort(401)
+        
+        if not is_admin():
+            abort(403)
+            
+        target = User.query.get(int(target_user_id))
+        
+        if not target:
+            abort(404)
+
+        if "original_user_id" not in session:
+            session["original_user_id"] = current_user.get_id()
+
+        session["impersonated_user_id"] = target_user_id
+
+    def stop_impersonation():
+        session.pop("impersonated_user_id", None)
+        session.pop("original_user_id", None)
+    
+    app.start_impersonation = start_impersonation
+    app.stop_impersonation = stop_impersonation
+
+
 
     # Register context processor
     @app.context_processor
@@ -98,7 +137,6 @@ def create_app():
 
     with app.app_context():
         db.create_all()    
-
 
     return app
     

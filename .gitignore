@@ -11,6 +11,7 @@ run_generate_scheduled_ics.bat
 run_import_employees.bat
 app/static/files/vchs_sspps_employee.csv
 app/static/files/vchs_sspps_job_location.csv
+app/static/files/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

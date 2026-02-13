@@ -2,6 +2,7 @@ from app.models import User, Employee
 from flask import session, Blueprint, render_template, request, redirect, url_for, flash, send_from_directory
 from flask_login import login_user, logout_user, login_required, current_user
 from urllib.parse import urlparse, urljoin
+from flask import current_app
 
 bp = Blueprint('main', __name__, template_folder='templates')
 
@@ -105,3 +106,19 @@ def favicon():
         'favicon.ico',
         mimetype='image/vnd.microsoft.icon'
     )
+
+@bp.route("/impersonate/<int:user_id>")
+@login_required
+def impersonate(user_id):
+    print(f"Attempting to impersonate user ID: {user_id} by {current_user.username}")
+    current_app.start_impersonation(user_id)
+    # flash("You are now impersonating this user.", "warning")
+    return redirect(url_for("main.home"))
+
+
+@bp.route("/stop-impersonation/")
+@login_required
+def stop_impersonation():
+    current_app.stop_impersonation()
+    # flash("Impersonation ended.", "info")
+    return redirect(url_for("main.home"))

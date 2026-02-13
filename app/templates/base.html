@@ -391,6 +391,15 @@
         </div>
     </footer>
 
+    {% if session.get('impersonated_user_id') %}<br />
+    <div class="alert alert-warning text-center mb-0 rounded-0">
+        You are impersonating {{ current_user.username }}
+        <a href="{{ url_for('main.stop_impersonation') }}" class="btn btn-sm btn-dark ms-3">
+            Stop Impersonating
+        </a>
+    </div>
+    {% endif %}
+
     <button id="backToTop" class="btn btn-warning rounded-circle">
         <i class="bi bi-arrow-up"></i>
     </button>
