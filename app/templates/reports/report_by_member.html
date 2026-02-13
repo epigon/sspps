@@ -53,7 +53,15 @@ Dashboard
     <div class="row">
         <div class="col">
             {% include "/reports/_filter_reports.html" %}
-            <div class="heatmap-legend" style="display:flex;align-items:center;gap:8px;margin:10px 0;">
+            <div class="col-auto d-flex align-items-center pt-1">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="toggleHours">
+                    <label class="form-check-label small" for="toggleHours">
+                        Show Commitment Hours
+                    </label>
+                </div>
+            </div>
+            <div class="heatmap-legend" style="display:flex;align-items:center;gap:8px;margin:10px 0;" id="heatmapLegend">
                 <span>Commitment Legend:</span>
                 <span style="font-size:0.85em;">0%</span>
                 <div style="flex:1;height:16px;
@@ -95,6 +103,10 @@ Dashboard
 {% block scripts %}
 {{ super() }}
 <script>
+    
+    let showHours = false;
+    let lastData = null;   // store last AJAX result
+
     function trimEmptyCells(arr) {
         // Remove leading and trailing empty strings
         let start = 0;
@@ -296,14 +308,6 @@ Dashboard
                 currentRow++;
             });
 
-            // Data rows
-            // const rows = table.querySelectorAll("tbody tr");
-            // rows.forEach(row => {
-            //     const rowData = Array.from(row.querySelectorAll("td")).map(td => td.innerText.trim());
-            //     worksheet.insertRow(currentRow, trimEmptyCells(rowData));
-            //     currentRow++;
-            // });
-
             // Add empty row between tables
             currentRow++;
         }
@@ -339,6 +343,25 @@ Dashboard
     }
 
     $(document).ready(function () {
+
+        $("#toggleHours").on("change", function () {
+            showHours = this.checked;
+
+            // Toggle legend visibility
+            const legend = document.getElementById("heatmapLegend");
+            legend.style.display = showHours ? "flex" : "none";
+            
+            if (lastData) {
+                $('#tablesContainer').empty();
+                createCommitteeTable(lastData);
+            }
+        });
+
+        // Initial legend state
+        document.getElementById("heatmapLegend").style.display = 
+            showHours ? "flex" : "none";
+
+
         // Function to generate committee table
         function createCommitteeTable(member_data) {
             const dept = "SSPPS"
@@ -370,26 +393,38 @@ Dashboard
                         if (role == '') {
                             row += `<td class = "cell-disabled">-</td>`;
                         } else {
-                            row += `<td data-pct="${pct}" style="background-color:${getHeatColor(pct)}">${role} (fulfilled ${act} of ${exp} hours)</td>`;
+                            // row += `<td data-pct="${pct}" style="background-color:${getHeatColor(pct)}">${role} (fulfilled ${act} of ${exp} hours)</td>`;
+                            let bgStyle = showHours ? `background-color:${getHeatColor(pct)};` : "";
+                            let hoursText = showHours ? ` (fulfilled ${act} of ${exp} hours)` : "";
+                            row += `<td data-pct="${pct}" style="${bgStyle}">${role}${hoursText}</td>`;                        
                         }
 
                     });
                     row += '</tr>';
                     tableHtml += row;
                 })
-                const totals = member.year_totals;
-                tableHtml += `
-                        <tr class="totals-row"><td>Totals:</td>`;
+                if (showHours) {
+                    const totals = member.year_totals;
+                    tableHtml += `<tr class="totals-row"><td>Totals:</td>`;
 
-                for (const year of member.years) {
-                    const annPct = totals[year]?.annual_percent_commitment || 0;
-                    const annActual = totals[year]?.annual_actual_hours || 0;
-                    const annExpected = totals[year]?.annual_expected_hours || 0;
-                    tableHtml += `<td data-pct="${annPct}" class="${colstyle}" style="background-color:${getHeatColor(annPct)}">Fulfilled ${annActual.toFixed(2)} of ${annExpected.toFixed(2)} hrs</td>`;
+                    for (const year of member.years) {
+                        const annPct = totals[year]?.annual_percent_commitment || 0;
+                        const annActual = totals[year]?.annual_actual_hours || 0;
+                        const annExpected = totals[year]?.annual_expected_hours || 0;
+                        // tableHtml += `<td data-pct="${annPct}" class="${colstyle}" style="background-color:${getHeatColor(annPct)}">Fulfilled ${annActual.toFixed(2)} of ${annExpected.toFixed(2)} hrs</td>`;
+                        let totalBg = showHours ? `background-color:${getHeatColor(annPct)};` : "";
+                        let totalText = showHours 
+                            ? `Fulfilled ${annActual.toFixed(2)} of ${annExpected.toFixed(2)} hrs`
+                            : "";
+
+                        tableHtml += `<td data-pct="${annPct}" class="${colstyle}" style="${totalBg}">
+                        ${totalText}
+                        </td>`;
+                    
+                    }
+                    tableHtml += `</tr>
+                        `;
                 }
-                tableHtml += `</tr>
-                    `;
-                // }
                 tableHtml += `
                             </tbody>
                         </table>`;
@@ -414,12 +449,14 @@ Dashboard
         let users = $("#users").val();
         let roles = $("#roles").val();
         let committeeTypes = $("#committee_type").val();
+        let departments = $("#departments").val();
 
         // Fetch filtered data
         $.ajax({
-            url: `/reports/get_committees_by_member?years=${academicYear}&committees=${committee}&users=${users}&roles=${roles}&types=${committeeTypes}`,
+            url: `/reports/get_committees_by_member?years=${academicYear}&committees=${committee}&users=${users}&roles=${roles}&types=${committeeTypes}&departments=${departments}`,
             method: 'GET',
             success: function (data) {
+                lastData = data; // store for later use in exports
                 // Clear any previous tables
                 $('#tablesContainer').empty();
                 createCommitteeTable(data);
@@ -434,12 +471,14 @@ Dashboard
             let users = $("#users").val();
             let roles = $("#roles").val();
             let committeeTypes = $("#committee_type").val();
+            let departments = $("#departments").val();
 
             // Fetch filtered data
             $.ajax({
-                url: `/reports/get_committees_by_member?years=${academicYear}&committees=${committee}&users=${users}&roles=${roles}&types=${committeeTypes}`,
+                url: `/reports/get_committees_by_member?years=${academicYear}&committees=${committee}&users=${users}&roles=${roles}&types=${committeeTypes}&departments=${departments}`,
                 method: 'GET',
                 success: function (data) {
+                    lastData = data; // store for later use in exports
                     // Clear any previous tables
                     $('#tablesContainer').empty();
                     createCommitteeTable(data);

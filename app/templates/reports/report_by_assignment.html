@@ -50,10 +50,27 @@ Dashboard
 {% block content %}
 <!-- Main content -->
 <div class="container-fluid">
+
     <div class="row">
         <div class="col">
             {% include "/reports/_filter_reports.html" %}
-            <div class="heatmap-legend" style="display:flex;align-items:center;gap:8px;margin:10px 0;">
+            <div class="col-auto d-flex align-items-center">
+                <div class="form-check mt-1">
+                    <input class="form-check-input" type="checkbox" id="showEmail" checked>
+                    <label class="form-check-label small" for="showEmail">
+                        Show Email
+                    </label>
+                </div>
+            </div>
+            <div class="col-auto d-flex align-items-center pt-1">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="toggleHours">
+                    <label class="form-check-label small" for="toggleHours">
+                        Show Commitment Hours
+                    </label>
+                </div>
+            </div>
+            <div class="heatmap-legend" style="display:flex;align-items:center;gap:8px;margin:10px 0;" id="heatmapLegend">
                 <span>Commitment Legend:</span>
                 <span style="font-size:0.85em;">0%</span>
                 <div style="flex:1;height:16px;
@@ -83,16 +100,6 @@ Dashboard
         <span id="summary-spinner" class="spinner-border spinner-border-sm d-none" role="status"
             aria-hidden="true"></span>
     </button>
-
-    <div class="col-auto d-flex align-items-center">
-        <div class="form-check mt-1">
-            <input class="form-check-input" type="checkbox" id="showEmail" checked>
-            <label class="form-check-label small" for="showEmail">
-                Show Email
-            </label>
-        </div>
-    </div>
-
     <div id="tablesContainer" class="mt-3">
         <!-- Dynamically generated tables will go here -->
     </div>
@@ -104,6 +111,9 @@ Dashboard
 {% block scripts %}
 {{ super() }}
 <script>
+    let showHours = false;   // default unchecked
+    let lastData = null;
+
     function trimEmptyCells(arr) {
         // Remove leading and trailing empty strings
         let start = 0;
@@ -340,6 +350,24 @@ Dashboard
     }
 
     $(document).ready(function () {
+
+        $("#toggleHours").on("change", function () {
+            showHours = this.checked;
+
+            // Toggle legend visibility
+            const legend = document.getElementById("heatmapLegend");
+            legend.style.display = showHours ? "flex" : "none";
+
+            if (lastData) {
+                $('#tablesContainer').empty();
+                createCommitteeTable(lastData);
+            }
+        });
+
+        // Initial legend state
+        document.getElementById("heatmapLegend").style.display = 
+            showHours ? "flex" : "none";
+
         // Function to generate committee table
         function createCommitteeTable(committee_data) {
             const dept = "SSPPS"
@@ -377,7 +405,12 @@ Dashboard
                         if (role == '') {
                             row += `<td class = "cell-disabled">-</td>`;
                         } else {
-                            row += `<td data-pct="${pct}" style="background-color:${getHeatColor(pct)}">${role} (fulfilled ${act} of ${exp} hours)</td>`;
+                            let bgStyle = showHours ? `background-color:${getHeatColor(pct)};` : "";
+                            let hoursText = showHours ? ` (fulfilled ${act} of ${exp} hours)` : "";
+
+                            row += `<td data-pct="${pct}" style="${bgStyle}">${role}${hoursText}</td>`;
+
+                            // row += `<td data-pct="${pct}" style="background-color:${getHeatColor(pct)}">${role} (fulfilled ${act} of ${exp} hours)</td>`;
                         }
 
                     });
@@ -400,20 +433,21 @@ Dashboard
                     }
                 );
             })
-            // Show/hide email columns based on checkbox
-            document.getElementById("showEmail").addEventListener("change", function () {
-                const show = this.checked;
-
-                // Loop all DataTable instances
-                $.fn.dataTable.tables().forEach(function (tableEl) {
-                    const dt = $(tableEl).DataTable();
-                    dt.column('.email-col').visible(show);  // hide by class selector
-                });
-            });
 
             $(".dt-button").removeClass("dt-button").addClass("btn btn-outline-primary");
         }
 
+        // Show/hide email columns based on checkbox
+        document.getElementById("showEmail").addEventListener("change", function () {
+            const show = this.checked;
+
+            // Loop all DataTable instances
+            $.fn.dataTable.tables().forEach(function (tableEl) {
+                const dt = $(tableEl).DataTable();
+                dt.column('.email-col').visible(show);  // hide by class selector
+            });
+        });
+        
         let academicYear = $("#academic_year").val();
         let committee = $("#committee").val();
         let users = $("#users").val();
@@ -425,6 +459,7 @@ Dashboard
             url: `/reports/get_committees_by_assignment?years=${academicYear}&committees=${committee}&users=${users}&roles=${roles}&types=${committeeTypes}`,
             method: 'GET',
             success: function (data) {
+                lastData = data;
                 // Clear any previous tables
                 $('#tablesContainer').empty();
                 createCommitteeTable(data);
@@ -445,6 +480,7 @@ Dashboard
                 url: `/reports/get_committees_by_assignment?years=${academicYear}&committees=${committee}&users=${users}&roles=${roles}&types=${committeeTypes}`,
                 method: 'GET',
                 success: function (data) {
+                    lastData = data;
                     // Clear any previous tables
                     $('#tablesContainer').empty();
                     createCommitteeTable(data);

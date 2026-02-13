@@ -1,8 +1,8 @@
 from app import db
 from datetime import datetime
 from flask_login import UserMixin
-from sqlalchemy import Column, Integer, String, DateTime, UniqueConstraint, ForeignKey, Boolean, Date, Time, Text 
-from sqlalchemy.orm import relationship, object_session
+from sqlalchemy import and_, Column, Integer, String, DateTime, UniqueConstraint, ForeignKey, Boolean, Date, Time, Text 
+from sqlalchemy.orm import foreign, relationship, object_session
 from sqlalchemy.dialects.mssql import UNIQUEIDENTIFIER
 import uuid
 
@@ -126,28 +126,6 @@ class FrequencyType(db.Model):
     delete_date = Column(DateTime)
     delete_by = Column(Integer, ForeignKey('USERS.id'))
 
-class Committee(db.Model):
-    __tablename__ = 'BASE_COMMITTEES'
-    id = Column(Integer, primary_key=True)
-    name = Column(String(100), nullable=False)
-    short_name = Column(String(50))
-    description = Column(String(255))
-    reporting_start = Column(Integer)
-    mission = Column(String(8000))
-    committee_type_id = Column(Integer, ForeignKey('COMMITTEE_TYPES.id'))    
-    active = Column(Boolean, default=True)
-    ay_committee = relationship('AYCommittee', back_populates='committee', lazy='dynamic')
-    create_date = Column(DateTime, default=datetime.now)
-    create_by = Column(Integer, ForeignKey('USERS.id'))
-    modify_date = Column(DateTime)
-    modify_by = Column(Integer, ForeignKey('USERS.id'))
-    deleted = Column(Boolean, default=False)
-    delete_date = Column(DateTime)
-    delete_by = Column(Integer, ForeignKey('USERS.id'))
-    def __str__(self):
-        return f'ID: {self.id}\nCommittee: {self.name}\nShort name: {self.short_name}\nDescription: {self.description}\nMission: {self.mission} \
-        \nReporting start: {self.reporting_start}\nType: {self.committee_type_id}'
-       
 class AYCommittee(db.Model):
     __tablename__ = 'AY_COMMITTEES'    
     id = Column(Integer, primary_key=True)
@@ -190,6 +168,32 @@ class AYCommittee(db.Model):
     def __str__(self):
         return f'Committee: {self.committee.name}\nAY: {self.academic_year.year}'
 
+
+class Committee(db.Model):
+    __tablename__ = 'BASE_COMMITTEES'
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    short_name = Column(String(50))
+    description = Column(String(255))
+    reporting_start = Column(Integer)
+    mission = Column(String(8000))
+    committee_type_id = Column(Integer, ForeignKey('COMMITTEE_TYPES.id'))    
+    active = Column(Boolean, default=True)
+    # ay_committee = relationship('AYCommittee', back_populates='committee', lazy='dynamic')
+
+    ay_committee = relationship('AYCommittee', primaryjoin=and_(id == foreign(AYCommittee.committee_id), AYCommittee.deleted == False ), back_populates='committee', lazy='dynamic')
+    create_date = Column(DateTime, default=datetime.now)
+    create_by = Column(Integer, ForeignKey('USERS.id'))
+    modify_date = Column(DateTime)
+    modify_by = Column(Integer, ForeignKey('USERS.id'))
+    deleted = Column(Boolean, default=False)
+    delete_date = Column(DateTime)
+    delete_by = Column(Integer, ForeignKey('USERS.id'))
+    def __str__(self):
+        return f'ID: {self.id}\nCommittee: {self.name}\nShort name: {self.short_name}\nDescription: {self.description}\nMission: {self.mission} \
+        \nReporting start: {self.reporting_start}\nType: {self.committee_type_id}'
+       
+       
 class Meeting(db.Model):
     __tablename__ = 'MEETINGS'
     id = Column(Integer, primary_key=True)
