@@ -83,7 +83,7 @@ def delete_calendar_groups(group_id):
 @bp.route("/calendar_groups")
 @permission_required('calendar+add, calendar+edit')
 def calendar_groups():
-    accounts = ["SSPPS", "SOM"]
+    accounts = ["SSPPS", "SOM", "SPPH"]
     all_terms = []
     all_courses = []
     terms_by_account = {}

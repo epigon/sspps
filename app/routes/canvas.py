@@ -22,7 +22,8 @@ os.makedirs(CALENDAR_FOLDER, exist_ok=True)
 mainAccountID = 1	
 HSAccountID = 9	
 SOMAccountID = 445	
-SSPPSAccountID = 50 
+SSPPSAccountID = 50
+SPPHAccountID = 520
 
 # Routes to Webpages
 # @bp.before_request
@@ -48,6 +49,8 @@ def get_canvas_courses(account="SSPPS", blueprint=False, state=None, term_id=Non
         accountID = SSPPSAccountID
     elif account == "SOM":
         accountID = SOMAccountID
+    elif account == "SPPH":
+        accountID = SPPHAccountID
     else:
         accountID = mainAccountID
     
@@ -102,6 +105,8 @@ def get_canvas_users(account="SSPPS", search_term=None):
         accountID = SSPPSAccountID
     elif account == "SOM":
         accountID = SOMAccountID
+    elif account == "SPPH":
+        accountID = SPPHAccountID
     else:
         accountID = mainAccountID
     
