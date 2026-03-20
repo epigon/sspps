@@ -470,13 +470,21 @@ def toggle_recording():
 
     if existing:
         if existing.panopto_session_id:
-            delete_panopto_recording(existing.panopto_session_id)
+            try:
+                delete_panopto_recording(existing.panopto_session_id)
+            except Exception as e:
+                print(f"Error occurred while deleting Panopto recording: {e}")
+                return jsonify({"success": False, "message": "Failed to delete existing recording."})
         db.session.delete(existing)
         db.session.commit()
         # flash("Recording unscheduled", "info")
         return jsonify({"success": True, "message": "Recording schedule deleted."})
     else:
-        result = schedule_panopto_recording(title, start_time, end_time, folder_id, recorder_id, broadcast)
+        try:
+            result = schedule_panopto_recording(title, start_time, end_time, folder_id, recorder_id, broadcast)
+        except Exception as e:
+            print(f"Error occurred while scheduling Panopto recording: {e}")
+            return jsonify({"success": False, "message": "Failed to schedule recording."})
 
         if "id" in result:
             print("Scheduled successfully:", result["id"])
@@ -554,14 +562,16 @@ def delete_panopto_recording(session_id):
 
         if resp.status_code >= 500:
             print("🔥 Panopto 500 error (delete):", resp.text)
-            return False
+            raise Exception("Panopto server error. Please try again later. "
+                            + str(resp.status_code) + " " + resp.text)
 
         if resp.status_code == 401:
             raise Exception("Panopto token expired or unauthorized")
 
         if resp.status_code not in (200, 204):
             print("⚠️ Unexpected delete response:", resp.status_code, resp.text)
-            return False
+            raise Exception("Unexpected delete response: "
+                            + str(resp.status_code) + " " + resp.text)
 
         return True
 
@@ -569,4 +579,5 @@ def delete_panopto_recording(session_id):
         import traceback
         print("🚨 delete_panopto_recording FAILED")
         traceback.print_exc()
-        return False
+        # return False
+        raise
