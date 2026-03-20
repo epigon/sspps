@@ -547,10 +547,10 @@ def delete_panopto_recording(session_id):
     try:
         session_oauth = get_panopto_session()
 
-        url = f"https://{PANOPTO_API_BASE}/Panopto/PublicAPI/RecordingService.svc/DeleteScheduledRecording"
-        params = {"id": session_id}
+        url = f"https://{PANOPTO_API_BASE}/Panopto/api/v1/scheduledRecordings/{session_id}"
 
-        resp = session_oauth.delete(url, params=params)
+        resp = session_oauth.delete(url)
+        print(resp)
 
         if resp.status_code >= 500:
             print("🔥 Panopto 500 error (delete):", resp.text)
