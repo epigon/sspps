@@ -4,10 +4,11 @@ from app.utils import permission_required
 from .canvas import get_canvas_courses, get_canvas_events, chunked_list, get_enrollment_terms, get_canvas_courses_by_term
 from datetime import datetime, timedelta, timezone
 from dateutil import parser  # safer parsing
-from flask import Flask, render_template, request, Blueprint, jsonify, session, has_request_context
+from flask import Flask, redirect, render_template, request, Blueprint, jsonify, session, has_request_context, url_for
 from flask_login import login_required
 from os.path import dirname, join, abspath
-from .panopto_oauth2 import PanoptoOAuth2
+from functools import wraps
+# from .panopto_oauth2 import PanoptoOAuth2
 from requests_oauthlib import OAuth2Session
 from urllib.parse import urlparse, urlunparse
 import argparse
@@ -33,7 +34,7 @@ HSAccountID = 9
 SOMAccountID = 445	
 SSPPSAccountID = 50 
 
-REDIRECT_PORT = 9127
+# REDIRECT_PORT = 9127
                  
 # Routes to Webpages
 @bp.before_request
@@ -41,82 +42,151 @@ REDIRECT_PORT = 9127
 def before_request():
     pass
 
+def panopto_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get("panopto_token"):
+            return redirect(url_for("scheduler.panopto_login"))
+        return f(*args, **kwargs)
+    return decorated_function
+
 # --- Panopto login helper ---
-@bp.route("/panopto_login")
+@bp.route("/panopto/login")
+@login_required
 def panopto_login():
-    args = argparse.Namespace(
-        server=PANOPTO_API_BASE,
+    oauth = OAuth2Session(
         client_id=PANOPTO_CLIENT_ID,
-        client_secret=PANOPTO_CLIENT_SECRET,
-        skip_verify=True
+        redirect_uri=f"https://{PANOPTO_API_BASE}/oauth2/callback",
+        scope=["openid", "api", "offline_access"]
     )
 
-    if args.skip_verify:
-        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    authorization_url, state = oauth.authorization_url(
+        f"https://{PANOPTO_API_BASE}/Panopto/oauth2/connect/authorize"
+    )
 
-    requests_session = requests.Session()
-    requests_session.verify = not args.skip_verify
+    session["oauth_state"] = state
+    return redirect(authorization_url)
 
-    # Build OAuth2 instance
-    oauth2 = PanoptoOAuth2(args.server, args.client_id, args.client_secret, not args.skip_verify)
+# @bp.route("/panopto_login")
+# def panopto_login():
+#     args = argparse.Namespace(
+#         server=PANOPTO_API_BASE,
+#         client_id=PANOPTO_CLIENT_ID,
+#         client_secret=PANOPTO_CLIENT_SECRET,
+#         skip_verify=True
+#     )
 
-    # Only save config in session if we're inside a request
-    if has_request_context():
-        session["panopto"] = {
-            "server": args.server,
-            "client_id": args.client_id,
-            "client_secret": args.client_secret,
-            "ssl_verify": not args.skip_verify,
-            "redirect_url": oauth2.redirect_url,
-            "token_endpoint": oauth2.access_token_endpoint,
-        }
-        # return session["panopto"] 
+#     if args.skip_verify:
+#         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-    authorization(requests_session, oauth2)
-    return requests_session, oauth2, args
+#     requests_session = requests.Session()
+#     requests_session.verify = not args.skip_verify
+
+#     # Build OAuth2 instance
+#     oauth2 = PanoptoOAuth2(args.server, args.client_id, args.client_secret, not args.skip_verify)
+
+#     # Only save config in session if we're inside a request
+#     if has_request_context():
+#         session["panopto"] = {
+#             "server": args.server,
+#             "client_id": args.client_id,
+#             "client_secret": args.client_secret,
+#             "ssl_verify": not args.skip_verify,
+#             "redirect_url": oauth2.redirect_url,
+#             "token_endpoint": oauth2.access_token_endpoint,
+#         }
+#         # return session["panopto"] 
+
+#     authorization(requests_session, oauth2)
+#     return requests_session, oauth2, args
 
 @bp.route("/oauth2/callback")
+@login_required
 def oauth2_callback():
     try:
-        full_redirect_url = request.url
-        panopto_cfg = session.get("panopto")
-        if not panopto_cfg:
-            return "No Panopto OAuth session found. Please try logging in again.", 400
-
-        oauth2 = PanoptoOAuth2(
-            panopto_cfg["server"],
-            panopto_cfg["client_id"],
-            panopto_cfg["client_secret"],
-            panopto_cfg["ssl_verify"],
+        oauth = OAuth2Session(
+            client_id=PANOPTO_CLIENT_ID,
+            redirect_uri=f"https://{PANOPTO_API_BASE}/oauth2/callback",
+            state=session.get("oauth_state")
         )
 
-        session_oauth = OAuth2Session(
-            client_id=panopto_cfg["client_id"],
-            redirect_uri=panopto_cfg["redirect_url"],
-            scope=["openid", "api", "offline_access"]
+        token = oauth.fetch_token(
+            f"https://{PANOPTO_API_BASE}/Panopto/oauth2/connect/token",
+            client_secret=PANOPTO_CLIENT_SECRET,
+            authorization_response=request.url
         )
 
-        token = session_oauth.fetch_token(
-            panopto_cfg["token_endpoint"],
-            client_secret=panopto_cfg["client_secret"],
-            authorization_response=full_redirect_url,
-            verify=panopto_cfg["ssl_verify"]
-        )
+        # ✅ STORE TOKEN
+        session["panopto_token"] = token
 
-        oauth2._PanoptoOAuth2__save_token_to_cache(token)
-        return "Authorization complete. You may close this window."
+        return "Panopto connected successfully!"
 
     except Exception as e:
         import traceback
         traceback.print_exc()
-        return f"OAuth2 callback failed: {e}", 500
+        return f"OAuth failed: {e}", 500
 
-def authorization(requests_session, oauth2):
-    # Go through authorization
-    access_token = oauth2.get_access_token_authorization_code_grant()
+def get_panopto_session():
+    token = session.get("panopto_token")
+
+    if not token:
+        raise Exception("User not authenticated with Panopto")
+
+    oauth = OAuth2Session(
+        client_id=PANOPTO_CLIENT_ID,
+        token=token,
+        auto_refresh_url=f"https://{PANOPTO_API_BASE}/Panopto/oauth2/connect/token",
+        auto_refresh_kwargs={
+            "client_id": PANOPTO_CLIENT_ID,
+            "client_secret": PANOPTO_CLIENT_SECRET,
+        },
+        token_updater=lambda t: session.update({"panopto_token": t})
+    )
+
+    return oauth
+
+# @bp.route("/oauth2/callback")
+# def oauth2_callback():
+#     try:
+#         full_redirect_url = request.url
+#         panopto_cfg = session.get("panopto")
+#         if not panopto_cfg:
+#             return "No Panopto OAuth session found. Please try logging in again.", 400
+
+#         oauth2 = PanoptoOAuth2(
+#             panopto_cfg["server"],
+#             panopto_cfg["client_id"],
+#             panopto_cfg["client_secret"],
+#             panopto_cfg["ssl_verify"],
+#         )
+
+#         session_oauth = OAuth2Session(
+#             client_id=panopto_cfg["client_id"],
+#             redirect_uri=panopto_cfg["redirect_url"],
+#             scope=["openid", "api", "offline_access"]
+#         )
+
+#         token = session_oauth.fetch_token(
+#             panopto_cfg["token_endpoint"],
+#             client_secret=panopto_cfg["client_secret"],
+#             authorization_response=full_redirect_url,
+#             verify=panopto_cfg["ssl_verify"]
+#         )
+
+#         oauth2._PanoptoOAuth2__save_token_to_cache(token)
+#         return "Authorization complete. You may close this window."
+
+#     except Exception as e:
+#         import traceback
+#         traceback.print_exc()
+#         return f"OAuth2 callback failed: {e}", 500
+
+# def authorization(requests_session, oauth2):
+#     # Go through authorization
+#     access_token = oauth2.get_access_token_authorization_code_grant()
     
-    # Set the token as the header of requests
-    requests_session.headers.update({'Authorization': 'Bearer ' + access_token})
+#     # Set the token as the header of requests
+#     requests_session.headers.update({'Authorization': 'Bearer ' + access_token})
 
 def inspect_response(response):
     """
@@ -179,83 +249,176 @@ def inspect_response_is_unauthorized(response):
     # Throw unhandled cases.
     response.raise_for_status()
 
+# def get_panopto_folders():
+
+#     requests_session, oauth2, args = panopto_login()
+#     folders = []
+#     # Call Panopto API (getting sub-folders from top level folder) repeatedly
+#     page_number = 0
+#     page_size = 50  # You can adjust this up to Panopto's max limit
+
+#     while True:
+#         # print(f'Calling GET /api/v1/folders/{PANOPTO_PARENT_FOLDER}/children?pageNumber={page_number}')
+#         url = f'https://{args.server}/Panopto/api/v1/folders/{PANOPTO_PARENT_FOLDER}/children'
+#         params = {
+#             'pageNumber': page_number,
+#             'maxNumberResults': page_size
+#         }
+#         try:
+#             resp = requests_session.get(url=url, params=params)
+#         except Exception as e:
+#             print("Error calling Panopto folders API:", e)
+#             return []
+#         # resp = requests_session.get(url=url, params=params)
+
+#         if inspect_response_is_unauthorized(resp):
+#             authorization(requests_session, oauth2)
+#             resp = requests_session.get(url=url, params=params)
+
+#         data = resp.json()
+#         results = data.get("Results", [])
+#         for folder in results:
+#             # if any("spps" in str(value).lower() for value in folder.values()):
+#             folders.append({"id": folder['Id'], "name": folder['Name']})
+
+#         if len(results) < page_size:
+#             break  # We've reached the last page
+
+#         page_number += 1
+#     # print(folders)
+#     return folders
+
 def get_panopto_folders():
+    try:
+        session_oauth = get_panopto_session()
 
-    requests_session, oauth2, args = panopto_login()
-    folders = []
-    # Call Panopto API (getting sub-folders from top level folder) repeatedly
-    page_number = 0
-    page_size = 50  # You can adjust this up to Panopto's max limit
+        folders = []
+        page_number = 0
+        page_size = 50
 
-    while True:
-        # print(f'Calling GET /api/v1/folders/{PANOPTO_PARENT_FOLDER}/children?pageNumber={page_number}')
-        url = f'https://{args.server}/Panopto/api/v1/folders/{PANOPTO_PARENT_FOLDER}/children'
-        params = {
-            'pageNumber': page_number,
-            'maxNumberResults': page_size
-        }
-        try:
-            resp = requests_session.get(url=url, params=params)
-        except Exception as e:
-            print("Error calling Panopto folders API:", e)
-            return []
-        # resp = requests_session.get(url=url, params=params)
+        while True:
+            url = f"https://{PANOPTO_API_BASE}/Panopto/api/v1/folders/{PANOPTO_PARENT_FOLDER}/children"
+            params = {
+                "pageNumber": page_number,
+                "maxNumberResults": page_size
+            }
 
-        if inspect_response_is_unauthorized(resp):
-            authorization(requests_session, oauth2)
-            resp = requests_session.get(url=url, params=params)
+            resp = session_oauth.get(url, params=params)
 
-        data = resp.json()
-        results = data.get("Results", [])
-        for folder in results:
-            # if any("spps" in str(value).lower() for value in folder.values()):
-            folders.append({"id": folder['Id'], "name": folder['Name']})
+            # 🔍 Handle response safely
+            if resp.status_code >= 500:
+                print("🔥 Panopto 500 error (folders):", resp.text)
+                break
 
-        if len(results) < page_size:
-            break  # We've reached the last page
+            if resp.status_code == 401:
+                raise Exception("Panopto token expired or unauthorized")
 
-        page_number += 1
-    # print(folders)
-    return folders
+            data = resp.json()
+            results = data.get("Results", [])
 
+            for folder in results:
+                folders.append({
+                    "id": folder["Id"],
+                    "name": folder["Name"]
+                })
+
+            if len(results) < page_size:
+                break
+
+            page_number += 1
+
+        return folders
+
+    except Exception as e:
+        import traceback
+        print("🚨 get_panopto_folders FAILED")
+        traceback.print_exc()
+        return []
+    
+# def get_panopto_recorders():
+#     requests_session, oauth2, args = panopto_login()
+
+#     recorders = []
+#     page_number = 0
+#     page_size = 50  # You can adjust this up to Panopto's max limit
+
+#     while True:
+#         # print('Calling GET /api/v1/remoteRecorders endpoint')
+#         url = 'https://{0}/Panopto/api/remoteRecorders'.format(args.server)
+#         params = {
+#             'pageNumber': page_number,
+#             'maxNumberResults': page_size
+#         }
+#         # resp = requests_session.get(url=url, params=params)
+#         try:
+#             resp = requests_session.get(url=url, params=params)
+#         except Exception as e:
+#             print("Error calling Panopto recorders API:", e)
+#             return []
+
+#         if inspect_response_is_unauthorized(resp):
+#             authorization(requests_session, oauth2)
+#             resp = requests_session.get(url=url, params=params)
+
+#         data = resp.json()
+#         # results = data.get("Results", [])
+#         for recorder in data:
+#             recorders.append({"id": recorder['Id'], "name": recorder['Name']})
+
+#         if len(data) < page_size:
+#             break  # We've reached the last page
+
+#         page_number += 1
+#     # print(folders)
+#     return recorders
 def get_panopto_recorders():
-    requests_session, oauth2, args = panopto_login()
+    try:
+        session_oauth = get_panopto_session()
 
-    recorders = []
-    page_number = 0
-    page_size = 50  # You can adjust this up to Panopto's max limit
+        recorders = []
+        page_number = 0
+        page_size = 50
 
-    while True:
-        # print('Calling GET /api/v1/remoteRecorders endpoint')
-        url = 'https://{0}/Panopto/api/remoteRecorders'.format(args.server)
-        params = {
-            'pageNumber': page_number,
-            'maxNumberResults': page_size
-        }
-        # resp = requests_session.get(url=url, params=params)
-        try:
-            resp = requests_session.get(url=url, params=params)
-        except Exception as e:
-            print("Error calling Panopto recorders API:", e)
-            return []
+        while True:
+            url = f"https://{PANOPTO_API_BASE}/Panopto/api/remoteRecorders"
+            params = {
+                "pageNumber": page_number,
+                "maxNumberResults": page_size
+            }
 
-        if inspect_response_is_unauthorized(resp):
-            authorization(requests_session, oauth2)
-            resp = requests_session.get(url=url, params=params)
+            resp = session_oauth.get(url, params=params)
 
-        data = resp.json()
-        # results = data.get("Results", [])
-        for recorder in data:
-            recorders.append({"id": recorder['Id'], "name": recorder['Name']})
+            # 🔍 Handle response safely
+            if resp.status_code >= 500:
+                print("🔥 Panopto 500 error (recorders):", resp.text)
+                break
 
-        if len(data) < page_size:
-            break  # We've reached the last page
+            if resp.status_code == 401:
+                raise Exception("Panopto token expired or unauthorized")
 
-        page_number += 1
-    # print(folders)
-    return recorders
+            data = resp.json()
+
+            for recorder in data:
+                recorders.append({
+                    "id": recorder["Id"],
+                    "name": recorder["Name"]
+                })
+
+            if len(data) < page_size:
+                break
+
+            page_number += 1
+
+        return recorders
+
+    except Exception as e:
+        import traceback
+        print("🚨 get_panopto_recorders FAILED")
+        traceback.print_exc()
+        return []
 
 @bp.route('/events')
+@panopto_required
 @permission_required('panopto_scheduler+add, panopto_scheduler+edit')
 def list_canvas_events():
     account = request.args.get("account")
@@ -368,6 +531,9 @@ def list_canvas_events():
         "broadcast": rec.broadcast
     } for rec in scheduled}
 
+    # if not session.get("panopto_token"):
+    #     return redirect(url_for("scheduler.panopto_login"))
+
     folders = get_panopto_folders()
     recorders = get_panopto_recorders()
     # print(f"Found {len(folders)} folders and {len(recorders)} recorders in Panopto.",folders)
@@ -436,10 +602,11 @@ def toggle_recording():
 
 def schedule_panopto_recording(name, start_time, end_time, folder_id, recorder_id, broadcast):
     try:
-        requests_session, oauth2, args = panopto_login()
-        
-        url = 'https://{0}/Panopto/api/v1/scheduledRecordings'.format(args.server)
-        session_data = {
+        session_oauth = get_panopto_session()
+
+        url = f"https://{PANOPTO_API_BASE}/Panopto/api/v1/scheduledRecordings"
+
+        payload = {
             "Name": name,
             "StartTime": start_time,
             "EndTime": end_time,
@@ -453,41 +620,96 @@ def schedule_panopto_recording(name, start_time, end_time, folder_id, recorder_i
             ],
             "IsBroadcast": broadcast
         }
-        params = {"resolveConflicts": False}
-        headers = {'Content-type': 'application/json', 'Accept': 'application/json'}
-        resp = requests_session.post(url=url, json=session_data, params=params, headers=headers)
-        result = inspect_response(resp)
 
-        # Retry once if unauthorized
-        if result.get("unauthorized"):
-            authorization(requests_session, oauth2)
-            resp = requests_session.post(url=url, json=session_data, params=params, headers=headers)
-            result = inspect_response(resp)
-        # print(result)
-        return result
+        resp = session_oauth.post(url, json=payload)
+
+        return inspect_response(resp)
+
     except Exception as e:
-        print("🚨 UNKNOWN ERROR in schedule_panopto_recording")
         import traceback
         traceback.print_exc()
+        return {"error": str(e)}
+    
+# def schedule_panopto_recording(name, start_time, end_time, folder_id, recorder_id, broadcast):
+#     try:
+#         requests_session, oauth2, args = panopto_login()
+        
+#         url = 'https://{0}/Panopto/api/v1/scheduledRecordings'.format(args.server)
+#         session_data = {
+#             "Name": name,
+#             "StartTime": start_time,
+#             "EndTime": end_time,
+#             "FolderId": folder_id,
+#             "Recorders": [
+#                 {
+#                     "RemoteRecorderId": recorder_id,
+#                     "SuppressPrimary": False,
+#                     "SuppressSecondary": False
+#                 }
+#             ],
+#             "IsBroadcast": broadcast
+#         }
+#         params = {"resolveConflicts": False}
+#         headers = {'Content-type': 'application/json', 'Accept': 'application/json'}
+#         resp = requests_session.post(url=url, json=session_data, params=params, headers=headers)
+#         result = inspect_response(resp)
 
-        return {"error": "Unexpected server error", "details": str(e)}
+#         # Retry once if unauthorized
+#         if result.get("unauthorized"):
+#             authorization(requests_session, oauth2)
+#             resp = requests_session.post(url=url, json=session_data, params=params, headers=headers)
+#             result = inspect_response(resp)
+#         # print(result)
+#         return result
+#     except Exception as e:
+#         print("🚨 UNKNOWN ERROR in schedule_panopto_recording")
+#         import traceback
+#         traceback.print_exc()
+
+#         return {"error": "Unexpected server error", "details": str(e)}
     
 
+# def delete_panopto_recording(session_id):
+#     requests_session, oauth2, args = panopto_login()
+    
+#     url = 'https://{0}/Panopto/api/v1/scheduledRecordings/{1}'.format(args.server,session_id)
+#     resp = requests_session.delete(url=url)
+
+#     if inspect_response_is_unauthorized(resp):
+#         authorization(requests_session, oauth2)
+#         try:
+#             resp = requests_session.delete(url=url)
+#         except Exception as e:
+#             print("Error calling Panopto delete recording API:", e)
+#             return []
+
+#     return resp.ok
 def delete_panopto_recording(session_id):
-    requests_session, oauth2, args = panopto_login()
-    
-    url = 'https://{0}/Panopto/api/v1/scheduledRecordings/{1}'.format(args.server,session_id)
-    resp = requests_session.delete(url=url)
+    try:
+        session_oauth = get_panopto_session()
 
-    if inspect_response_is_unauthorized(resp):
-        authorization(requests_session, oauth2)
-        try:
-            resp = requests_session.delete(url=url)
-        except Exception as e:
-            print("Error calling Panopto delete recording API:", e)
-            return []
+        url = f"https://{PANOPTO_API_BASE}/Panopto/api/v1/scheduledRecordings/{session_id}"
 
-    return resp.ok
+        resp = session_oauth.delete(url)
+
+        if resp.status_code >= 500:
+            print("🔥 Panopto 500 error (delete):", resp.text)
+            return False
+
+        if resp.status_code == 401:
+            raise Exception("Panopto token expired or unauthorized")
+
+        if resp.status_code not in (200, 204):
+            print("⚠️ Unexpected delete response:", resp.status_code, resp.text)
+            return False
+
+        return True
+
+    except Exception as e:
+        import traceback
+        print("🚨 delete_panopto_recording FAILED")
+        traceback.print_exc()
+        return False
 
 def inspect_response(response):
     """
