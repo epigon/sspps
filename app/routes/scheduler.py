@@ -194,7 +194,12 @@ def get_panopto_folders():
             'pageNumber': page_number,
             'maxNumberResults': page_size
         }
-        resp = requests_session.get(url=url, params=params)
+        try:
+            resp = requests_session.get(url=url, params=params)
+        except Exception as e:
+            print("Error calling Panopto folders API:", e)
+            return []
+        # resp = requests_session.get(url=url, params=params)
 
         if inspect_response_is_unauthorized(resp):
             authorization(requests_session, oauth2)
@@ -227,7 +232,12 @@ def get_panopto_recorders():
             'pageNumber': page_number,
             'maxNumberResults': page_size
         }
-        resp = requests_session.get(url=url, params=params)
+        # resp = requests_session.get(url=url, params=params)
+        try:
+            resp = requests_session.get(url=url, params=params)
+        except Exception as e:
+            print("Error calling Panopto recorders API:", e)
+            return []
 
         if inspect_response_is_unauthorized(resp):
             authorization(requests_session, oauth2)
@@ -292,7 +302,7 @@ def list_canvas_events():
     if not end_date:
         end_date = datetime.utcnow() + timedelta(days=90)
 
-    print(f"📅 Using term date range: {start_date} → {end_date}")
+    print(f"📅 Using term date range: {start_date} → {end_date} {term_id} {account}")
 
     # 🔹 Fetch courses for the account+term
     courses = get_canvas_courses_by_term(term_id, account=account)
@@ -425,35 +435,43 @@ def toggle_recording():
             return jsonify({"success": False, "message": "Unknown error occurred."})
 
 def schedule_panopto_recording(name, start_time, end_time, folder_id, recorder_id, broadcast):
-    requests_session, oauth2, args = panopto_login()
-    
-    url = 'https://{0}/Panopto/api/v1/scheduledRecordings'.format(args.server)
-    session_data = {
-        "Name": name,
-        "StartTime": start_time,
-        "EndTime": end_time,
-        "FolderId": folder_id,
-        "Recorders": [
-            {
-                "RemoteRecorderId": recorder_id,
-                "SuppressPrimary": False,
-                "SuppressSecondary": False
-            }
-        ],
-        "IsBroadcast": broadcast
-    }
-    params = {"resolveConflicts": False}
-    headers = {'Content-type': 'application/json', 'Accept': 'application/json'}
-    resp = requests_session.post(url=url, json=session_data, params=params, headers=headers)
-    result = inspect_response(resp)
-
-    # Retry once if unauthorized
-    if result.get("unauthorized"):
-        authorization(requests_session, oauth2)
+    try:
+        requests_session, oauth2, args = panopto_login()
+        
+        url = 'https://{0}/Panopto/api/v1/scheduledRecordings'.format(args.server)
+        session_data = {
+            "Name": name,
+            "StartTime": start_time,
+            "EndTime": end_time,
+            "FolderId": folder_id,
+            "Recorders": [
+                {
+                    "RemoteRecorderId": recorder_id,
+                    "SuppressPrimary": False,
+                    "SuppressSecondary": False
+                }
+            ],
+            "IsBroadcast": broadcast
+        }
+        params = {"resolveConflicts": False}
+        headers = {'Content-type': 'application/json', 'Accept': 'application/json'}
         resp = requests_session.post(url=url, json=session_data, params=params, headers=headers)
         result = inspect_response(resp)
-    # print(result)
-    return result
+
+        # Retry once if unauthorized
+        if result.get("unauthorized"):
+            authorization(requests_session, oauth2)
+            resp = requests_session.post(url=url, json=session_data, params=params, headers=headers)
+            result = inspect_response(resp)
+        # print(result)
+        return result
+    except Exception as e:
+        print("🚨 UNKNOWN ERROR in schedule_panopto_recording")
+        import traceback
+        traceback.print_exc()
+
+        return {"error": "Unexpected server error", "details": str(e)}
+    
 
 def delete_panopto_recording(session_id):
     requests_session, oauth2, args = panopto_login()
@@ -463,6 +481,77 @@ def delete_panopto_recording(session_id):
 
     if inspect_response_is_unauthorized(resp):
         authorization(requests_session, oauth2)
-        resp = requests_session.delete(url=url)
+        try:
+            resp = requests_session.delete(url=url)
+        except Exception as e:
+            print("Error calling Panopto delete recording API:", e)
+            return []
 
     return resp.ok
+
+def inspect_response(response):
+    """
+    Inspect a requests.Response object from Panopto API.
+    """
+    try:
+        # ✅ Success
+        if response.status_code // 100 == 2:
+            try:
+                return {"id": response.json().get("Id")}
+            except ValueError:
+                return {"id": None}
+
+        # 🔐 Unauthorized
+        if response.status_code == requests.codes.unauthorized:
+            return {"unauthorized": True}
+
+        # ⚠️ Bad Request
+        if response.status_code == 400:
+            try:
+                data = response.json()
+                error = data.get("Error", {})
+                error_code = error.get("ErrorCode", "UnknownError")
+                message = error.get("Message", "Unknown error from Panopto.")
+
+                if error_code == "ScheduledRecordingConflict":
+                    friendly = f"Scheduling conflict: {message}"
+                else:
+                    friendly = message
+
+                return {"error": friendly, "details": data}
+            except ValueError:
+                return {"error": response.text, "details": None}
+
+        # 💥 SERVER ERROR (500s) — THIS IS WHAT YOU WANT
+        if response.status_code >= 500:
+            print("🔥 PANOPTO 500 ERROR")
+            print("URL:", response.url)
+            print("Status:", response.status_code)
+            print("Response Text:", response.text)
+
+            return {
+                "error": "Panopto server error. Please try again later.",
+                "details": response.text,
+                "status_code": response.status_code
+            }
+
+        # ❓ Other errors (403, 404, etc.)
+        print("⚠️ UNHANDLED RESPONSE")
+        print("URL:", response.url)
+        print("Status:", response.status_code)
+        print("Response:", response.text)
+
+        return {
+            "error": f"Unexpected error ({response.status_code})",
+            "details": response.text
+        }
+
+    except Exception as e:
+        print("🚨 inspect_response FAILED")
+        import traceback
+        traceback.print_exc()
+
+        return {
+            "error": "Internal error processing response",
+            "details": str(e)
+        }
