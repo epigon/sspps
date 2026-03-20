@@ -42,29 +42,46 @@ SSPPSAccountID = 50
 def before_request():
     pass
 
+from functools import wraps
+from flask import session, redirect, url_for, request
+
 def panopto_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get("panopto_token"):
+            # Save current URL so we can redirect back after login
+            session["next_page"] = request.url
             return redirect(url_for("scheduler.panopto_login"))
         return f(*args, **kwargs)
     return decorated_function
 
 # --- Panopto login helper ---
 @bp.route("/panopto/login")
-@login_required
 def panopto_login():
+    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"  # ✅ allow HTTP for localhost
+
+    # Make sure redirect URL matches what Panopto allows
+    redirect_uri = url_for("scheduler.oauth2_callback", _external=True)
+
+    # Scope: openid + api + offline_access (refresh token)
+    scope = ["openid", "api", "offline_access"]
+
+    # Create OAuth2Session
     oauth = OAuth2Session(
         client_id=PANOPTO_CLIENT_ID,
-        redirect_uri=f"https://{PANOPTO_API_BASE}/oauth2/callback",
-        scope=["openid", "api", "offline_access"]
+        redirect_uri=redirect_uri,
+        scope=scope
     )
 
+    # Get the authorization URL
     authorization_url, state = oauth.authorization_url(
         f"https://{PANOPTO_API_BASE}/Panopto/oauth2/connect/authorize"
     )
 
+    # Save state for callback verification
     session["oauth_state"] = state
+
+    # Redirect user to Panopto login page
     return redirect(authorization_url)
 
 # @bp.route("/panopto_login")
@@ -101,30 +118,25 @@ def panopto_login():
 #     return requests_session, oauth2, args
 
 @bp.route("/oauth2/callback")
-@login_required
 def oauth2_callback():
-    try:
-        oauth = OAuth2Session(
-            client_id=PANOPTO_CLIENT_ID,
-            redirect_uri=f"https://{PANOPTO_API_BASE}/oauth2/callback",
-            state=session.get("oauth_state")
-        )
+    # Recreate the OAuth2Session with the saved state
+    oauth = OAuth2Session(
+        client_id=PANOPTO_CLIENT_ID,
+        redirect_uri=url_for("scheduler.oauth2_callback", _external=True),
+        state=session.get("oauth_state")
+    )
 
-        token = oauth.fetch_token(
-            f"https://{PANOPTO_API_BASE}/Panopto/oauth2/connect/token",
-            client_secret=PANOPTO_CLIENT_SECRET,
-            authorization_response=request.url
-        )
+    # Exchange authorization code for access token
+    token = oauth.fetch_token(
+        f"https://{PANOPTO_API_BASE}/Panopto/oauth2/connect/token",
+        client_secret=PANOPTO_CLIENT_SECRET,
+        authorization_response=request.url
+    )
 
-        # ✅ STORE TOKEN
-        session["panopto_token"] = token
+    # Save token in session for reuse
+    session["panopto_token"] = token
 
-        return "Panopto connected successfully!"
-
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return f"OAuth failed: {e}", 500
+    return "Panopto authorization complete. You may close this window."
 
 def get_panopto_session():
     token = session.get("panopto_token")
