@@ -129,85 +129,73 @@ def get_panopto_session():
 
     return oauth
 
-# @bp.route("/oauth2/callback")
-# def oauth2_callback():
-#     try:
-#         full_redirect_url = request.url
-#         panopto_cfg = session.get("panopto")
-#         if not panopto_cfg:
-#             return "No Panopto OAuth session found. Please try logging in again.", 400
-
-#         oauth2 = PanoptoOAuth2(
-#             panopto_cfg["server"],
-#             panopto_cfg["client_id"],
-#             panopto_cfg["client_secret"],
-#             panopto_cfg["ssl_verify"],
-#         )
-
-#         session_oauth = OAuth2Session(
-#             client_id=panopto_cfg["client_id"],
-#             redirect_uri=panopto_cfg["redirect_url"],
-#             scope=["openid", "api", "offline_access"]
-#         )
-
-#         token = session_oauth.fetch_token(
-#             panopto_cfg["token_endpoint"],
-#             client_secret=panopto_cfg["client_secret"],
-#             authorization_response=full_redirect_url,
-#             verify=panopto_cfg["ssl_verify"]
-#         )
-
-#         oauth2._PanoptoOAuth2__save_token_to_cache(token)
-#         return "Authorization complete. You may close this window."
-
-#     except Exception as e:
-#         import traceback
-#         traceback.print_exc()
-#         return f"OAuth2 callback failed: {e}", 500
-
-# def authorization(requests_session, oauth2):
-#     # Go through authorization
-#     access_token = oauth2.get_access_token_authorization_code_grant()
-    
-#     # Set the token as the header of requests
-#     requests_session.headers.update({'Authorization': 'Bearer ' + access_token})
 
 def inspect_response(response):
     """
     Inspect a requests.Response object from Panopto API.
-    - Returns {"unauthorized": True} if 401 Unauthorized (token expired/invalid).
-    - Returns {"id": "<guid>"} if 2xx success with JSON body containing Id.
-    - Returns {"error": {...}} if 400 Bad Request (e.g. conflicts, bad input).
-    - Raises for other unhandled status codes (403, 404, 500, etc.).
     """
-    if response.status_code // 100 == 2:  # Success
-        try:
-            return {"id": response.json().get("Id")}
-        except ValueError:
-            return {"id": None}
+    try:
+        # ✅ Success
+        if response.status_code // 100 == 2:
+            try:
+                return {"id": response.json().get("Id")}
+            except ValueError:
+                return {"id": None}
 
-    if response.status_code == requests.codes.unauthorized:  # 401
-        return {"unauthorized": True}
+        # 🔐 Unauthorized
+        if response.status_code == requests.codes.unauthorized:
+            return {"unauthorized": True}
 
-    if response.status_code == 400:  # Bad Request (conflict, bad input, etc.)
-        try:
-            data = response.json()
-            # Friendly mapping
-            error = data.get("Error", None)
-            # if error:
-            error_code = error.get("ErrorCode", "UnknownError")
-            message = error.get("Message", "Unknown error from Panopto.")
-       
-            if error_code == "ScheduledRecordingConflict":
-                friendly = f"Scheduling conflict: {message}"
-            else:
-                friendly = message
-            return {"error": friendly, "details": data}
-        except ValueError:
-            return {"error": response.text, "details": None}
+        # ⚠️ Bad Request
+        if response.status_code == 400:
+            try:
+                data = response.json()
+                error = data.get("Error", {})
+                error_code = error.get("ErrorCode", "UnknownError")
+                message = error.get("Message", "Unknown error from Panopto.")
 
-    # Anything else: raise
-    response.raise_for_status()
+                if error_code == "ScheduledRecordingConflict":
+                    friendly = f"Scheduling conflict: {message}"
+                else:
+                    friendly = message
+
+                return {"error": friendly, "details": data}
+            except ValueError:
+                return {"error": response.text, "details": None}
+
+        # 💥 SERVER ERROR (500s) — THIS IS WHAT YOU WANT
+        if response.status_code >= 500:
+            print("🔥 PANOPTO 500 ERROR")
+            print("URL:", response.url)
+            print("Status:", response.status_code)
+            print("Response Text:", response.text)
+
+            return {
+                "error": "Panopto server error. Please try again later.",
+                "details": response.text,
+                "status_code": response.status_code
+            }
+
+        # ❓ Other errors (403, 404, etc.)
+        print("⚠️ UNHANDLED RESPONSE")
+        print("URL:", response.url)
+        print("Status:", response.status_code)
+        print("Response:", response.text)
+
+        return {
+            "error": f"Unexpected error ({response.status_code})",
+            "details": response.text
+        }
+
+    except Exception as e:
+        print("🚨 inspect_response FAILED")
+        import traceback
+        traceback.print_exc()
+
+        return {
+            "error": "Internal error processing response",
+            "details": str(e)
+        }
 
 
 def inspect_response_is_unauthorized(response):
@@ -233,44 +221,7 @@ def inspect_response_is_unauthorized(response):
     # Throw unhandled cases.
     response.raise_for_status()
 
-# def get_panopto_folders():
 
-#     requests_session, oauth2, args = panopto_login()
-#     folders = []
-#     # Call Panopto API (getting sub-folders from top level folder) repeatedly
-#     page_number = 0
-#     page_size = 50  # You can adjust this up to Panopto's max limit
-
-#     while True:
-#         # print(f'Calling GET /api/v1/folders/{PANOPTO_PARENT_FOLDER}/children?pageNumber={page_number}')
-#         url = f'https://{args.server}/Panopto/api/v1/folders/{PANOPTO_PARENT_FOLDER}/children'
-#         params = {
-#             'pageNumber': page_number,
-#             'maxNumberResults': page_size
-#         }
-#         try:
-#             resp = requests_session.get(url=url, params=params)
-#         except Exception as e:
-#             print("Error calling Panopto folders API:", e)
-#             return []
-#         # resp = requests_session.get(url=url, params=params)
-
-#         if inspect_response_is_unauthorized(resp):
-#             authorization(requests_session, oauth2)
-#             resp = requests_session.get(url=url, params=params)
-
-#         data = resp.json()
-#         results = data.get("Results", [])
-#         for folder in results:
-#             # if any("spps" in str(value).lower() for value in folder.values()):
-#             folders.append({"id": folder['Id'], "name": folder['Name']})
-
-#         if len(results) < page_size:
-#             break  # We've reached the last page
-
-#         page_number += 1
-#     # print(folders)
-#     return folders
 @panopto_required
 def get_panopto_folders():
     try:
@@ -318,43 +269,8 @@ def get_panopto_folders():
         print("🚨 get_panopto_folders FAILED")
         traceback.print_exc()
         return []
-    
-# def get_panopto_recorders():
-#     requests_session, oauth2, args = panopto_login()
 
-#     recorders = []
-#     page_number = 0
-#     page_size = 50  # You can adjust this up to Panopto's max limit
 
-#     while True:
-#         # print('Calling GET /api/v1/remoteRecorders endpoint')
-#         url = 'https://{0}/Panopto/api/remoteRecorders'.format(args.server)
-#         params = {
-#             'pageNumber': page_number,
-#             'maxNumberResults': page_size
-#         }
-#         # resp = requests_session.get(url=url, params=params)
-#         try:
-#             resp = requests_session.get(url=url, params=params)
-#         except Exception as e:
-#             print("Error calling Panopto recorders API:", e)
-#             return []
-
-#         if inspect_response_is_unauthorized(resp):
-#             authorization(requests_session, oauth2)
-#             resp = requests_session.get(url=url, params=params)
-
-#         data = resp.json()
-#         # results = data.get("Results", [])
-#         for recorder in data:
-#             recorders.append({"id": recorder['Id'], "name": recorder['Name']})
-
-#         if len(data) < page_size:
-#             break  # We've reached the last page
-
-#         page_number += 1
-#     # print(folders)
-#     return recorders
 @panopto_required
 def get_panopto_recorders():
     try:
@@ -598,6 +514,7 @@ def schedule_panopto_recording(name, start_time, end_time, folder_id, recorder_i
             "StartTime": start_time,
             "EndTime": end_time,
             "FolderId": folder_id,
+            # "RecorderId": recorder_id,
             "Recorders": [
                 {
                     "RemoteRecorderId": recorder_id,
@@ -607,8 +524,15 @@ def schedule_panopto_recording(name, start_time, end_time, folder_id, recorder_i
             ],
             "IsBroadcast": broadcast
         }
+        params = {"resolveConflicts": False}
+        headers = {"Content-Type": "application/json"}
 
-        resp = session_oauth.post(url, json=payload)
+        resp = session_oauth.post(url, json=payload, params=params, headers=headers)
+        print(resp)
+        # If token expired, refresh once
+        if resp.status_code == 401:  # Unauthorized
+            session_oauth = get_panopto_session(refresh=True)
+            resp = session_oauth.post(url, json=payload, params=params, headers=headers)
 
         return inspect_response(resp)
 
@@ -616,69 +540,17 @@ def schedule_panopto_recording(name, start_time, end_time, folder_id, recorder_i
         import traceback
         traceback.print_exc()
         return {"error": str(e)}
-    
-# def schedule_panopto_recording(name, start_time, end_time, folder_id, recorder_id, broadcast):
-#     try:
-#         requests_session, oauth2, args = panopto_login()
-        
-#         url = 'https://{0}/Panopto/api/v1/scheduledRecordings'.format(args.server)
-#         session_data = {
-#             "Name": name,
-#             "StartTime": start_time,
-#             "EndTime": end_time,
-#             "FolderId": folder_id,
-#             "Recorders": [
-#                 {
-#                     "RemoteRecorderId": recorder_id,
-#                     "SuppressPrimary": False,
-#                     "SuppressSecondary": False
-#                 }
-#             ],
-#             "IsBroadcast": broadcast
-#         }
-#         params = {"resolveConflicts": False}
-#         headers = {'Content-type': 'application/json', 'Accept': 'application/json'}
-#         resp = requests_session.post(url=url, json=session_data, params=params, headers=headers)
-#         result = inspect_response(resp)
 
-#         # Retry once if unauthorized
-#         if result.get("unauthorized"):
-#             authorization(requests_session, oauth2)
-#             resp = requests_session.post(url=url, json=session_data, params=params, headers=headers)
-#             result = inspect_response(resp)
-#         # print(result)
-#         return result
-#     except Exception as e:
-#         print("🚨 UNKNOWN ERROR in schedule_panopto_recording")
-#         import traceback
-#         traceback.print_exc()
 
-#         return {"error": "Unexpected server error", "details": str(e)}
-    
-
-# def delete_panopto_recording(session_id):
-#     requests_session, oauth2, args = panopto_login()
-    
-#     url = 'https://{0}/Panopto/api/v1/scheduledRecordings/{1}'.format(args.server,session_id)
-#     resp = requests_session.delete(url=url)
-
-#     if inspect_response_is_unauthorized(resp):
-#         authorization(requests_session, oauth2)
-#         try:
-#             resp = requests_session.delete(url=url)
-#         except Exception as e:
-#             print("Error calling Panopto delete recording API:", e)
-#             return []
-
-#     return resp.ok
 @panopto_required
 def delete_panopto_recording(session_id):
     try:
         session_oauth = get_panopto_session()
 
-        url = f"https://{PANOPTO_API_BASE}/Panopto/api/v1/scheduledRecordings/{session_id}"
+        url = f"https://{PANOPTO_API_BASE}/Panopto/PublicAPI/RecordingService.svc/DeleteScheduledRecording"
+        params = {"id": session_id}
 
-        resp = session_oauth.delete(url)
+        resp = session_oauth.delete(url, params=params)
 
         if resp.status_code >= 500:
             print("🔥 Panopto 500 error (delete):", resp.text)
@@ -698,70 +570,3 @@ def delete_panopto_recording(session_id):
         print("🚨 delete_panopto_recording FAILED")
         traceback.print_exc()
         return False
-
-def inspect_response(response):
-    """
-    Inspect a requests.Response object from Panopto API.
-    """
-    try:
-        # ✅ Success
-        if response.status_code // 100 == 2:
-            try:
-                return {"id": response.json().get("Id")}
-            except ValueError:
-                return {"id": None}
-
-        # 🔐 Unauthorized
-        if response.status_code == requests.codes.unauthorized:
-            return {"unauthorized": True}
-
-        # ⚠️ Bad Request
-        if response.status_code == 400:
-            try:
-                data = response.json()
-                error = data.get("Error", {})
-                error_code = error.get("ErrorCode", "UnknownError")
-                message = error.get("Message", "Unknown error from Panopto.")
-
-                if error_code == "ScheduledRecordingConflict":
-                    friendly = f"Scheduling conflict: {message}"
-                else:
-                    friendly = message
-
-                return {"error": friendly, "details": data}
-            except ValueError:
-                return {"error": response.text, "details": None}
-
-        # 💥 SERVER ERROR (500s) — THIS IS WHAT YOU WANT
-        if response.status_code >= 500:
-            print("🔥 PANOPTO 500 ERROR")
-            print("URL:", response.url)
-            print("Status:", response.status_code)
-            print("Response Text:", response.text)
-
-            return {
-                "error": "Panopto server error. Please try again later.",
-                "details": response.text,
-                "status_code": response.status_code
-            }
-
-        # ❓ Other errors (403, 404, etc.)
-        print("⚠️ UNHANDLED RESPONSE")
-        print("URL:", response.url)
-        print("Status:", response.status_code)
-        print("Response:", response.text)
-
-        return {
-            "error": f"Unexpected error ({response.status_code})",
-            "details": response.text
-        }
-
-    except Exception as e:
-        print("🚨 inspect_response FAILED")
-        import traceback
-        traceback.print_exc()
-
-        return {
-            "error": "Internal error processing response",
-            "details": str(e)
-        }
