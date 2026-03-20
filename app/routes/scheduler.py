@@ -34,8 +34,6 @@ HSAccountID = 9
 SOMAccountID = 445	
 SSPPSAccountID = 50 
 
-# REDIRECT_PORT = 9127
-                 
 # Routes to Webpages
 @bp.before_request
 @login_required
@@ -58,7 +56,13 @@ def panopto_required(f):
 # --- Panopto login helper ---
 @bp.route("/panopto/login")
 def panopto_login():
-    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"  # ✅ allow HTTP for localhost
+    hostname = urlparse(request.host_url).hostname
+    if hostname in ('localhost', '127.0.0.1'):
+        os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"  # ✅ allow HTTP for localhost
+    else:
+        # Ensure oauthlib library requires HTTPS redirection (default behavior).
+        if "OAUTHLIB_INSECURE_TRANSPORT" in os.environ:
+            del os.environ["OAUTHLIB_INSECURE_TRANSPORT"]
 
     # Make sure redirect URL matches what Panopto allows
     redirect_uri = url_for("scheduler.oauth2_callback", _external=True)
@@ -84,38 +88,6 @@ def panopto_login():
     # Redirect user to Panopto login page
     return redirect(authorization_url)
 
-# @bp.route("/panopto_login")
-# def panopto_login():
-#     args = argparse.Namespace(
-#         server=PANOPTO_API_BASE,
-#         client_id=PANOPTO_CLIENT_ID,
-#         client_secret=PANOPTO_CLIENT_SECRET,
-#         skip_verify=True
-#     )
-
-#     if args.skip_verify:
-#         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-#     requests_session = requests.Session()
-#     requests_session.verify = not args.skip_verify
-
-#     # Build OAuth2 instance
-#     oauth2 = PanoptoOAuth2(args.server, args.client_id, args.client_secret, not args.skip_verify)
-
-#     # Only save config in session if we're inside a request
-#     if has_request_context():
-#         session["panopto"] = {
-#             "server": args.server,
-#             "client_id": args.client_id,
-#             "client_secret": args.client_secret,
-#             "ssl_verify": not args.skip_verify,
-#             "redirect_url": oauth2.redirect_url,
-#             "token_endpoint": oauth2.access_token_endpoint,
-#         }
-#         # return session["panopto"] 
-
-#     authorization(requests_session, oauth2)
-#     return requests_session, oauth2, args
 
 @bp.route("/oauth2/callback")
 def oauth2_callback():
@@ -299,7 +271,7 @@ def inspect_response_is_unauthorized(response):
 #         page_number += 1
 #     # print(folders)
 #     return folders
-
+@panopto_required
 def get_panopto_folders():
     try:
         session_oauth = get_panopto_session()
@@ -383,6 +355,7 @@ def get_panopto_folders():
 #         page_number += 1
 #     # print(folders)
 #     return recorders
+@panopto_required
 def get_panopto_recorders():
     try:
         session_oauth = get_panopto_session()
@@ -564,6 +537,7 @@ def list_canvas_events():
     )
 
 @bp.route('/recordings/toggle', methods=['POST'])
+@panopto_required
 @permission_required('panopto_scheduler+add, panopto_scheduler+edit')
 def toggle_recording():
     data = request.form
@@ -612,10 +586,11 @@ def toggle_recording():
             # Catch-all in case schedule_panopto_recording returned None
             return jsonify({"success": False, "message": "Unknown error occurred."})
 
+@panopto_required
 def schedule_panopto_recording(name, start_time, end_time, folder_id, recorder_id, broadcast):
     try:
         session_oauth = get_panopto_session()
-
+            
         url = f"https://{PANOPTO_API_BASE}/Panopto/api/v1/scheduledRecordings"
 
         payload = {
@@ -696,6 +671,7 @@ def schedule_panopto_recording(name, start_time, end_time, folder_id, recorder_i
 #             return []
 
 #     return resp.ok
+@panopto_required
 def delete_panopto_recording(session_id):
     try:
         session_oauth = get_panopto_session()
