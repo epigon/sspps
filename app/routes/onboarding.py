@@ -43,7 +43,7 @@ def audit():
     return render_template(
         "onboarding/audit.html",
         applicants=applicants,
-        last_sync=last_sync
+        last_sync=last_sync.isoformat() if last_sync else None
     )
 
 
@@ -86,7 +86,11 @@ def sync_ad_manual():
 # -----------------------------
 def run_sync_if_needed(force=False):
     last_sync = get_last_sync()
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
+
+    if last_sync and last_sync.tzinfo is None:
+        # assume DB stored as UTC (common case)
+        last_sync = last_sync.replace(tzinfo=timezone.utc)
 
     if force or not last_sync or (now - last_sync) > timedelta(hours=1):
         print("🔄 Running AD sync...")

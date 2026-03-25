@@ -26,8 +26,9 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
             <strong>Last Synced:</strong>
-            <span id="lastSync" data-utc="{{ last_sync.strftime('%Y-%m-%dT%H:%M:%SZ') if last_sync }}"></span>
-            <!-- {{ last_sync.strftime('%m/%d/%Y %I:%M %p') if last_sync else 'Never' }} -->
+            <span id="last-sync" data-last-sync="{{ last_sync or '' }}">
+                Loading...
+            </span>
         </div>
 
         <button id="syncNowBtn" class="btn btn-warning">
@@ -214,19 +215,36 @@
                 },
                 error: function () {
                     alert("Sync failed");
-                    btn.prop('disabled', false).text('🔄 Sync Now');
+                    btn.prop('disabled', false).text('🔄 AD Sync Now');
                 }
             });
         });
-        let el = document.getElementById("lastSync");
-        let utc = el.dataset.utc;
 
-        if (utc) {
-            let local = new Date(utc);
-            el.innerText = local.toLocaleString();
-        } else {
+
+    });
+    document.addEventListener("DOMContentLoaded", function () {
+        const el = document.getElementById("last-sync");
+        const value = el.dataset.lastSync;
+
+        if (!value) {
             el.innerText = "Never";
+            return;
         }
+
+        const date = new Date(value);
+
+        if (isNaN(date)) {
+            el.innerText = "Invalid date";
+            return;
+        }
+
+        el.innerText = date.toLocaleString(undefined, {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit"
+        });
     });
 </script>
 {% endblock %}
