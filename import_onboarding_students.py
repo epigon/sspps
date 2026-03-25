@@ -258,17 +258,21 @@ def update_tsn(filepath):
                 r["error"] = str(e)
                 errors.append(r)
 
-        if updates:
-            conn.execute(text("CREATE TABLE #TMP (pharmcas_id NVARCHAR(100), tsn NVARCHAR(100))"))
+            if updates:
+                conn.execute(text("TRUNCATE TABLE dbo.TSN_STAGE"))
 
-            conn.execute(text("INSERT INTO #TMP (pharmcas_id, tsn) VALUES (:pharmcas_id, :tsn)"), updates)
+                conn.execute(text("""
+                    INSERT INTO dbo.TSN_STAGE (pharmcas_id, tsn)
+                    VALUES (:pharmcas_id, :tsn)
+                """), updates)
 
-            conn.execute(text("""
-                UPDATE A
-                SET A.tsn = T.tsn
-                FROM dbo.ACCEPTED_APPLICANTS A
-                JOIN #TMP T ON A.pharmcas_id = T.pharmcas_id
-            """))
+                conn.execute(text("""
+                    UPDATE A
+                    SET A.tsn = T.tsn
+                    FROM dbo.ACCEPTED_APPLICANTS A
+                    JOIN dbo.TSN_STAGE T
+                        ON A.pharmcas_id = T.pharmcas_id
+                """))
 
     if errors:
         pd.DataFrame(errors).to_csv(ERROR_FILE_TSN, index=False)
