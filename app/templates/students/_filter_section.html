@@ -38,7 +38,8 @@
 
         <!-- Course filter -->
         <div class="col-auto">
-            <label for="course_id" class="col-form-label">Course:</label>
+            <label for="course_id" class="col-form-label">Course:</label> 
+            <a href="{{ url_for('students.photo_cards', reset_terms_cache=true) }}">Refresh Course List</a> 
             <select id="course_id" name="course_id" class="form-select">
                 <option value="">-- All --</option>
                 {% for course in courses %}
