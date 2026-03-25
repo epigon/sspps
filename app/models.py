@@ -611,3 +611,49 @@ class ContactHeader(db.Model):
     comms = db.Column(db.String(50))
     created_at = db.Column(db.DateTime, default=datetime.now)
     type = db.Column(db.String(50), nullable=False, default="contacts")  # 'contacts' or 'alumni'
+
+
+# ----------------------
+# P1 ONBOARDING APP
+# ----------------------
+from app import db
+from datetime import datetime
+
+class Applicant(db.Model):
+    __tablename__ = "ACCEPTED_APPLICANTS"
+
+    id = db.Column(db.Integer, primary_key=True)
+    tracking_number = db.Column(db.String(100))
+    last_name = db.Column(db.String(100))
+    first_name = db.Column(db.String(100))
+    middle_name = db.Column(db.String(50))
+    birth_month = db.Column(db.String(2))
+    birth_day = db.Column(db.String(2))
+    affiliate_email = db.Column(db.String(255))
+    affiliate_phone = db.Column(db.String(50))
+    access_start_date = db.Column(db.DateTime)
+    department_code = db.Column(db.String(50))
+    job_title = db.Column(db.String(255))
+    manager_emp_id = db.Column(db.String(50))
+    needs_ad_account = db.Column(db.Boolean, default=False)
+    last4_ssn = db.Column(db.String(4))
+    nursing_student_type = db.Column(db.String(100))
+    additional_info = db.Column(db.String(500))
+    accept_date = db.Column(db.DateTime)
+    pharmcas_id = db.Column(db.String(100), unique=True)
+    tsn = db.Column(db.String(100))
+    ad_create_timestamp = db.Column(db.DateTime)
+    ad_distinguished_name = db.Column(db.String(500))
+    ad_enabled = db.Column(db.Boolean)
+    ad_given_name = db.Column(db.String(100))
+    ad_name = db.Column(db.String(255))
+    ad_object_class = db.Column(db.String(100))
+    ad_object_guid = db.Column(db.String(100))
+    ad_password_last_set = db.Column(db.DateTime)
+    ad_sam_account_name = db.Column(db.String(100))
+    ad_sid = db.Column(db.String(200))
+    ad_student_number = db.Column(db.String(100))
+    ad_surname = db.Column(db.String(100))
+    ad_user_principal_name = db.Column(db.String(255))
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    hs_email_requested_date = db.Column(db.DateTime)
