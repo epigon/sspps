@@ -207,6 +207,7 @@
                             or has_permission('listserv+add')
                             or has_permission('listserv+edit')
                             or has_permission('listserv+delete')
+                            or has_permission('onboarding+add')
                             %}
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown"
@@ -258,6 +259,15 @@
                                         <a class="dropdown-item" href="{{ url_for('ad_lookup.search') }}">Active
                                             Directory
                                             Search</a>
+                                    </li>
+                                    {% endif %}
+                                    {% if has_permission('onboarding+add') %}
+                                    <li>
+                                        <hr class="dropdown-divider">
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{{ url_for('onboarding.audit') }}">Onboarding
+                                            Audit</a>
                                     </li>
                                     {% endif %}
                                     {% if has_permission('canvas_enrollments+view') or
