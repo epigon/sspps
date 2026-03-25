@@ -86,7 +86,7 @@ def sync_ad_manual():
 # -----------------------------
 def run_sync_if_needed(force=False):
     last_sync = get_last_sync()
-    now = datetime.utcnow()
+    now = datetime.now()
 
     if force or not last_sync or (now - last_sync) > timedelta(hours=1):
         print("🔄 Running AD sync...")
@@ -184,12 +184,8 @@ def get_ad_users_by_batch(tsn_batch):
     }}
     """
 
-    result = subprocess.run(
-        ["powershell", "-Command", ps_script],
-        capture_output=True,
-        text=True
-    )
-
+    result = subprocess.run(["powershell", "-Command", ps_script], capture_output=True, text=True)
+    print("PowerShell Output:", result.stdout, "Error:", result.stderr, "Return Code:", result.returncode)
     if result.stdout:
         data = json.loads(result.stdout)
         return [data] if isinstance(data, dict) else data
