@@ -308,7 +308,7 @@ class InstrumentRequestForm(FlaskForm):
     requestor_name = StringField("Requestor Name", validators=[DataRequired()])
     requestor_email = StringField("Requestor Email", validators=[DataRequired(), Email()])
 
-    # submit = SubmitField("Submit Request")
+    submit_btn = SubmitField("Submit", render_kw={"class": "btn btn-primary"})
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
