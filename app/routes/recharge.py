@@ -14,6 +14,7 @@ import qrcode
 import subprocess
 import requests
 import tempfile
+import bleach
 
 bp = Blueprint('recharge', __name__, url_prefix='/recharge')
 
@@ -38,9 +39,12 @@ RECAPTCHA_SITEKEY = GOOGLE_RECAPTCHA_SITEKEY
 #         return  # Skip login_required check
 #     return login_required(lambda: None)()  # Call login_required manually
 
+def clean_input(value):
+    return bleach.clean(value, strip=True)
+
+
 def aligned_to_15(dt: datetime) -> bool:
     return dt.minute % 15 == 0 and dt.second == 0 and dt.microsecond == 0
-
 
 def get_all_machines_from_db():
     machines_list = Instrument.query.filter_by(flag=True).order_by(Instrument.machine_name).all()
@@ -82,14 +86,39 @@ def parse_iso_utc(value: str) -> datetime:
     dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
     return dt.astimezone(timezone.utc).replace(tzinfo=None)
 
-def verify_captcha(captcha_response):
-    r = requests.post(
-        "https://www.google.com/recaptcha/api/siteverify",
-        data={"secret": RECAPTCHA_SECRET, "response": captcha_response}
-    )
-    # print(r.json())
-    return r.json().get("success", False)
+# def verify_captcha(captcha_response):
+#     r = requests.post(
+#         "https://www.google.com/recaptcha/api/siteverify",
+#         data={"secret": RECAPTCHA_SECRET, "response": captcha_response}
+#     )
+#     # print(r.json())
+#     return r.json().get("success", False)
 
+def verify_captcha(captcha_response):
+    try:
+        r = requests.post(
+            "https://www.google.com/recaptcha/api/siteverify",
+            data={
+                "secret": RECAPTCHA_SECRET,
+                "response": captcha_response
+            },
+            timeout=5
+        )
+        result = r.json()
+
+        print("RECAPTCHA FULL RESPONSE:", result)
+
+        return (
+            result.get("success") and
+            result.get("score", 0) >= 0.3 and   # start low
+            result.get("action") == "submit"
+        )
+
+    except requests.RequestException as e:
+        print("CAPTCHA ERROR:", str(e))
+        return False
+    
+    
 def get_client_ip():
     """
     Return the best-guess client IP address.
@@ -109,35 +138,52 @@ def request_instrument():
     request_data = None
 
     if form.validate_on_submit():
+
+        # 🔐 CAPTCHA validation ONLY on submit
+        captcha_response = request.form.get("recaptcha_token")
+        print("TOKEN FROM FORM:", captcha_response)
+
+        if not verify_captcha(captcha_response):
+            flash("CAPTCHA verification failed. Please try again.", "danger")
+            return render_template(
+                "recharge/request_instrument.html",
+                form=form,
+                recaptcha_site_key=RECAPTCHA_SITEKEY
+            )
+
         machine = Instrument.query.get(form.machine.data)
-        
+
         req = InstrumentRequest(
-            machine_name=machine.machine_name,
-            department_code=form.department_code.data,
-            pi_name=form.pi_name.data,
-            pi_email=form.pi_email.data,
-            pi_phone=form.pi_phone.data,
-            requestor_name=form.requestor_name.data,
-            requestor_email=form.requestor_email.data
+            machine_name=clean_input(machine.machine_name),
+            department_code=clean_input(form.department_code.data),
+            pi_name=clean_input(form.pi_name.data),
+            pi_email=clean_input(form.pi_email.data),
+            pi_phone=clean_input(form.pi_phone.data),
+            requestor_name=clean_input(form.requestor_name.data),
+            requestor_email=clean_input(form.requestor_email.data)
         )
         db.session.add(req)
         db.session.commit()
 
         request_data = {
-            "Instrument": machine.machine_name,
-            "PI Name": form.pi_name.data,
-            "PI Email": form.pi_email.data,
-            "PI Phone": form.pi_phone.data,
-            "Requestor Name": form.requestor_name.data,
-            "Requestor Email": form.requestor_email.data
+            "Instrument": clean_input(machine.machine_name),
+            "PI Name": clean_input(form.pi_name.data),
+            "PI Email": clean_input(form.pi_email.data),
+            "PI Phone": clean_input(form.pi_phone.data),
+            "Requestor Name": clean_input(form.requestor_name.data),
+            "Requestor Email": clean_input(form.requestor_email.data)
         }
 
-        # Reuse the email function
         email_request_barcode(req.id)
 
         flash(f"Request #{req.id} approved and barcode emailed to {req.requestor_email}.", "success")
 
-    return render_template("recharge/request_instrument.html", form=form, request_data=request_data)
+    return render_template(
+        "recharge/request_instrument.html",
+        form=form,
+        request_data=request_data,
+        recaptcha_site_key=RECAPTCHA_SITEKEY
+    )
 
 # --- Reviewer list ---
 @bp.route("/review_requests")
