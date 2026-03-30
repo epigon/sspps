@@ -59,8 +59,8 @@
                     <th class="noexport">AD Username</th>
                     <th class="noexport">AD Password Last Set</th>
                     <th class="noexport">AD Distinguished Name</th>
-                    <th class="noexport">HS Email Requested Date</th>
-                    <th class="noexport">HS Email</th>
+                    <th class="noexport hsdate">HS Email Requested Date</th>
+                    <th class="noexport hsemail">HS Email</th>
                     <th class="noexport">Actions</th>
                 </tr>
             </thead>
@@ -93,10 +93,6 @@
                         <input type="date" class="form-control hs-date" data-id="{{ a.id }}"
                             value="{{ a.hs_email_requested_date.strftime('%Y-%m-%d') if a.hs_email_requested_date }}">
                     </td>
-                    <!-- <td>
-                        <input type="email" class="form-control hs-email" data-id="{{ a.id }}"
-                            value="{{ a.hs_email or '' }}">
-                    </td> -->
                     <td>
                         <div class="d-flex gap-1">
                             <input type="email" class="form-control hs-email" data-id="{{ a.id }}"
@@ -129,6 +125,29 @@
                 {
                     targets: [0, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
                     visible: false
+                }, 
+                {
+                    targets: 'hsdate', // use class instead of index
+                    render: function (data, type, row, meta) {
+                        // find input inside the cell with class 'hs-date-input'
+                        let val = $('<div>').html(data).find('.hs-date').val();
+
+                        if (type === 'sort' || type === 'type') {
+                            return val || '';
+                        }
+                        return data;
+                    }
+                },
+                {
+                    targets: 'hsemail', // use class instead of index
+                    render: function (data, type, row, meta) {
+                        let val = $('<div>').html(data).find('.hs-email').val();
+
+                        if (type === 'sort' || type === 'type') {
+                            return val ? val.toLowerCase() : '';
+                        }
+                        return data;
+                    }
                 }
             ],
             buttons: [
@@ -211,6 +230,7 @@
                 }),
                 success: function () {
                     console.log("Saved");
+                    table.rows().invalidate().draw(false);
                 },
                 error: function () {
                     alert("Error saving record");
@@ -307,6 +327,7 @@
                 }),
                 success: function () {
                     console.log("Auto email saved");
+                    table.rows().invalidate().draw(false);
                 },
                 error: function () {
                     alert("Error saving auto email");
