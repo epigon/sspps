@@ -266,8 +266,12 @@
                                         <hr class="dropdown-divider">
                                     </li>
                                     <li>
-                                        <a class="dropdown-item" href="{{ url_for('onboarding.audit') }}">Onboarding
+                                        <a class="dropdown-item" href="{{ url_for('onboarding.audit') }}">P1 Onboarding
                                             Audit</a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{{ url_for('onboarding.import_files') }}">P1 Onboarding
+                                            Import</a>
                                     </li>
                                     {% endif %}
                                     {% if has_permission('canvas_enrollments+view') or
