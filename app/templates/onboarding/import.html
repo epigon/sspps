@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Import Onboarding Data</h2>
+
+    <form method="POST" enctype="multipart/form-data" class="card p-4 shadow-sm">
+        <div class="mb-3">
+            <label class="form-label">Applicants File</label>
+            <input type="file" name="applicants_file" class="form-control">
+            <div class="form-text">CSV or Excel file</div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">TSN File</label>
+            <input type="file" name="tsn_file" class="form-control">
+            <div class="form-text">CSV or Excel file</div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+            Upload & Process
+        </button>
+    </form>
+
+    {% if results %}
+    <div class="mt-4">
+        <h4>Results</h4>
+
+        {% if results.applicants %}
+        <div class="alert alert-info">
+            <strong>Applicants Import:</strong><br>
+            Inserted: {{ results.applicants.inserted }}<br>
+            Failed: {{ results.applicants.failed }}<br/>
+            <a href="/static/files/applicant_import_errors.csv">Download Applicant Errors</a>
+        </div>
+        {% endif %}
+
+        {% if results.tsn %}
+        <div class="alert alert-warning">
+            <strong>TSN Update:</strong><br>
+            Updated: {{ results.tsn.updated }}<br>
+            Failed: {{ results.tsn.failed }}<br/>
+            <a href="/static/files/tsn_update_errors.csv">Download TSN Update Errors
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -61,6 +61,7 @@
                     <th class="noexport">AD Distinguished Name</th>
                     <th class="noexport">HS Email Requested Date</th>
                     <th class="noexport">HS Email</th>
+                    <th class="noexport">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -92,9 +93,24 @@
                         <input type="date" class="form-control hs-date" data-id="{{ a.id }}"
                             value="{{ a.hs_email_requested_date.strftime('%Y-%m-%d') if a.hs_email_requested_date }}">
                     </td>
-                    <td>
+                    <!-- <td>
                         <input type="email" class="form-control hs-email" data-id="{{ a.id }}"
                             value="{{ a.hs_email or '' }}">
+                    </td> -->
+                    <td>
+                        <div class="d-flex gap-1">
+                            <input type="email" class="form-control hs-email" data-id="{{ a.id }}"
+                                value="{{ a.hs_email or '' }}">
+
+                            <button class="btn btn-sm btn-outline-secondary auto-email-btn" data-id="{{ a.id }}">
+                                ⚡
+                            </button>
+                        </div>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-danger delete-btn" data-id="{{ a.id }}">
+                            Delete
+                        </button>
                     </td>
                 </tr>
                 {% endfor %}
@@ -220,8 +236,86 @@
             });
         });
 
+        $(document).on('click', '.delete-btn', function () {
+            let btn = $(this);
+            let id = btn.data('id');
 
+            if (!confirm("Are you sure you want to delete this applicant?")) {
+                return;
+            }
+
+            $.ajax({
+                url: `/onboarding/delete-applicant/${id}`,
+                method: "POST",
+                success: function (res) {
+                    if (res.success) {
+                        // Remove row from table
+                        let row = btn.closest('tr');
+                        $('#applicants').DataTable().row(row).remove().draw();
+                    } else {
+                        alert(res.message || "Delete failed");
+                    }
+                },
+                error: function () {
+                    alert("Delete failed");
+                }
+            });
+        });
+
+
+        $(document).on('click', '.auto-email-btn', function () {
+            let btn = $(this);
+            let row = btn.closest('tr');
+
+            let id = btn.data('id');
+
+            // Get AD name from row
+            let adName = row.find('.ad-name').text().trim();
+
+            if (!adName) {
+                alert("No AD name available for this user.");
+                return;
+            }
+
+            // Build default email
+            let cleanName = adName
+                .toLowerCase()
+                .replace(/\s+/g, '.')      // spaces → dots
+                .replace(/[^a-z0-9.]/g, ''); // remove special chars
+
+            let email = cleanName + "@health.ucsd.edu";
+
+            // Set input value
+            row.find('.hs-email').val(email);
+
+            // Optional: set today's date if empty
+            let dateInput = row.find('.hs-date');
+            // if (!dateInput.val()) {
+            //     let today = new Date().toISOString().slice(0, 10);
+            //     dateInput.val(today);
+            // }
+
+            // Trigger save (reuse your existing logic)
+            $.ajax({
+                url: "{{ url_for('onboarding.update_hs_email') }}",
+                method: "POST",
+                contentType: "application/json",
+                data: JSON.stringify({
+                    id: id,
+                    hs_email: email,
+                    hs_email_requested_date: dateInput.val()
+                }),
+                success: function () {
+                    console.log("Auto email saved");
+                },
+                error: function () {
+                    alert("Error saving auto email");
+                }
+            });
+        });
     });
+
+
     document.addEventListener("DOMContentLoaded", function () {
         const el = document.getElementById("last-sync");
         const value = el.dataset.lastSync;

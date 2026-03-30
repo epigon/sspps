@@ -1,5 +1,5 @@
 from app import db
-from datetime import datetime
+from datetime import datetime, timezone
 from flask_login import UserMixin
 from sqlalchemy import and_, Column, Integer, String, DateTime, UniqueConstraint, ForeignKey, Boolean, Date, Time, Text 
 from sqlalchemy.orm import foreign, relationship, object_session
@@ -616,9 +616,6 @@ class ContactHeader(db.Model):
 # ----------------------
 # P1 ONBOARDING APP
 # ----------------------
-from app import db
-from datetime import datetime
-
 class Applicant(db.Model):
     __tablename__ = "ACCEPTED_APPLICANTS"
 
@@ -655,5 +652,7 @@ class Applicant(db.Model):
     ad_student_number = db.Column(db.String(100))
     ad_surname = db.Column(db.String(100))
     ad_user_principal_name = db.Column(db.String(255))
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     hs_email_requested_date = db.Column(db.DateTime)
+    hs_email = db.Column(db.String(100))
+    is_deleted = db.Column(db.Boolean, default=False)
