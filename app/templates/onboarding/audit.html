@@ -60,13 +60,13 @@
                     <th>Nursing Student Type</th>
                     <th>Additional Information</th>
                     <th class="noexport">TSN</th>
-                    <th class="noexport">PharmCASID</th>
+                    <th class="noexport">PharmCAS ID</th>
                     <th class="noexport">AD Username</th>
                     <th class="noexport">AD Password Last Set</th>
                     <th class="noexport">AD Distinguished Name</th>
                     <th class="noexport hsdate">HS Email Requested Date</th>
                     <th class="noexport hsemail">HS Email</th>
-                    <th class="noexport">Actions</th>
+                    <th class="noexport actions">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -162,6 +162,7 @@
                     text: 'Export Audit File',
                     title: null,
                     exportOptions: {
+                        columns: ':not(.actions)',
                         format: {
                             body: function (data, row, column, node) {
 
