@@ -60,6 +60,7 @@
                     <th>Nursing Student Type</th>
                     <th>Additional Information</th>
                     <th class="noexport">TSN</th>
+                    <th class="noexport">PharmCASID</th>
                     <th class="noexport">AD Username</th>
                     <th class="noexport">AD Password Last Set</th>
                     <th class="noexport">AD Distinguished Name</th>
@@ -88,6 +89,7 @@
                     <td>{{ a.nursing_student_type }}</td>
                     <td>TSN: {{ a.tsn }}, {{ "AD:" + a.ad_user_principal_name | default('', true) }}</td>
                     <td>{{ a.tsn }}</td>
+                    <td>{{ a.pharmcas_id | default('', true) }}</td>
                     <td class="ad-name">{{ a.ad_name | default('', true) }}</td>
                     <td>{{ a.ad_password_last_set.strftime('%m/%d/%Y') if a.ad_password_last_set else
                         '' }}
