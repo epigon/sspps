@@ -346,13 +346,13 @@ def list_canvas_events():
     # Step 2: User selected a term -> fetch courses + events
     start_overall = time.perf_counter()
 
-    # 🔹 Get term details (so we can grab its dates)
+    # Get term details (so we can grab its dates)
     terms = get_enrollment_terms()
     selected_term = next((t for t in terms if str(t["id"]) == str(term_id)), None)
     if not selected_term:
         return f"Term {term_id} not found", 400
 
-    # 🔹 Parse start/end dates from the term
+    # Parse start/end dates from the term
     start_date = None
     end_date = None
     if selected_term.get("start_at"):
@@ -432,18 +432,27 @@ def list_canvas_events():
         "broadcast": rec.broadcast
     } for rec in scheduled}
 
-    # if not session.get("panopto_token"):
-    #     return redirect(url_for("scheduler.panopto_login"))
-
     folders = get_panopto_folders()
     recorders = get_panopto_recorders()
-    # print(f"Found {len(folders)} folders and {len(recorders)} recorders in Panopto.",folders)
+    
     duration = time.perf_counter() - start_overall
     print(f"⏱ list_canvas_events (account {account}, term {term_id}) took {duration:.2f} seconds and returned {len(events)} events.")
 
+    today = datetime.now(timezone.utc).date()
+    
+    filtered_events = []
+    
+    for e in events:
+        start = e.get("start_at")
+        if start:
+            if isinstance(start, str):
+                start = datetime.fromisoformat(start)  # or adjust format if needed
+            if start.date() >= today:
+                filtered_events.append(e)
+
     return render_template(
         "scheduler/canvas_events.html",
-        events=events,
+        events=filtered_events,
         scheduled_map=scheduled_map,
         folders=folders,
         recorders=recorders,
