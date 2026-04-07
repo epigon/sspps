@@ -2,13 +2,15 @@ from app.cred import PANOPTO_API_BASE, PANOPTO_CLIENT_ID, PANOPTO_CLIENT_SECRET
 from app.models import db, ScheduledRecording
 from app.utils import permission_required
 from .canvas import get_canvas_courses, get_canvas_events, chunked_list, get_enrollment_terms, get_canvas_courses_by_term
+from concurrent.futures import ThreadPoolExecutor, as_completed  # ✅ NEW: for parallel fetching
 from datetime import datetime, timedelta, timezone
 from dateutil import parser  # safer parsing
 from flask import Flask, redirect, render_template, request, Blueprint, jsonify, session, has_request_context, url_for
 from flask_login import login_required
+from flask_caching import Cache  # ✅ NEW: for caching folders/recorders
+from oauthlib.oauth2 import InvalidGrantError
 from os.path import dirname, join, abspath
 from functools import wraps
-# from .panopto_oauth2 import PanoptoOAuth2
 from requests_oauthlib import OAuth2Session
 from urllib.parse import urlparse, urlunparse
 import argparse
@@ -22,6 +24,9 @@ import urllib3
 sys.path.insert(0, abspath(join(dirname(__file__), '..', 'common')))
 
 bp = Blueprint('scheduler', __name__, url_prefix='/scheduler')
+
+# ✅ NEW: Simple in-memory cache (300s TTL). Wire up to your Flask app with cache.init_app(app)
+cache = Cache(config={"CACHE_TYPE": "SimpleCache"})
 
 PACIFIC_TZ = pytz.timezone("America/Los_Angeles")
 PANOPTO_PARENT_FOLDER = '66a0fa02-94a9-4fb9-ae75-aa71011bd7fc'
@@ -47,68 +52,56 @@ def panopto_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get("panopto_token"):
-            # Save current URL so we can redirect back after login
             session["next_page"] = request.url
             return redirect(url_for("scheduler.panopto_login"))
         return f(*args, **kwargs)
     return decorated_function
+
 
 # --- Panopto login helper ---
 @bp.route("/panopto/login")
 def panopto_login():
     hostname = urlparse(request.host_url).hostname
     if hostname in ('localhost', '127.0.0.1'):
-        os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"  # ✅ allow HTTP for localhost
+        os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
     else:
-        # Ensure oauthlib library requires HTTPS redirection (default behavior).
         if "OAUTHLIB_INSECURE_TRANSPORT" in os.environ:
             del os.environ["OAUTHLIB_INSECURE_TRANSPORT"]
 
-    # Make sure redirect URL matches what Panopto allows
     redirect_uri = url_for("scheduler.oauth2_callback", _external=True)
-
-    # Scope: openid + api + offline_access (refresh token)
     scope = ["openid", "api", "offline_access"]
 
-    # Create OAuth2Session
     oauth = OAuth2Session(
         client_id=PANOPTO_CLIENT_ID,
         redirect_uri=redirect_uri,
         scope=scope
     )
 
-    # Get the authorization URL
     authorization_url, state = oauth.authorization_url(
         f"https://{PANOPTO_API_BASE}/Panopto/oauth2/connect/authorize"
     )
 
-    # Save state for callback verification
     session["oauth_state"] = state
-
-    # Redirect user to Panopto login page
     return redirect(authorization_url)
 
 
 @bp.route("/oauth2/callback")
 def oauth2_callback():
-    # Recreate the OAuth2Session with the saved state
     oauth = OAuth2Session(
         client_id=PANOPTO_CLIENT_ID,
         redirect_uri=url_for("scheduler.oauth2_callback", _external=True),
         state=session.get("oauth_state")
     )
 
-    # Exchange authorization code for access token
     token = oauth.fetch_token(
         f"https://{PANOPTO_API_BASE}/Panopto/oauth2/connect/token",
         client_secret=PANOPTO_CLIENT_SECRET,
         authorization_response=request.url
     )
 
-    # Save token in session for reuse
     session["panopto_token"] = token
-
     return "Panopto authorization complete. You may close this window."
+
 
 def get_panopto_session():
     token = session.get("panopto_token")
@@ -135,18 +128,15 @@ def inspect_response(response):
     Inspect a requests.Response object from Panopto API.
     """
     try:
-        # ✅ Success
         if response.status_code // 100 == 2:
             try:
                 return {"id": response.json().get("Id")}
             except ValueError:
                 return {"id": None}
 
-        # 🔐 Unauthorized
         if response.status_code == requests.codes.unauthorized:
             return {"unauthorized": True}
 
-        # ⚠️ Bad Request
         if response.status_code == 400:
             try:
                 data = response.json()
@@ -163,7 +153,6 @@ def inspect_response(response):
             except ValueError:
                 return {"error": response.text, "details": None}
 
-        # 💥 SERVER ERROR (500s) — THIS IS WHAT YOU WANT
         if response.status_code >= 500:
             print("🔥 PANOPTO 500 ERROR")
             print("URL:", response.url)
@@ -176,7 +165,6 @@ def inspect_response(response):
                 "status_code": response.status_code
             }
 
-        # ❓ Other errors (403, 404, etc.)
         print("⚠️ UNHANDLED RESPONSE")
         print("URL:", response.url)
         print("Status:", response.status_code)
@@ -205,22 +193,47 @@ def inspect_response_is_unauthorized(response):
     Reference: https://stackoverflow.com/a/24519419
     '''
     if response.status_code // 100 == 2:
-        # Success on 2xx response.
         return False
 
     if response.status_code == requests.codes.unauthorized:
-        # print('Unauthorized. Access token is invalid.')
         return True
 
-    if response.status_code == 400:  # Bad Request (conflict, invalid input, etc.)
+    if response.status_code == 400:
         try:
             return {"error": response.json()}
         except ValueError:
             return {"error": response.text}
 
-    # Throw unhandled cases.
     response.raise_for_status()
 
+def ensure_fresh_panopto_token():
+    token = session.get("panopto_token")
+
+    if not token:
+        raise Exception("No Panopto token found")
+
+    oauth = OAuth2Session(
+        client_id=PANOPTO_CLIENT_ID,
+        token=token,
+        auto_refresh_url=f"https://{PANOPTO_API_BASE}/Panopto/oauth2/connect/token",
+        auto_refresh_kwargs={
+            "client_id": PANOPTO_CLIENT_ID,
+            "client_secret": PANOPTO_CLIENT_SECRET,
+        },
+        token_updater=lambda t: session.update({"panopto_token": t})
+    )
+
+    try:
+        resp = oauth.get(f"https://{PANOPTO_API_BASE}/Panopto/api/v1/users/me")
+
+        if resp.status_code == 401:
+            raise Exception("Unauthorized after refresh")
+
+    except InvalidGrantError:
+        session.pop("panopto_token", None)
+        raise Exception("Panopto session expired. Please log in again.")
+
+    return session.get("panopto_token")
 
 @panopto_required
 def get_panopto_folders():
@@ -240,7 +253,6 @@ def get_panopto_folders():
 
             resp = session_oauth.get(url, params=params)
 
-            # 🔍 Handle response safely
             if resp.status_code >= 500:
                 print("🔥 Panopto 500 error (folders):", resp.text)
                 break
@@ -289,7 +301,6 @@ def get_panopto_recorders():
 
             resp = session_oauth.get(url, params=params)
 
-            # 🔍 Handle response safely
             if resp.status_code >= 500:
                 print("🔥 Panopto 500 error (recorders):", resp.text)
                 break
@@ -318,6 +329,119 @@ def get_panopto_recorders():
         traceback.print_exc()
         return []
 
+
+def _get_panopto_oauth(token):
+    return OAuth2Session(
+        client_id=PANOPTO_CLIENT_ID,
+        token=token
+    )
+
+
+def _fetch_panopto_folders(token):
+    """Fetch Panopto folders using a pre-fetched token. Thread-safe."""
+    try:
+        session_oauth = _get_panopto_oauth(token)
+        folders = []
+        page_number = 0
+        page_size = 50
+
+        while True:
+            url = f"https://{PANOPTO_API_BASE}/Panopto/api/v1/folders/{PANOPTO_PARENT_FOLDER}/children"
+            params = {"pageNumber": page_number, "maxNumberResults": page_size}
+            resp = session_oauth.get(url, params=params)
+
+            if resp.status_code >= 500:
+                print("🔥 Panopto 500 error (folders):", resp.text)
+                break
+            if resp.status_code == 401:
+                raise Exception("Panopto token expired or unauthorized")
+
+            results = resp.json().get("Results", [])
+            folders.extend({"id": f["Id"], "name": f["Name"]} for f in results)
+
+            if len(results) < page_size:
+                break
+            page_number += 1
+
+        return folders
+
+    except Exception:
+        import traceback
+        print("🚨 _fetch_panopto_folders FAILED")
+        traceback.print_exc()
+        return []
+
+
+def _fetch_panopto_recorders(token):
+    """Fetch Panopto recorders using a pre-fetched token. Thread-safe."""
+    try:
+        session_oauth = _get_panopto_oauth(token)
+        recorders = []
+        page_number = 0
+        page_size = 50
+
+        while True:
+            url = f"https://{PANOPTO_API_BASE}/Panopto/api/remoteRecorders"
+            params = {"pageNumber": page_number, "maxNumberResults": page_size}
+            resp = session_oauth.get(url, params=params)
+
+            if resp.status_code >= 500:
+                print("🔥 Panopto 500 error (recorders):", resp.text)
+                break
+            if resp.status_code == 401:
+                raise Exception("Panopto token expired or unauthorized")
+
+            data = resp.json()
+            recorders.extend({"id": r["Id"], "name": r["Name"]} for r in data)
+
+            if len(data) < page_size:
+                break
+            page_number += 1
+
+        return recorders
+
+    except Exception:
+        import traceback
+        print("🚨 _fetch_panopto_recorders FAILED")
+        traceback.print_exc()
+        return []
+
+
+def _enrich_events(course_events, course_map):
+    """
+    Enrich a list of Canvas events with adjusted times and course metadata.
+    Pure helper — no I/O, safe to call from any thread.
+    """
+    for event in course_events:
+        if event.get("end_at"):
+            try:
+                dt = datetime.fromisoformat(event["end_at"].replace("Z", "+00:00"))
+                event["adjusted_end_at"] = (dt + timedelta(minutes=9)).isoformat()
+                event["local_end_at"] = (
+                    datetime.fromisoformat(event["adjusted_end_at"].replace('Z', '+00:00'))
+                    .astimezone(PACIFIC_TZ)
+                    .strftime('%m/%d/%Y %I:%M %p')
+                )
+            except Exception:
+                event["adjusted_end_at"] = event["end_at"]
+                event["local_end_at"] = (
+                    datetime.fromisoformat(event['end_at'].replace('Z', '+00:00'))
+                    .astimezone(PACIFIC_TZ)
+                    .strftime('%m/%d/%Y %I:%M %p')
+                )
+
+        ci = course_map.get(event.get('context_code'))
+        if ci:
+            event['course_name'] = ci['course_name']
+            event['sis_course_id'] = ci["sis_course_id"]
+            event['term_id'] = ci["enrollment_term_id"]
+            event['session_title'] = (
+                f"{event['sis_course_id']} {event['title']} "
+                f"{datetime.fromisoformat(event['start_at'].replace('Z', '+00:00')).astimezone(PACIFIC_TZ).strftime('%#m/%#d/%Y')}"
+            )
+    return course_events
+
+
 @bp.route('/events')
 @panopto_required
 @permission_required('panopto_scheduler+add, panopto_scheduler+edit')
@@ -327,7 +451,6 @@ def list_canvas_events():
 
     # Step 1: No account/term selected yet -> show selection screen
     if not account or not term_id:
-        # You may want to control which accounts are available
         accounts = [
             {"code": "SSPPS", "name": "Skaggs School of Pharmacy"},
             {"code": "SOM", "name": "School of Medicine"},
@@ -346,7 +469,7 @@ def list_canvas_events():
     # Step 2: User selected a term -> fetch courses + events
     start_overall = time.perf_counter()
 
-    # Get term details (so we can grab its dates)
+    # Get term details
     terms = get_enrollment_terms()
     selected_term = next((t for t in terms if str(t["id"]) == str(term_id)), None)
     if not selected_term:
@@ -360,15 +483,17 @@ def list_canvas_events():
     if selected_term.get("end_at"):
         end_date = parser.isoparse(selected_term["end_at"])
 
-    # Fall back in case Canvas doesn’t provide
     if not start_date:
         start_date = datetime.utcnow() - timedelta(days=30)
     if not end_date:
         end_date = datetime.utcnow() + timedelta(days=90)
 
-    print(f"📅 Using term date range: {start_date} → {end_date} {term_id} {account}")
+    # ✅ OPTIMIZATION 1: Only request events from today onward — skip past events entirely
+    effective_start = max(start_date, datetime.now(timezone.utc))
 
-    # 🔹 Fetch courses for the account+term
+    print(f"📅 Using term date range: {effective_start} → {end_date} {term_id} {account}")
+
+    # Fetch courses for the account+term
     courses = get_canvas_courses_by_term(term_id, account=account)
 
     # Build course_map
@@ -384,46 +509,55 @@ def list_canvas_events():
         for c in courses if 'id' in c
     }
     course_ids = list(course_map.keys())
-    events = []
 
-    # 🔹 Fetch events within the term’s date range
-    for course_chunk in chunked_list(course_ids, 10):
-        course_events = get_canvas_events(
-            context_codes=course_chunk,
-            start_date=start_date,
+    # ✅ OPTIMIZATION 2: Larger chunks (50 vs 10) = fewer total API calls
+    chunks = list(chunked_list(course_ids, 50))
+
+    # ✅ OPTIMIZATION 3: Fetch all event chunks in parallel AND kick off
+    #    folders/recorders at the same time so nothing waits sequentially.
+    def fetch_chunk(chunk):
+        return get_canvas_events(
+            context_codes=chunk,
+            start_date=effective_start,
             end_date=end_date
         )
-        for event in course_events:
-            if event.get("end_at"):
-                try:
-                    # Convert from ISO string to datetime, add 9 minutes, then back to ISO
-                    dt = datetime.fromisoformat(event["end_at"].replace("Z", "+00:00"))
-                    event["adjusted_end_at"] = (dt + timedelta(minutes=9)).isoformat()
-                    event["local_end_at"] = datetime.fromisoformat(event["adjusted_end_at"].replace('Z', '+00:00')
-                    ).astimezone(PACIFIC_TZ).strftime('%m/%d/%Y %I:%M %p')
-                except Exception:
-                    event["adjusted_end_at"] = event["end_at"]
-                    event["local_end_at"] = datetime.fromisoformat(
-                    event['end_at'].replace('Z', '+00:00')
-                    ).astimezone(PACIFIC_TZ).strftime('%m/%d/%Y %I:%M %p')
 
-            ci = course_map.get(event.get('context_code'))
-            if ci:
-                event['course_name'] = ci['course_name']
-                event['sis_course_id'] = ci["sis_course_id"]
-                event['term_id'] = ci["enrollment_term_id"]
-                event['session_title'] = (
-                    f"{event['sis_course_id']} {event['title']} "
-                    f"{datetime.fromisoformat(event['start_at'].replace('Z', '+00:00')).astimezone(PACIFIC_TZ).strftime('%#m/%#d/%Y')}"
-                )
-        events.extend(course_events)
+    raw_events = []
 
+    # ✅ Extract token BEFORE entering threads — Flask session is not thread-safe
+    try:
+        panopto_token = ensure_fresh_panopto_token()
+    except Exception as e:
+        print("🔐 Token refresh failed:", e)
+        return redirect(url_for("scheduler.panopto_login"))
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        # Submit Panopto calls alongside Canvas event fetches, passing token directly
+        folders_future   = executor.submit(_fetch_panopto_folders, panopto_token)
+        recorders_future = executor.submit(_fetch_panopto_recorders, panopto_token)
+        event_futures    = [executor.submit(fetch_chunk, chunk) for chunk in chunks]
+
+        # Collect Canvas events as they complete
+        for future in as_completed(event_futures):
+            try:
+                raw_events.extend(future.result())
+            except Exception as e:
+                print(f"⚠️ Event chunk fetch failed: {e}")
+
+        # Collect Panopto results (they've been running in parallel the whole time)
+        folders   = folders_future.result()
+        recorders = recorders_future.result()
+
+    # Enrich events with adjusted times + course metadata
+    events = _enrich_events(raw_events, course_map)
+
+    # Sort by start time
     events.sort(
         key=lambda e: datetime.fromisoformat(e['start_at'].replace('Z', '+00:00')).replace(tzinfo=timezone.utc)
         if e.get('start_at')
         else datetime.max.replace(tzinfo=timezone.utc)
     )
-    
+
     scheduled = ScheduledRecording.query.all()
     scheduled_map = {int(rec.canvas_event_id): {
         "recorder_id": rec.recorder_id,
@@ -432,27 +566,12 @@ def list_canvas_events():
         "broadcast": rec.broadcast
     } for rec in scheduled}
 
-    folders = get_panopto_folders()
-    recorders = get_panopto_recorders()
-    
     duration = time.perf_counter() - start_overall
-    print(f"⏱ list_canvas_events (account {account}, term {term_id}) took {duration:.2f} seconds and returned {len(events)} events.")
-
-    today = datetime.now(timezone.utc).date()
-    
-    filtered_events = []
-    
-    for e in events:
-        start = e.get("start_at")
-        if start:
-            if isinstance(start, str):
-                start = datetime.fromisoformat(start)  # or adjust format if needed
-            if start.date() >= today:
-                filtered_events.append(e)
+    print(f"⏱ list_canvas_events (account {account}, term {term_id}) took {duration:.2f}s — {len(events)} events.")
 
     return render_template(
         "scheduler/canvas_events.html",
-        events=filtered_events,
+        events=events,  # already filtered to >= today via effective_start
         scheduled_map=scheduled_map,
         folders=folders,
         recorders=recorders,
@@ -460,6 +579,7 @@ def list_canvas_events():
         term_id=term_id,
         term_name=selected_term.get("name")
     )
+
 
 @bp.route('/recordings/toggle', methods=['POST'])
 @panopto_required
@@ -486,7 +606,6 @@ def toggle_recording():
                 return jsonify({"success": False, "message": "Failed to delete existing recording."})
         db.session.delete(existing)
         db.session.commit()
-        # flash("Recording unscheduled", "info")
         return jsonify({"success": True, "message": "Recording schedule deleted."})
     else:
         try:
@@ -511,13 +630,11 @@ def toggle_recording():
             db.session.commit()
             return jsonify({"success": True, "message": "Recording scheduled."})
         elif "error" in result:
-            # Failed to schedule, return error to JS
             print("Failed to schedule:", result["error"])
             return jsonify({"success": False, "message": result["error"]})
-
         else:
-            # Catch-all in case schedule_panopto_recording returned None
             return jsonify({"success": False, "message": "Unknown error occurred."})
+
 
 @panopto_required
 def schedule_panopto_recording(name, start_time, end_time, folder_id, recorder_id, broadcast):
@@ -531,7 +648,6 @@ def schedule_panopto_recording(name, start_time, end_time, folder_id, recorder_i
             "StartTime": start_time,
             "EndTime": end_time,
             "FolderId": folder_id,
-            # "RecorderId": recorder_id,
             "Recorders": [
                 {
                     "RemoteRecorderId": recorder_id,
@@ -546,8 +662,8 @@ def schedule_panopto_recording(name, start_time, end_time, folder_id, recorder_i
 
         resp = session_oauth.post(url, json=payload, params=params, headers=headers)
         print(resp)
-        # If token expired, refresh once
-        if resp.status_code == 401:  # Unauthorized
+
+        if resp.status_code == 401:
             session_oauth = get_panopto_session(refresh=True)
             resp = session_oauth.post(url, json=payload, params=params, headers=headers)
 
@@ -588,5 +704,4 @@ def delete_panopto_recording(session_id):
         import traceback
         print("🚨 delete_panopto_recording FAILED")
         traceback.print_exc()
-        # return False
         raise
