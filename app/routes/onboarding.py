@@ -12,9 +12,6 @@ import pandas as pd
 import re
 import subprocess
 
-# engine = db.engine
-
-# last_sync_time = None
 bp = Blueprint("onboarding", __name__, url_prefix="/onboarding")
 
 UPLOAD_FOLDER = "app/uploads"
@@ -199,72 +196,7 @@ def get_ad_users_by_batch(tsn_batch):
 
     return []
 
-# -----------------------------
-# ORM Sync Function
-# -----------------------------
-# def sync_ad_from_tsn_batch(batch_size=50):
-#     updates = []
-#     errors = []
 
-#     # ✅ Pull from ORM
-#     applicants = Applicant.query.filter_by(is_deleted=False).filter(Applicant.tsn.isnot(None)).all()
-    
-#     tsn_map = {a.tsn: a.id for a in applicants}
-#     tsn_list = list(tsn_map.keys())
-
-#     print(f"Total TSNs to sync: {len(tsn_list)}")
-
-#     for tsn_batch in chunk_list(tsn_list, batch_size):
-#         try:
-#             ad_users = get_ad_users_by_batch(tsn_batch)
-
-#             found_tsns = set()
-
-#             for ad in ad_users:
-#                 tsn = ad.get("studentNumber")
-
-#                 if tsn not in tsn_map:
-#                     continue
-
-#                 updates.append({
-#                     "id": tsn_map[tsn],
-#                     "ad_create_timestamp": parse_dotnet_date(ad.get("createTimestamp")),
-#                     "ad_distinguished_name": ad.get("DistinguishedName"),
-#                     "ad_enabled": ad.get("Enabled"),
-#                     "ad_given_name": ad.get("GivenName"),
-#                     "ad_name": ad.get("Name"),
-#                     "ad_object_class": ad.get("ObjectClass"),
-#                     "ad_object_guid": str(ad.get("ObjectGUID")),
-#                     "ad_password_last_set": parse_dotnet_date(ad.get("PasswordLastSet")),
-#                     "ad_sam_account_name": ad.get("SamAccountName"),
-#                     "ad_sid": extract_sid(ad.get("SID")),
-#                     "ad_student_number": tsn,
-#                     "ad_surname": ad.get("Surname"),
-#                     "ad_user_principal_name": ad.get("UserPrincipalName")
-#                 })
-
-#                 found_tsns.add(tsn)
-
-#             # Missing users
-#             missing = set(tsn_batch) - found_tsns
-#             for m in missing:
-#                 errors.append({"tsn": m, "error": "AD user not found"})
-
-#         except Exception as e:
-#             for tsn in tsn_batch:
-#                 errors.append({"tsn": tsn, "error": str(e)})
-
-#     # -----------------------------
-#     # Bulk Update (FAST)
-#     # -----------------------------
-#     if updates:
-#         db.session.bulk_update_mappings(Applicant, updates)
-#         db.session.commit()
-
-#     print(f"✅ Updated {len(updates)} AD records")
-#     print(f"❌ {len(errors)} missing or failed")
-
-#     return {"updated": len(updates), "errors": errors}
 def sync_ad_from_tsn_batch(batch_size=50):
     updates = []
     errors = []
@@ -296,9 +228,18 @@ def sync_ad_from_tsn_batch(batch_size=50):
 
                 updates.append({
                     "id": tsn_map[tsn],
-                    "ad_name": ad.get("SamAccountName"),
-                    "ad_user_principal_name": ad.get("UserPrincipalName"),
-                    # keep your other fields...
+                    "ad_distinguished_name": ad.get("DistinguishedName"),
+                    "ad_enabled": ad.get("Enabled"),
+                    "ad_given_name": ad.get("GivenName"),
+                    "ad_name": ad.get("Name"),
+                    "ad_object_class": ad.get("ObjectClass"),
+                    "ad_object_guid": str(ad.get("ObjectGUID")),
+                    "ad_password_last_set": parse_dotnet_date(ad.get("PasswordLastSet")),
+                    "ad_sam_account_name": ad.get("SamAccountName"),
+                    "ad_sid": extract_sid(ad.get("SID")),
+                    "ad_student_number": tsn,
+                    "ad_surname": ad.get("Surname"),
+                    "ad_user_principal_name": ad.get("UserPrincipalName")
                 })
 
                 found_tsns.add(tsn)
