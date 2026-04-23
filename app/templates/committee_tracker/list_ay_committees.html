@@ -134,26 +134,23 @@ Dashboard
                         </p>
                         {% endif %}
 
-
+                        {% if com.committee.commitment_hours or com.commitment_hours %}
                         <p class="card-text mb-1">
                             <strong>Commitment Hours:</strong>
-                            {% if com.committee.commitment_hours is not none %}
+                            {% if com.committee.commitment_hours %}
                             {{ com.committee.commitment_hours }}
-                            {% elif com.commitment_hours is not none %}
+                            {% elif com.commitment_hours %}
                             {{ com.commitment_hours }}
-                            {% else %}
-                            <span class="text-muted">N/A</span>
                             {% endif %}
                         </p>
+                        {% endif %}
+                        {% if com.meeting_frequency_type and com.meeting_frequency_type.multiplier %}
                         <p class="card-text mb-1">
 
                             <strong>Meeting Frequency:</strong>
-                            {% if com.meeting_frequency_type and com.meeting_frequency_type.multiplier %}
                             {{ com.meeting_frequency_type.type}} ({{ com.meeting_frequency_type.multiplier }}x per year)
-                            {% else %}
-                            <span class="text-muted">N/A</span>
-                            {% endif %}
                         </p>
+                        {% endif %}
                         {% if com.meeting_duration_in_minutes %}
                         <p class="card-text mb-1">
                             <strong>Meeting Duration:</strong>
