@@ -71,18 +71,16 @@
                 </tr>
             </thead>
             <tbody>
-                {% for event in events %}
-                {% if event.location_name != "" %}
-                <!-- <tr> -->
+                {% for event in events %}                
                 <tr data-event-id="{{ event.id }}">
-                    <td class="text-center">
+                    <td class="text-center">{% if event.location_name != "" %}
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" name="toggle_event" value="{{ event.id }}"
                                 onchange="submitToggleForm(this)" {% if event.id in scheduled_map %}checked{% endif %}>
                             <label class="form-check-label ms-2" id="label_{{ event.id }}">
                                 {% if event.id in scheduled_map %}On{% else %}Off{% endif %}
                             </label>
-                        </div>
+                        </div>{% endif %}
                         <input type="hidden" name="event_id_{{ event.id }}" value="{{ event.id }}">
                         <input type="hidden" name="title_{{ event.id }}" value="{{ event.session_title }}">
                         <input type="hidden" name="start_time_{{ event.id }}" value="{{ event.start_at }}">
@@ -126,7 +124,7 @@
                         </div>
                     </td>
                 </tr>
-                {% endif %}
+                
                 {% endfor %}
             </tbody>
         </table>
