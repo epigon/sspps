@@ -95,11 +95,11 @@
                         '' }}
                     </td>
                     <td>{{ a.ad_distinguished_name | default('', true) }}</td>
-                    <td>
+                    <td class="hsdate" data-order="{{ a.hs_email_requested_date.strftime('%Y-%m-%d') if a.hs_email_requested_date }}">
                         <input type="date" class="form-control hs-date" data-id="{{ a.id }}"
                             value="{{ a.hs_email_requested_date.strftime('%Y-%m-%d') if a.hs_email_requested_date }}">
                     </td>
-                    <td>
+                    <td class="hsemail"data-order="{{ a.hs_email if a.hs_email }}">
                         <div class="d-flex gap-1">
                             <input type="email" class="form-control hs-email" data-id="{{ a.id }}"
                                 value="{{ a.hs_email or '' }}">
@@ -131,30 +131,32 @@
                 {
                     targets: [0, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
                     visible: false
-                }, 
-                {
-                    targets: 'hsdate', // use class instead of index
-                    render: function (data, type, row, meta) {
-                        // find input inside the cell with class 'hs-date-input'
-                        let val = $('<div>').html(data).find('.hs-date').val();
-
-                        if (type === 'sort' || type === 'type') {
-                            return val || '';
-                        }
-                        return data;
-                    }
-                },
-                {
-                    targets: 'hsemail', // use class instead of index
-                    render: function (data, type, row, meta) {
-                        let val = $('<div>').html(data).find('.hs-email').val();
-
-                        if (type === 'sort' || type === 'type') {
-                            return val ? val.toLowerCase() : '';
-                        }
-                        return data;
-                    }
                 }
+                // , 
+                // {
+                //     targets: 'hsdate', // use class instead of index
+                //     type: 'date',
+                //     render: function (data, type, row, meta) {
+                //         // find input inside the cell with class 'hs-date-input'
+                //         let val = $('<div>').html(data).find('.hs-date').val();
+
+                //         if (type === 'sort' || type === 'type') {
+                //             return val || '';
+                //         }
+                //         return data;
+                //     }
+                // },
+                // {
+                //     targets: 'hsemail', // use class instead of index
+                //     render: function (data, type, row, meta) {
+                //         let val = $('<div>').html(data).find('.hs-email').val();
+
+                //         if (type === 'sort' || type === 'type') {
+                //             return val ? val.toLowerCase() : '';
+                //         }
+                //         return data;
+                //     }
+                // }
             ],
             buttons: [
                 {
@@ -226,6 +228,10 @@
             let email = row.find('.hs-email').val();
             let date = row.find('.hs-date').val();
 
+            // UPDATE data-order attributes
+            row.find('td.hsemail').attr('data-order', email ? email.toLowerCase() : '');
+            row.find('td.hsdate').attr('data-order', date || '');
+
             $.ajax({
                 url: "{{ url_for('onboarding.update_hs_email') }}",
                 method: "POST",
@@ -237,7 +243,8 @@
                 }),
                 success: function () {
                     console.log("Saved");
-                    table.rows().invalidate().draw(false);
+                    // invalidate AFTER updating data-order
+                    table.row(row).invalidate().draw(false);
                 },
                 error: function () {
                     alert("Error saving record");
