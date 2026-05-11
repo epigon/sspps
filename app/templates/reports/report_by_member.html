@@ -1,11 +1,13 @@
 {% extends "base.html" %}
 
 {% block title%}
-Dashboard
+Committees by Member
 {% endblock %}
 
 {% block head %}
 {{super()}}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 {% block styles %}
 {{super()}}
 <style>
@@ -52,7 +54,7 @@ Dashboard
 <div class="container-fluid">
     <div class="row">
         <div class="col">
-            {% include "/reports/_filter_reports.html" %}
+            {% include "/reports/_filter_load_reports.html" %}
             <div class="col-auto d-flex align-items-center pt-1">
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="toggleHours">
@@ -103,9 +105,8 @@ Dashboard
 {% block scripts %}
 {{ super() }}
 <script>
-    
-    let showHours = false;
-    let lastData = null;   // store last AJAX result
+    let showHours = false;   // default unchecked
+    let lastData = null;
 
     function trimEmptyCells(arr) {
         // Remove leading and trailing empty strings
@@ -170,7 +171,7 @@ Dashboard
             // Remove leading/trailing empty headers
             const headers = trimEmptyCells(rawHeaders);
             worksheet.addRow(headers);
-            
+
             // Style header row
             const headerRow = worksheet.getRow(1);
             headerRow.eachCell((cell) => {
@@ -344,13 +345,49 @@ Dashboard
 
     $(document).ready(function () {
 
+        function sortSelectedFirst(data) {
+            return data.sort((a, b) => {
+                const aSelected = a.selected ? 1 : 0;
+                const bSelected = b.selected ? 1 : 0;
+                return bSelected - aSelected; // selected first
+            });
+        }
+
+        $("#users").select2({
+            placeholder: "Search users...",
+            width: "250px",
+            closeOnSelect: false
+        });
+
+		$("#users").on("change", function () {
+		    let values = $(this).val() || [];
+		
+		    // If "All" + others selected → remove "All"
+		    if (values.includes("0") && values.length > 1) {
+		        values = values.filter(v => v !== "0");
+		        $(this).val(values).trigger("change.select2");
+		    }
+		
+		    // If nothing selected → default back to "All"
+		    if (values.length === 0) {
+		        $(this).val(["0"]).trigger("change.select2");
+		    }
+		});
+        $("#users").select2({
+            sorter: function (data) {
+                return data.sort((a, b) => {
+                    return (b.selected || 0) - (a.selected || 0);
+                });
+            }
+        });
+
         $("#toggleHours").on("change", function () {
             showHours = this.checked;
 
             // Toggle legend visibility
             const legend = document.getElementById("heatmapLegend");
             legend.style.display = showHours ? "flex" : "none";
-            
+
             if (lastData) {
                 $('#tablesContainer').empty();
                 createCommitteeTable(lastData);
@@ -358,7 +395,7 @@ Dashboard
         });
 
         // Initial legend state
-        document.getElementById("heatmapLegend").style.display = 
+        document.getElementById("heatmapLegend").style.display =
             showHours ? "flex" : "none";
 
 
@@ -396,7 +433,7 @@ Dashboard
                             // row += `<td data-pct="${pct}" style="background-color:${getHeatColor(pct)}">${role} (fulfilled ${act} of ${exp} hours)</td>`;
                             let bgStyle = showHours ? `background-color:${getHeatColor(pct)};` : "";
                             let hoursText = showHours ? ` (fulfilled ${act} of ${exp} hours)` : "";
-                            row += `<td data-pct="${pct}" style="${bgStyle}">${role}${hoursText}</td>`;                        
+                            row += `<td data-pct="${pct}" style="${bgStyle}">${role}${hoursText}</td>`;
                         }
 
                     });
@@ -413,14 +450,14 @@ Dashboard
                         const annExpected = totals[year]?.annual_expected_hours || 0;
                         // tableHtml += `<td data-pct="${annPct}" class="${colstyle}" style="background-color:${getHeatColor(annPct)}">Fulfilled ${annActual.toFixed(2)} of ${annExpected.toFixed(2)} hrs</td>`;
                         let totalBg = showHours ? `background-color:${getHeatColor(annPct)};` : "";
-                        let totalText = showHours 
+                        let totalText = showHours
                             ? `Fulfilled ${annActual.toFixed(2)} of ${annExpected.toFixed(2)} hrs`
                             : "";
 
                         tableHtml += `<td data-pct="${annPct}" class="${colstyle}" style="${totalBg}">
                         ${totalText}
                         </td>`;
-                    
+
                     }
                     tableHtml += `</tr>
                         `;
@@ -434,8 +471,8 @@ Dashboard
                 // Initialize DataTable for this specific table
                 let table = $(`#${tableId}`).DataTable(
                     {
-                        searching: false, 
-                        paging: false, 
+                        searching: false,
+                        paging: false,
                         info: false,
                         responsive: true
                     }
@@ -449,11 +486,10 @@ Dashboard
         let users = $("#users").val();
         let roles = $("#roles").val();
         let committeeTypes = $("#committee_type").val();
-        let departments = $("#departments").val();
 
         // Fetch filtered data
         $.ajax({
-            url: `/reports/get_committees_by_member?years=${academicYear}&committees=${committee}&users=${users}&roles=${roles}&types=${committeeTypes}&departments=${departments}`,
+            url: `/reports/get_committees_by_member?years=${academicYear}&committees=${committee}&users=${users}&roles=${roles}&types=${committeeTypes}`, //&departments=${departments}
             method: 'GET',
             success: function (data) {
                 lastData = data; // store for later use in exports
@@ -471,11 +507,10 @@ Dashboard
             let users = $("#users").val();
             let roles = $("#roles").val();
             let committeeTypes = $("#committee_type").val();
-            let departments = $("#departments").val();
 
             // Fetch filtered data
             $.ajax({
-                url: `/reports/get_committees_by_member?years=${academicYear}&committees=${committee}&users=${users}&roles=${roles}&types=${committeeTypes}&departments=${departments}`,
+                url: `/reports/get_committees_by_member?years=${academicYear}&committees=${committee}&users=${users}&roles=${roles}&types=${committeeTypes}`,
                 method: 'GET',
                 success: function (data) {
                     lastData = data; // store for later use in exports
@@ -527,5 +562,99 @@ Dashboard
             return `rgb(${r},${g},0,0.25)`;
         }
     }
+
+    loadSavedFilters();
+
+	// FILTERS
+	function getCurrentFilters() {
+	    return {
+	        academic_year: $("#academic_year").val(),
+	        committee: $("#committee").val(),
+	        users: $("#users").val(),
+	        roles: $("#roles").val(),
+	        committee_type: $("#committee_type").val(),
+
+	    };
+	}
+
+    function saveFilter(existingName = "") {
+
+        const name = prompt(
+            existingName
+                ? `A filter named "${existingName}" already exists.\nPlease enter a different name:`
+                : "Enter a name for this filter:"
+        );
+
+        if (!name || !name.trim()) return;
+
+        const payload = {
+            name: name.trim(),
+            filters: getCurrentFilters()
+        };
+
+        $.ajax({
+            url: "/reports/filters/save",
+            method: "POST",
+            contentType: "application/json",
+            data: JSON.stringify(payload),
+
+            success: function (response) {
+
+                // duplicate detected
+                if (response.status === "duplicate") {
+                    saveFilter(name);
+                    return;
+                }
+
+                alert("Filter saved successfully.");
+                loadSavedFilters();
+            },
+
+            error: function (xhr) {
+
+                // backend duplicate response
+                if (xhr.status === 409) {
+                    saveFilter(name);
+                    return;
+                }
+
+                alert("Unable to save filter.");
+            }
+        });
+    }
+
+
+	function loadSavedFilters() {
+	    $.get("/reports/filters/list", function (data) {
+	    	
+	        const dropdown = $("#savedFilters");
+	        
+	        dropdown.empty();
+	        
+	        dropdown.append(`<option value="">Load saved filter...</option>`);
+	
+	        data.forEach(filter => {
+	            dropdown.append(`<option value="${filter.id}">${filter.name}</option>`);
+	        });
+	    });
+	}
+
+	function applySavedFilter() {
+	    const id = $("#savedFilters").val();
+	    if (!id) return;
+	
+	    $.get(`/reports/filters/${id}`, function (data) {
+	        const f = data.filters;
+	
+	        $("#academic_year").val(f.academic_year).trigger("change");
+	        $("#committee").val(f.committee).trigger("change");
+	        $("#users").val(f.users).trigger("change");
+	        $("#roles").val(f.roles).trigger("change");
+	        $("#committee_type").val(f.committee_type).trigger("change");
+	
+	        // rerun report
+	        $("#reportForm").submit();
+	    });
+	}
 </script>
 {% endblock %}

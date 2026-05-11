@@ -265,7 +265,7 @@ class Employee(db.Model):
     building = Column(String(255))
     room = Column(String(50))
 
-        # Add a class-level dictionary for labels
+    # Add a class-level dictionary for labels
     display_labels = {
         'employee_id': 'Employee ID',
         'employee_name': 'Full Name',
@@ -359,6 +359,13 @@ class MemberRole(db.Model):
     # def __str__(self):
     #     return f'Role: {self.role}\nDescription: {self.description}\nVoting: {self.voting}'
 
+class SavedReportFilter(db.Model):
+    __tablename__ = 'SAVED_REPORT_FILTER'    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255))
+    filters = db.Column(db.JSON)
+    created_by = db.Column(db.Integer)
+    created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc) )
 #----------------------
 # PANOPTO SCHEDULER APP
 #----------------------  

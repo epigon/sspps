@@ -1,13 +1,13 @@
 from app.utils import permission_required
-from app.models import db, AcademicYear, Attendance, AYCommittee, Committee, Member, MemberRole, FrequencyType, CommitteeType, Employee, Meeting, FileUpload, MemberType, User, Role, Permission
+from app.models import SavedReportFilter, db, AcademicYear, Attendance, AYCommittee, Committee, Member, MemberRole, FrequencyType, CommitteeType, Employee, Meeting, FileUpload, MemberType, User, Role, Permission ##EmployeeDepartment, PharmDepartment, 
 from app.forms import CommitteeReportForm
 from app.routes.academic_years import get_academic_years
 from app.routes.committee_tracker import get_committees, get_committee_types, get_employees, get_member_roles
 from collections import defaultdict
 from flask import render_template, request, jsonify, Blueprint, send_file
-from flask_login import login_required
-from sqlalchemy import case, func, and_
-from sqlalchemy.orm import selectinload, with_loader_criteria
+from flask_login import current_user, login_required
+from sqlalchemy import case, func, and_, Float, cast
+from sqlalchemy.orm import selectinload, with_loader_criteria, aliased
 from sqlalchemy.sql import func
 from xhtml2pdf import pisa
 import io
@@ -103,22 +103,6 @@ def get_all_committees():
         )
 
         committee.filtered_members = members_filtered
-
-    # Only show filtered members
-    # if filter_user and filter_user != "0":
-    #     for committee in aycommittees:
-    #         committee.members = [m for m in committee.members if m.employee_id in employee_ids]
-
-    # # Only show filtered roles
-    # filter_role = request.args.get("roles", "")
-    # if filter_role and filter_role != "0":
-    #     role_ids = [int(r) for r in filter_role.split(",")]
-    #     for committee in aycommittees:
-    #         committee.members = [m for m in committee.members if m.member_role_id in role_ids]
-
-    # Sort members by role default_order
-    # for committee in aycommittees:
-    #     committee.members.sort(key=lambda m: m.member_role.default_order if m.member_role and m.member_role.default_order is not None else 999)
 
     # Build results
     committees = []
@@ -329,7 +313,6 @@ def get_committees_by_member():
 @bp.route("/get_committees_by_assignment", methods=["GET"])
 @permission_required("committee_report+view")
 def get_committees_by_assignment():
-    from sqlalchemy import func, case, and_, Float, cast
 
     # Base selectable with safe outer joins
     q = (db.session.query(
@@ -588,3 +571,53 @@ def assignment_report():
     form.roles.data = [0]
 
     return render_template('reports/report_by_assignment.html', form=form)
+
+
+@bp.route("/filters/save", methods=["POST"])
+@login_required
+def save_filter():
+
+    data = request.get_json()
+
+    name = data.get("name", "").strip()
+
+    existing = SavedReportFilter.query.filter_by(name=name).first()
+
+    if existing:
+        return jsonify({
+            "status": "duplicate",
+            "message": "Filter name already exists."
+        }), 409
+
+    new_filter = SavedReportFilter(
+        name=name,
+        filters=data.get("filters")
+    )
+
+    db.session.add(new_filter)
+    db.session.commit()
+
+    return jsonify({
+        "status": "success"
+    })
+
+
+@bp.route("/filters/list")
+@login_required
+def list_filters():
+    filters = SavedReportFilter.query.all()
+    return jsonify([
+        {"id": f.id, "name": f.name}
+        for f in filters
+    ])
+
+@bp.route("/filters/<int:id>")
+@login_required
+def get_filter(id):
+    f = SavedReportFilter.query.get_or_404(id)
+    return jsonify({
+        "id": f.id,
+        "name": f.name,
+        "filters": f.filters
+    })
+    
