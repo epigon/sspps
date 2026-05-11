@@ -1354,6 +1354,10 @@ def get_employees():
     data = Employee.query.filter(Employee.username.isnot(None),Employee.employee_status == 'Active').order_by(Employee.employee_last_name,Employee.employee_first_name).all()
     return data
 
+def get_all_employees():
+    data = Employee.query.filter(Employee.username.isnot(None)).order_by(Employee.employee_last_name,Employee.employee_first_name).all()
+    return data
+
 def get_inactive_employees():
     data = Employee.query.filter(Employee.username.isnot(None),Employee.employee_status != 'Active').order_by(Employee.employee_last_name,Employee.employee_first_name).all()
     return data

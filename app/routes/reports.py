@@ -2,7 +2,7 @@ from app.utils import permission_required
 from app.models import SavedReportFilter, db, AcademicYear, Attendance, AYCommittee, Committee, Member, MemberRole, FrequencyType, CommitteeType, Employee, Meeting, FileUpload, MemberType, User, Role, Permission ##EmployeeDepartment, PharmDepartment, 
 from app.forms import CommitteeReportForm
 from app.routes.academic_years import get_academic_years
-from app.routes.committee_tracker import get_committees, get_committee_types, get_employees, get_member_roles
+from app.routes.committee_tracker import get_committees, get_committee_types, get_employees, get_all_employees, get_member_roles
 from collections import defaultdict
 from flask import render_template, request, jsonify, Blueprint, send_file
 from flask_login import current_user, login_required
@@ -498,7 +498,7 @@ def report_all_committees():
 
     # User choices
     form.users.choices = [(0, "All")]
-    form.users.choices += [(row.employee_id, f"{row.employee_last_name}, {row.employee_first_name}") for row in get_employees()]
+    form.users.choices += [(row.employee_id, f"{row.employee_last_name}, {row.employee_first_name}") for row in get_all_employees()]
     form.users.data = [0]
 
     # Member Roles choices
@@ -530,7 +530,7 @@ def member_report():
 
     # User choices
     form.users.choices = [(0, "All")]
-    form.users.choices += [(row.employee_id, f"{row.employee_last_name}, {row.employee_first_name}") for row in get_employees()]
+    form.users.choices += [(row.employee_id, f"{row.employee_last_name}, {row.employee_first_name}") for row in get_all_employees()]
     form.users.data = [0]
 
     # Member Roles choices
@@ -562,7 +562,7 @@ def assignment_report():
 
     # User choices
     form.users.choices = [(0, "All")]
-    form.users.choices += [(row.employee_id, f"{row.employee_last_name}, {row.employee_first_name}") for row in get_employees()]
+    form.users.choices += [(row.employee_id, f"{row.employee_last_name}, {row.employee_first_name}") for row in get_all_employees()]
     form.users.data = [0]
 
     # Member Roles choices
